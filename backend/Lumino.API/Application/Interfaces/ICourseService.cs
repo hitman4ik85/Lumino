@@ -5,6 +5,6 @@ namespace Lumino.Api.Application.Interfaces
 {
     public interface ICourseService
     {
-        List<CourseResponse> GetPublishedCourses();
+        List<CourseResponse> GetPublishedCourses(string? languageCode = null);
     }
 }

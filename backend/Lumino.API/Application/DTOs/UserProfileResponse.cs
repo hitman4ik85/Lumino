@@ -9,5 +9,9 @@ namespace Lumino.Api.Application.DTOs
         public string Role { get; set; } = null!;
 
         public DateTime CreatedAt { get; set; }
+
+        public string? NativeLanguageCode { get; set; }
+
+        public string? TargetLanguageCode { get; set; }
     }
 }

@@ -7,5 +7,7 @@ namespace Lumino.Api.Application.DTOs
         public string Title { get; set; } = null!;
 
         public string Description { get; set; } = null!;
+
+        public string LanguageCode { get; set; } = null!;
     }
 }

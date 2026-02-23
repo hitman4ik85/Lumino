@@ -2,6 +2,7 @@ using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
+using Lumino.Api.Utils;
 
 namespace Lumino.Api.Application.Services
 {
@@ -22,6 +23,7 @@ namespace Lumino.Api.Application.Services
                     Id = x.Id,
                     Title = x.Title,
                     Description = x.Description,
+                    LanguageCode = x.LanguageCode,
                     IsPublished = x.IsPublished
                 })
                 .ToList();
@@ -34,10 +36,20 @@ namespace Lumino.Api.Application.Services
                 throw new ArgumentException("Request is required");
             }
 
+            var languageCode = string.IsNullOrWhiteSpace(request.LanguageCode)
+                ? "en"
+                : request.LanguageCode.Trim().ToLowerInvariant();
+
+            if (!SupportedLanguages.IsLearnable(languageCode))
+            {
+                throw new ArgumentException("LanguageCode is not supported");
+            }
+
             var course = new Course
             {
                 Title = request.Title,
                 Description = request.Description,
+                LanguageCode = languageCode,
                 IsPublished = request.IsPublished
             };
 
@@ -49,6 +61,7 @@ namespace Lumino.Api.Application.Services
                 Id = course.Id,
                 Title = course.Title,
                 Description = course.Description,
+                LanguageCode = course.LanguageCode,
                 IsPublished = course.IsPublished
             };
         }
@@ -67,8 +80,18 @@ namespace Lumino.Api.Application.Services
                 throw new KeyNotFoundException("Course not found");
             }
 
+            var languageCode = string.IsNullOrWhiteSpace(request.LanguageCode)
+                ? "en"
+                : request.LanguageCode.Trim().ToLowerInvariant();
+
+            if (!SupportedLanguages.IsLearnable(languageCode))
+            {
+                throw new ArgumentException("LanguageCode is not supported");
+            }
+
             course.Title = request.Title;
             course.Description = request.Description;
+            course.LanguageCode = languageCode;
             course.IsPublished = request.IsPublished;
 
             _dbContext.SaveChanges();

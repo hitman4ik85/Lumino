@@ -27,7 +27,9 @@ namespace Lumino.Api.Application.Services
                 Id = user.Id,
                 Email = user.Email,
                 Role = user.Role.ToString(),
-                CreatedAt = user.CreatedAt
+                CreatedAt = user.CreatedAt,
+                NativeLanguageCode = user.NativeLanguageCode,
+                TargetLanguageCode = user.TargetLanguageCode
             };
         }
     }

@@ -1,4 +1,5 @@
 using Lumino.Api.Application.DTOs;
+using Lumino.Api.Utils;
 
 namespace Lumino.Api.Application.Validators
 {
@@ -43,6 +44,34 @@ namespace Lumino.Api.Application.Validators
             if (password.Length > 64)
             {
                 throw new ArgumentException("Password must be at most 64 characters");
+            }
+
+            var hasNative = !string.IsNullOrWhiteSpace(request.NativeLanguageCode);
+            var hasTarget = !string.IsNullOrWhiteSpace(request.TargetLanguageCode);
+
+            if (hasNative && !hasTarget)
+            {
+                throw new ArgumentException("TargetLanguageCode is required when NativeLanguageCode is provided");
+            }
+
+            // TargetLanguageCode can be provided without NativeLanguageCode.
+            // In that case the application will use the default native language.
+            if (hasTarget)
+            {
+                SupportedLanguages.ValidateLearnable(request.TargetLanguageCode, "TargetLanguageCode");
+
+                if (hasNative)
+                {
+                    SupportedLanguages.ValidateNative(request.NativeLanguageCode, "NativeLanguageCode");
+
+                    var native = SupportedLanguages.Normalize(request.NativeLanguageCode);
+                    var target = SupportedLanguages.Normalize(request.TargetLanguageCode);
+
+                    if (native == target)
+                    {
+                        throw new ArgumentException("NativeLanguageCode and TargetLanguageCode must be different");
+                    }
+                }
             }
         }
 

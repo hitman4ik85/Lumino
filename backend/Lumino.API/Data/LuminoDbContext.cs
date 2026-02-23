@@ -40,12 +40,17 @@ namespace Lumino.Api.Data
 
                 entity.Property(x => x.Email).IsRequired();
                 entity.Property(x => x.PasswordHash).IsRequired();
+
+                entity.Property(x => x.NativeLanguageCode).HasMaxLength(10);
+                entity.Property(x => x.TargetLanguageCode).HasMaxLength(10);
             });
 
             modelBuilder.Entity<Course>(entity =>
             {
                 entity.Property(x => x.Title).IsRequired();
                 entity.Property(x => x.Description).IsRequired();
+
+                entity.Property(x => x.LanguageCode).IsRequired().HasMaxLength(10).HasDefaultValue("en");
             });
 
             modelBuilder.Entity<Topic>(entity =>

@@ -15,9 +15,9 @@ namespace Lumino.Api.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetCourses()
+        public IActionResult GetCourses([FromQuery] string? languageCode)
         {
-            var result = _courseService.GetPublishedCourses();
+            var result = _courseService.GetPublishedCourses(languageCode);
             return Ok(result);
         }
     }

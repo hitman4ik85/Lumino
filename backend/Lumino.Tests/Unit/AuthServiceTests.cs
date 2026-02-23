@@ -69,7 +69,36 @@ public class AuthServiceTests
         });
     }
 
+    
     [Fact]
+    public void Register_ShouldSaveLanguages_WhenProvided()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var configuration = TestConfigurationFactory.Create();
+
+        var service = new AuthService(
+            dbContext,
+            configuration,
+            new FakeRegisterValidator(),
+            new FakeLoginValidator(),
+            new PasswordHasher()
+        );
+
+        service.Register(new RegisterRequest
+        {
+            Email = "lang@mail.com",
+            Password = "123456",
+            NativeLanguageCode = "uk",
+            TargetLanguageCode = "en"
+        });
+
+        var user = dbContext.Users.FirstOrDefault(x => x.Email == "lang@mail.com");
+        Assert.NotNull(user);
+        Assert.Equal("uk", user!.NativeLanguageCode);
+        Assert.Equal("en", user.TargetLanguageCode);
+    }
+
+[Fact]
     public void Login_InvalidPassword_ShouldThrow()
     {
         var dbContext = TestDbContextFactory.Create();

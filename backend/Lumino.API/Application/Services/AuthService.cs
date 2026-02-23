@@ -1,7 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
+using Azure.Core;
 using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Application.Validators;
@@ -11,6 +8,10 @@ using Lumino.Api.Domain.Enums;
 using Lumino.Api.Utils;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Lumino.Api.Application.Services
 {
@@ -48,12 +49,27 @@ namespace Lumino.Api.Application.Services
 
             var passwordHash = _passwordHasher.Hash(request.Password);
 
+            var native = string.IsNullOrWhiteSpace(request.NativeLanguageCode)
+                ? null
+                : request.NativeLanguageCode.Trim().ToLowerInvariant();
+
+            var target = string.IsNullOrWhiteSpace(request.TargetLanguageCode)
+                ? null
+                : request.TargetLanguageCode.Trim().ToLowerInvariant();
+
+            if (!string.IsNullOrWhiteSpace(target) && string.IsNullOrWhiteSpace(native))
+            {
+                native = SupportedLanguages.DefaultNativeLanguageCode;
+            }
+
             var user = new User
             {
                 Email = request.Email,
                 PasswordHash = passwordHash,
                 Role = Role.User,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                NativeLanguageCode = native,
+                TargetLanguageCode = target
             };
 
             _dbContext.Users.Add(user);

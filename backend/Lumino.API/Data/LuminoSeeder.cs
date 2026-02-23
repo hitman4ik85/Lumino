@@ -531,6 +531,7 @@ namespace Lumino.Api.Data
                 dbContext,
                 title: "English A1",
                 description: "Basics: greetings, numbers, travel, simple phrases",
+                languageCode: "en",
                 isPublished: true);
 
             var topics = new List<TopicSeed>
@@ -1010,7 +1011,7 @@ namespace Lumino.Api.Data
             return (value ?? string.Empty).Trim().ToLowerInvariant();
         }
 
-        private static Course EnsureCourse(LuminoDbContext dbContext, string title, string description, bool isPublished)
+        private static Course EnsureCourse(LuminoDbContext dbContext, string title, string description, string languageCode, bool isPublished)
         {
             var fromDb = dbContext.Courses.FirstOrDefault(x => x.Title == title);
 
@@ -1020,6 +1021,7 @@ namespace Lumino.Api.Data
                 {
                     Title = title,
                     Description = description,
+                    LanguageCode = (languageCode ?? "en").Trim().ToLowerInvariant(),
                     IsPublished = isPublished
                 };
 
@@ -1034,6 +1036,14 @@ namespace Lumino.Api.Data
             if (fromDb.Description != description)
             {
                 fromDb.Description = description;
+                changed = true;
+            }
+
+            var normalizedLanguageCode = (languageCode ?? "en").Trim().ToLowerInvariant();
+
+            if (fromDb.LanguageCode != normalizedLanguageCode)
+            {
+                fromDb.LanguageCode = normalizedLanguageCode;
                 changed = true;
             }
 

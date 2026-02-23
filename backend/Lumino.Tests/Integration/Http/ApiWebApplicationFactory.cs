@@ -30,6 +30,13 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
                 ["Demo:LessonIds:0"] = "1",
                 ["Demo:LessonIds:1"] = "2",
                 ["Demo:LessonIds:2"] = "3"
+                ,["Demo:LanguageLessonIds:en:0"] = "1"
+                ,["Demo:LanguageLessonIds:en:1"] = "2"
+                ,["Demo:LanguageLessonIds:en:2"] = "3"
+                ,["Demo:LanguageLessonIds:de:0"] = "4"
+                ,["Demo:LanguageLessonIds:de:1"] = "5"
+                ,["Demo:LanguageLessonIds:de:2"] = "6"
+
             };
 
             config.AddInMemoryCollection(demoConfig);

@@ -30,26 +30,31 @@ namespace Lumino.Api.Application.Services
             _demoSettings = demoSettings.Value;
         }
 
-        public List<LessonResponse> GetDemoLessons()
+        public List<LessonResponse> GetDemoLessons(string? languageCode = null, string? level = null)
         {
-            var ids = NormalizeLessonIds(_demoSettings.LessonIds);
+            var ids = GetLessonIds(languageCode, level);
 
             var result = new List<LessonResponse>();
 
             foreach (var id in ids)
             {
-                result.Add(GetDemoLessonById(id));
+                result.Add(GetDemoLessonById(id, languageCode, level));
             }
 
             return result;
         }
 
-        public DemoNextLessonResponse GetDemoNextLesson(int step)
+        public DemoNextLessonResponse GetDemoNextLesson(int step, string? languageCode = null, string? level = null)
         {
-            var ids = NormalizeLessonIds(_demoSettings.LessonIds);
+            var ids = GetLessonIds(languageCode, level);
 
             if (ids.Count == 0)
             {
+                if (!string.IsNullOrWhiteSpace(languageCode))
+                {
+                    throw new KeyNotFoundException("Courses for selected language are in development. Please choose another language.");
+                }
+
                 throw new KeyNotFoundException("Demo lessons are not configured");
             }
 
@@ -73,16 +78,21 @@ namespace Lumino.Api.Application.Services
                 CtaText = isLast ? "Щоб зберегти прогрес — зареєструйся" : string.Empty,
                 ShowRegisterCta = isLast,
                 LessonNumberText = lessonNumberText,
-                Lesson = GetDemoLessonById(lessonId)
+                Lesson = GetDemoLessonById(lessonId, languageCode, level)
             };
         }
 
-        public DemoNextLessonPackResponse GetDemoNextLessonPack(int step)
+        public DemoNextLessonPackResponse GetDemoNextLessonPack(int step, string? languageCode = null, string? level = null)
         {
-            var ids = NormalizeLessonIds(_demoSettings.LessonIds);
+            var ids = GetLessonIds(languageCode, level);
 
             if (ids.Count == 0)
             {
+                if (!string.IsNullOrWhiteSpace(languageCode))
+                {
+                    throw new KeyNotFoundException("Courses for selected language are in development. Please choose another language.");
+                }
+
                 throw new KeyNotFoundException("Demo lessons are not configured");
             }
 
@@ -105,14 +115,14 @@ namespace Lumino.Api.Application.Services
                 CtaText = isLast ? "Щоб зберегти прогрес — зареєструйся" : string.Empty,
                 ShowRegisterCta = isLast,
                 LessonNumberText = lessonNumberText,
-                Lesson = GetDemoLessonById(lessonId),
-                Exercises = GetDemoExercisesByLesson(lessonId)
+                Lesson = GetDemoLessonById(lessonId, languageCode, level),
+                Exercises = GetDemoExercisesByLesson(lessonId, languageCode, level)
             };
         }
 
-        public LessonResponse GetDemoLessonById(int lessonId)
+        public LessonResponse GetDemoLessonById(int lessonId, string? languageCode = null, string? level = null)
         {
-            EnsureDemoLessonAllowed(lessonId);
+            EnsureDemoLessonAllowed(lessonId, languageCode, level);
 
             var lesson = _dbContext.Lessons.FirstOrDefault(x => x.Id == lessonId);
 
@@ -145,12 +155,12 @@ namespace Lumino.Api.Application.Services
             };
         }
 
-        public List<ExerciseResponse> GetDemoExercisesByLesson(int lessonId)
+        public List<ExerciseResponse> GetDemoExercisesByLesson(int lessonId, string? languageCode = null, string? level = null)
         {
-            EnsureDemoLessonAllowed(lessonId);
+            EnsureDemoLessonAllowed(lessonId, languageCode, level);
 
             // Validate lesson/topic/course published
-            GetDemoLessonById(lessonId);
+            GetDemoLessonById(lessonId, languageCode, level);
 
             return _dbContext.Exercises
                 .Where(x => x.LessonId == lessonId)
@@ -167,14 +177,14 @@ namespace Lumino.Api.Application.Services
                 .ToList();
         }
 
-        public SubmitLessonResponse SubmitDemoLesson(SubmitLessonRequest request)
+        public SubmitLessonResponse SubmitDemoLesson(SubmitLessonRequest request, string? languageCode = null, string? level = null)
         {
             _submitLessonRequestValidator.Validate(request);
 
-            EnsureDemoLessonAllowed(request.LessonId);
+            EnsureDemoLessonAllowed(request.LessonId, languageCode, level);
 
             // Validate lesson/topic/course published
-            GetDemoLessonById(request.LessonId);
+            GetDemoLessonById(request.LessonId, languageCode, level);
 
             var exercises = _dbContext.Exercises
                 .Where(x => x.LessonId == request.LessonId)
@@ -231,16 +241,185 @@ namespace Lumino.Api.Application.Services
             };
         }
 
-        private void EnsureDemoLessonAllowed(int lessonId)
+        private void EnsureDemoLessonAllowed(int lessonId, string? languageCode, string? level)
         {
-            var ids = NormalizeLessonIds(_demoSettings.LessonIds);
+            if (!string.IsNullOrWhiteSpace(languageCode))
+            {
+                var idsByLang = GetLessonIds(languageCode, level);
 
-            if (!ids.Contains(lessonId))
+                if (!idsByLang.Contains(lessonId))
+                {
+                    throw new ForbiddenAccessException("Demo lesson is not available");
+                }
+
+                return;
+            }
+
+            // When languageCode is not provided, allow any demo lesson from any configured language.
+            var allIds = new List<int>();
+
+            allIds.AddRange(NormalizeLessonIds(_demoSettings.LessonIds));
+
+            if (_demoSettings.LanguageLessonIds != null && _demoSettings.LanguageLessonIds.Count > 0)
+            {
+                foreach (var kv in _demoSettings.LanguageLessonIds)
+                {
+                    if (kv.Value == null)
+                    {
+                        continue;
+                    }
+
+                    allIds.AddRange(NormalizeLessonIds(kv.Value));
+                }
+            }
+
+            if (!allIds.Distinct().Contains(lessonId))
             {
                 throw new ForbiddenAccessException("Demo lesson is not available");
             }
         }
 
+
+        private string? NormalizeLevelKey(string? level)
+        {
+            if (string.IsNullOrWhiteSpace(level))
+            {
+                return null;
+            }
+
+            var v = level.Trim().ToLowerInvariant();
+
+            // CEFR levels
+            if (v == "a1" || v == "a2" || v == "b1" || v == "b2" || v == "c1" || v == "c2")
+            {
+                return v;
+            }
+
+            // Ukrainian onboarding labels
+            if (v == "новачок")
+            {
+                return "a1";
+            }
+
+            if (v == "початківець")
+            {
+                return "a2";
+            }
+
+            if (v == "впевнено")
+            {
+                return "b1";
+            }
+
+            if (v == "просунуто")
+            {
+                return "b2";
+            }
+
+            if (v == "вільно")
+            {
+                return "c1";
+            }
+
+            // English labels (optional)
+            if (v == "newbie" || v == "starter" || v == "beginner")
+            {
+                return "a1";
+            }
+
+            if (v == "elementary")
+            {
+                return "a2";
+            }
+
+            if (v == "intermediate" || v == "confident")
+            {
+                return "b1";
+            }
+
+            if (v == "advanced")
+            {
+                return "b2";
+            }
+
+            if (v == "fluent")
+            {
+                return "c1";
+            }
+
+            throw new ArgumentException("Level is not supported");
+        }
+
+        private List<int> GetLessonIds(string? languageCode, string? level)
+        {
+            if (!string.IsNullOrWhiteSpace(languageCode))
+            {
+                if (!SupportedLanguages.IsLearnable(languageCode))
+                {
+                    throw new ArgumentException("LanguageCode is not supported");
+                }
+
+                var normalized = languageCode.Trim().ToLowerInvariant();
+                var normalizedLevel = NormalizeLevelKey(level);
+
+                if (normalizedLevel == null &&
+                    _demoSettings.LanguageLessonIds != null &&
+                    _demoSettings.LanguageLessonIds.TryGetValue(normalized, out var ids) &&
+                    ids != null &&
+                    ids.Count > 0)
+                {
+                    return NormalizeLessonIds(ids);
+                }
+
+                // If config mapping is not provided - try to auto-pick first 3 lessons
+                // from the published course of the selected language.
+                // Prefer selected level course by title (a1/a2/b1/b2/c1/c2),
+                // fallback to A1 if exists, otherwise use the first published course.
+                var coursesQuery = _dbContext.Courses
+                    .Where(x => x.IsPublished && x.LanguageCode == normalized);
+
+                var courseId = normalizedLevel != null
+                    ? coursesQuery
+                        .OrderByDescending(x => (x.Title ?? string.Empty).ToLower().Contains(normalizedLevel))
+                        .ThenByDescending(x => (x.Title ?? string.Empty).ToLower().Contains("a1"))
+                        .ThenBy(x => x.Id)
+                        .Select(x => x.Id)
+                        .FirstOrDefault()
+                    : coursesQuery
+                        .OrderByDescending(x => (x.Title ?? string.Empty).ToLower().Contains("a1"))
+                        .ThenBy(x => x.Id)
+                        .Select(x => x.Id)
+                        .FirstOrDefault();
+
+                if (courseId > 0)
+                {
+                    var lessonIds = _dbContext.Lessons
+                        .Join(
+                            _dbContext.Topics.Where(t => t.CourseId == courseId),
+                            l => l.TopicId,
+                            t => t.Id,
+                            (l, t) => new { Lesson = l, Topic = t }
+                        )
+                        .OrderBy(x => x.Topic.Order <= 0 ? int.MaxValue : x.Topic.Order)
+                        .ThenBy(x => x.Topic.Id)
+                        .ThenBy(x => x.Lesson.Order <= 0 ? int.MaxValue : x.Lesson.Order)
+                        .ThenBy(x => x.Lesson.Id)
+                        .Select(x => x.Lesson.Id)
+                        .Take(3)
+                        .ToList();
+
+                    if (lessonIds != null && lessonIds.Count > 0)
+                    {
+                        return NormalizeLessonIds(lessonIds);
+                    }
+                }
+                // IMPORTANT: When languageCode is specified and no demo can be resolved,
+                // we must NOT fallback to other language demo lessons.
+                return new List<int>();
+            }
+
+            return NormalizeLessonIds(_demoSettings.LessonIds);
+        }
         private List<int> NormalizeLessonIds(List<int> ids)
         {
             if (ids == null || ids.Count == 0)

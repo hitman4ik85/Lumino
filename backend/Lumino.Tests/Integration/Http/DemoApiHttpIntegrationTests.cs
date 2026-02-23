@@ -92,6 +92,23 @@ public class DemoApiHttpIntegrationTests : IClassFixture<ApiWebApplicationFactor
     }
 
     [Fact]
+    public async Task DemoNext_WithUnknownLanguage_ShouldReturn404WithInDevelopmentMessage()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/demo/next?step=0&languageCode=fr");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+
+        using var doc = JsonDocument.Parse(json);
+
+        Assert.Equal("not_found", doc.RootElement.GetProperty("type").GetString());
+        Assert.Contains("development", doc.RootElement.GetProperty("detail").GetString() ?? string.Empty);
+    }
+
+    [Fact]
     public async Task DemoNextPack_ShouldReturnLessonAndExercisesWithMeta()
     {
         using (var scope = _factory.Services.CreateScope())
@@ -321,4 +338,152 @@ public class DemoApiHttpIntegrationTests : IClassFixture<ApiWebApplicationFactor
 
         Assert.Equal("forbidden", doc.RootElement.GetProperty("type").GetString());
     }
+
+
+    [Fact]
+    public async Task DemoNext_WithLanguageCode_ShouldUseLanguageSpecificDemoLessonIds()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<LuminoDbContext>();
+
+            dbContext.Database.EnsureDeleted();
+            dbContext.Database.EnsureCreated();
+
+            // EN demo lessons (1..3)
+            dbContext.Courses.Add(new Course { Id = 1, Title = "Course EN", Description = "Desc", LanguageCode = "en", IsPublished = true });
+            dbContext.Topics.Add(new Topic { Id = 10, CourseId = 1, Title = "Topic EN", Order = 1 });
+
+            dbContext.Lessons.Add(new Lesson { Id = 1, TopicId = 10, Title = "Demo 1", Theory = "", Order = 1 });
+            dbContext.Lessons.Add(new Lesson { Id = 2, TopicId = 10, Title = "Demo 2", Theory = "", Order = 2 });
+            dbContext.Lessons.Add(new Lesson { Id = 3, TopicId = 10, Title = "Demo 3", Theory = "", Order = 3 });
+
+            // DE demo lessons (4..6)
+            dbContext.Courses.Add(new Course { Id = 2, Title = "Course DE", Description = "Desc", LanguageCode = "de", IsPublished = true });
+            dbContext.Topics.Add(new Topic { Id = 20, CourseId = 2, Title = "Topic DE", Order = 1 });
+
+            dbContext.Lessons.Add(new Lesson { Id = 4, TopicId = 20, Title = "DE Demo 1", Theory = "", Order = 1 });
+            dbContext.Lessons.Add(new Lesson { Id = 5, TopicId = 20, Title = "DE Demo 2", Theory = "", Order = 2 });
+            dbContext.Lessons.Add(new Lesson { Id = 6, TopicId = 20, Title = "DE Demo 3", Theory = "", Order = 3 });
+
+            dbContext.SaveChanges();
+        }
+
+        var client = _factory.CreateClient();
+
+        var okResponse = await client.GetAsync("/api/demo/next?step=0&languageCode=de");
+
+        Assert.Equal(HttpStatusCode.OK, okResponse.StatusCode);
+
+        var okJson = await okResponse.Content.ReadAsStringAsync();
+
+        using (var doc = JsonDocument.Parse(okJson))
+        {
+            var lesson = doc.RootElement.GetProperty("lesson");
+            Assert.Equal(4, lesson.GetProperty("id").GetInt32());
+        }
+
+        var notFound = await client.GetAsync("/api/demo/next?step=3&languageCode=de");
+
+        Assert.Equal(HttpStatusCode.NotFound, notFound.StatusCode);
+    }
+
+    [Fact]
+    public async Task DemoNextPack_WithLevel_ShouldSelectCourseByTitleLevel()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<LuminoDbContext>();
+
+            dbContext.Database.EnsureDeleted();
+            dbContext.Database.EnsureCreated();
+
+            // EN A1 course (lessons 11..13)
+            dbContext.Courses.Add(new Course { Id = 1, Title = "English A1", Description = "Desc", LanguageCode = "en", IsPublished = true });
+            dbContext.Topics.Add(new Topic { Id = 10, CourseId = 1, Title = "Topic A1", Order = 1 });
+
+            dbContext.Lessons.Add(new Lesson { Id = 11, TopicId = 10, Title = "A1 Demo 1", Theory = "", Order = 1 });
+            dbContext.Lessons.Add(new Lesson { Id = 12, TopicId = 10, Title = "A1 Demo 2", Theory = "", Order = 2 });
+            dbContext.Lessons.Add(new Lesson { Id = 13, TopicId = 10, Title = "A1 Demo 3", Theory = "", Order = 3 });
+
+            // EN A2 course (lessons 21..23)
+            dbContext.Courses.Add(new Course { Id = 2, Title = "English A2", Description = "Desc", LanguageCode = "en", IsPublished = true });
+            dbContext.Topics.Add(new Topic { Id = 20, CourseId = 2, Title = "Topic A2", Order = 1 });
+
+            dbContext.Lessons.Add(new Lesson { Id = 21, TopicId = 20, Title = "A2 Demo 1", Theory = "", Order = 1 });
+            dbContext.Lessons.Add(new Lesson { Id = 22, TopicId = 20, Title = "A2 Demo 2", Theory = "", Order = 2 });
+            dbContext.Lessons.Add(new Lesson { Id = 23, TopicId = 20, Title = "A2 Demo 3", Theory = "", Order = 3 });
+
+            dbContext.SaveChanges();
+        }
+
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/demo/next-pack?step=0&languageCode=en&level=a2");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+
+        using var doc = JsonDocument.Parse(json);
+
+        var lesson = doc.RootElement.GetProperty("lesson");
+        Assert.Equal(21, lesson.GetProperty("id").GetInt32());
+    }
+
+    [Fact]
+    public async Task DemoNextPack_WithLevel_WhenCourseNotFound_ShouldFallbackToA1()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<LuminoDbContext>();
+
+            dbContext.Database.EnsureDeleted();
+            dbContext.Database.EnsureCreated();
+
+            // Only A1 is published
+            dbContext.Courses.Add(new Course { Id = 1, Title = "English A1", Description = "Desc", LanguageCode = "en", IsPublished = true });
+            dbContext.Topics.Add(new Topic { Id = 10, CourseId = 1, Title = "Topic A1", Order = 1 });
+
+            dbContext.Lessons.Add(new Lesson { Id = 11, TopicId = 10, Title = "A1 Demo 1", Theory = "", Order = 1 });
+            dbContext.Lessons.Add(new Lesson { Id = 12, TopicId = 10, Title = "A1 Demo 2", Theory = "", Order = 2 });
+            dbContext.Lessons.Add(new Lesson { Id = 13, TopicId = 10, Title = "A1 Demo 3", Theory = "", Order = 3 });
+
+            dbContext.SaveChanges();
+        }
+
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/demo/next-pack?step=0&languageCode=en&level=c2");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+
+        using var doc = JsonDocument.Parse(json);
+
+        var lesson = doc.RootElement.GetProperty("lesson");
+        Assert.Equal(11, lesson.GetProperty("id").GetInt32());
+    }
+
+    [Fact]
+    public async Task DemoNext_WithUnsupportedLevel_ShouldReturnBadRequest()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/demo/next?step=0&languageCode=en&level=unknown_level");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var body = await response.Content.ReadAsStringAsync();
+
+        using var doc = JsonDocument.Parse(body);
+
+        Assert.Equal("bad_request", doc.RootElement.GetProperty("type").GetString());
+
+        var detail = doc.RootElement.GetProperty("detail").GetString() ?? "";
+        Assert.Contains("Level is not supported", detail);
+    }
+
+
 }

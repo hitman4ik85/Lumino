@@ -6,6 +6,8 @@ namespace Lumino.Api.Application.DTOs
 
         public string Description { get; set; } = null!;
 
+        public string? LanguageCode { get; set; }
+
         public bool IsPublished { get; set; }
     }
 }

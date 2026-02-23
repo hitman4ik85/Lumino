@@ -14,7 +14,10 @@ namespace Lumino.Api.Domain.Entities
 
         public DateTime CreatedAt { get; set; }
 
+        public string? NativeLanguageCode { get; set; }
+
+        public string? TargetLanguageCode { get; set; }
+
         public List<RefreshToken> RefreshTokens { get; set; } = new();
     }
 }
-

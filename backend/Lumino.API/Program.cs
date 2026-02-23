@@ -120,6 +120,7 @@ namespace Lumino.Api
             builder.Services.AddScoped<ISubmitSceneRequestValidator, SubmitSceneRequestValidator>();
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IOnboardingService, OnboardingService>();
             builder.Services.AddScoped<ICourseService, CourseService>();
             builder.Services.AddScoped<IAdminCourseService, AdminCourseService>();
             builder.Services.AddScoped<ITopicService, TopicService>();

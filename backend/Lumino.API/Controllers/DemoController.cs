@@ -21,16 +21,16 @@ namespace Lumino.Api.Controllers
         }
 
         [HttpGet("lessons")]
-        public IActionResult GetDemoLessons()
+        public IActionResult GetDemoLessons([FromQuery] string? languageCode, [FromQuery] string? level = null)
         {
-            var result = _demoLessonService.GetDemoLessons();
+            var result = _demoLessonService.GetDemoLessons(languageCode, level);
             return Ok(result);
         }
 
         [HttpGet("next")]
-        public IActionResult GetDemoNext([FromQuery] int step = 0)
+        public IActionResult GetDemoNext([FromQuery] int step = 0, [FromQuery] string? languageCode = null, [FromQuery] string? level = null)
         {
-            var result = _demoLessonService.GetDemoNextLesson(step);
+            var result = _demoLessonService.GetDemoNextLesson(step, languageCode, level);
 
             if (result.Step == 0)
             {
@@ -45,9 +45,9 @@ namespace Lumino.Api.Controllers
         }
 
         [HttpGet("next-pack")]
-        public IActionResult GetDemoNextPack([FromQuery] int step = 0)
+        public IActionResult GetDemoNextPack([FromQuery] int step = 0, [FromQuery] string? languageCode = null, [FromQuery] string? level = null)
         {
-            var result = _demoLessonService.GetDemoNextLessonPack(step);
+            var result = _demoLessonService.GetDemoNextLessonPack(step, languageCode, level);
 
             if (result.Step == 0)
             {
@@ -62,23 +62,23 @@ namespace Lumino.Api.Controllers
         }
 
         [HttpGet("lessons/{lessonId}")]
-        public IActionResult GetDemoLessonById(int lessonId)
+        public IActionResult GetDemoLessonById(int lessonId, [FromQuery] string? languageCode = null, [FromQuery] string? level = null)
         {
-            var result = _demoLessonService.GetDemoLessonById(lessonId);
+            var result = _demoLessonService.GetDemoLessonById(lessonId, languageCode, level);
             return Ok(result);
         }
 
         [HttpGet("lessons/{lessonId}/exercises")]
-        public IActionResult GetDemoExercisesByLesson(int lessonId)
+        public IActionResult GetDemoExercisesByLesson(int lessonId, [FromQuery] string? languageCode = null, [FromQuery] string? level = null)
         {
-            var result = _demoLessonService.GetDemoExercisesByLesson(lessonId);
+            var result = _demoLessonService.GetDemoExercisesByLesson(lessonId, languageCode, level);
             return Ok(result);
         }
 
         [HttpPost("lesson-submit")]
-        public IActionResult SubmitDemoLesson([FromBody] SubmitLessonRequest request)
+        public IActionResult SubmitDemoLesson([FromBody] SubmitLessonRequest request, [FromQuery] string? languageCode = null, [FromQuery] string? level = null)
         {
-            var result = _demoLessonService.SubmitDemoLesson(request);
+            var result = _demoLessonService.SubmitDemoLesson(request, languageCode, level);
 
             _logger.LogInformation(
                 "demo_lesson_submitted lessonId={lessonId} isPassed={isPassed} correct={correct} total={total}",

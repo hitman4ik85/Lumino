@@ -1,4 +1,4 @@
-﻿namespace Lumino.Api.Domain.Entities
+namespace Lumino.Api.Domain.Entities
 {
     public class Course
     {
@@ -7,6 +7,8 @@
         public string Title { get; set; } = null!;
 
         public string Description { get; set; } = null!;
+
+        public string LanguageCode { get; set; } = "en";
 
         public bool IsPublished { get; set; }
     }
