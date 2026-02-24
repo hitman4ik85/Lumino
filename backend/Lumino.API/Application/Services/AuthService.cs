@@ -20,6 +20,7 @@ namespace Lumino.Api.Application.Services
     {
         private readonly LuminoDbContext _dbContext;
         private readonly IConfiguration _configuration;
+        private readonly IEmailSender _emailSender;
         private readonly IRegisterRequestValidator _registerRequestValidator;
         private readonly ILoginRequestValidator _loginRequestValidator;
         private readonly IForgotPasswordRequestValidator _forgotPasswordRequestValidator;
@@ -34,11 +35,13 @@ namespace Lumino.Api.Application.Services
             ILoginRequestValidator loginRequestValidator,
             IForgotPasswordRequestValidator forgotPasswordRequestValidator,
             IResetPasswordRequestValidator resetPasswordRequestValidator,
+            IEmailSender emailSender,
             IHostEnvironment hostEnvironment,
             IPasswordHasher passwordHasher)
         {
             _dbContext = dbContext;
             _configuration = configuration;
+            _emailSender = emailSender;
             _registerRequestValidator = registerRequestValidator;
             _loginRequestValidator = loginRequestValidator;
             _forgotPasswordRequestValidator = forgotPasswordRequestValidator;
@@ -194,14 +197,18 @@ namespace Lumino.Api.Application.Services
             _dbContext.PasswordResetTokens.Add(entity);
             _dbContext.SaveChanges();
 
-            // For diploma/testing we can return the token in Development/Testing.
-            var canExposeToken = _hostEnvironment.IsDevelopment() || _hostEnvironment.IsEnvironment("Testing");
+            var resetLink = BuildPasswordResetLink(rawToken);
+
+            var subject = "Lumino: Reset your password";
+            var body = $"<p>You requested to reset your password.</p><p><a href=\"{resetLink}\">Reset password</a></p><p>If the button does not work, use this token: <b>{rawToken}</b></p><p>This link expires at {expiresAtUtc:O} UTC.</p>";
+
+            _emailSender.Send(user.Email, subject, body);
 
             return new ForgotPasswordResponse
             {
                 IsSent = true,
-                ResetToken = canExposeToken ? rawToken : null,
-                ExpiresAtUtc = canExposeToken ? expiresAtUtc : null
+                ResetToken = null,
+                ExpiresAtUtc = null
             };
         }
 
@@ -464,6 +471,28 @@ namespace Lumino.Api.Application.Services
         {
             var bytes = RandomNumberGenerator.GetBytes(64);
             return Convert.ToBase64String(bytes);
+        }
+
+
+        private string BuildPasswordResetLink(string token)
+        {
+            var baseUrl = _configuration["Email:FrontendBaseUrl"];
+
+            if (string.IsNullOrWhiteSpace(baseUrl))
+            {
+                baseUrl = "http://localhost:5173";
+            }
+
+            baseUrl = baseUrl.Trim();
+
+            if (baseUrl.EndsWith("/"))
+            {
+                baseUrl = baseUrl.TrimEnd('/');
+            }
+
+            var encoded = Uri.EscapeDataString(token);
+
+            return $"{baseUrl}/reset-password?token={encoded}";
         }
 
         private static string HashToken(string token)

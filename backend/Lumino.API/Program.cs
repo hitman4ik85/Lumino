@@ -123,6 +123,14 @@ namespace Lumino.Api
             builder.Services.AddScoped<ISubmitLessonRequestValidator, SubmitLessonRequestValidator>();
             builder.Services.AddScoped<ISubmitSceneRequestValidator, SubmitSceneRequestValidator>();
             builder.Services.AddScoped<IAuthService, AuthService>();
+            if (builder.Environment.IsEnvironment("Testing"))
+            {
+                builder.Services.AddSingleton<IEmailSender, NoOpEmailSender>();
+            }
+            else
+            {
+                builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+            }
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IUserAccountService, UserAccountService>();
             builder.Services.AddScoped<IUserEconomyService, UserEconomyService>();

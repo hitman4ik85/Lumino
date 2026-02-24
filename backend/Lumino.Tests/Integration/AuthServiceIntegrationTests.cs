@@ -4,6 +4,7 @@ using Lumino.Api.Application.Validators;
 using Lumino.Api.Utils;
 using Lumino.Tests;
 using Xunit;
+using Lumino.Tests.Stubs;
 
 namespace Lumino.Tests.Integration;
 
@@ -22,6 +23,7 @@ public class AuthServiceIntegrationTests
             new LoginRequestValidator(),
 	        new ForgotPasswordRequestValidator(),
 	        new ResetPasswordRequestValidator(),
+	        new FakeEmailSender(),
 	        new FakeHostEnvironment(),
 	        new PasswordHasher()
         );

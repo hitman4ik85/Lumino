@@ -7,6 +7,7 @@ using Lumino.Api.Domain.Entities;
 using Lumino.Api.Utils;
 using Microsoft.Extensions.Configuration;
 using Xunit;
+using Lumino.Tests.Stubs;
 
 namespace Lumino.Tests;
 
@@ -25,6 +26,7 @@ public class AuthServiceRefreshTests
             new FakeLoginValidator(),
             new ForgotPasswordRequestValidator(),
             new ResetPasswordRequestValidator(),
+            new FakeEmailSender(),
             new FakeHostEnvironment(),
             new PasswordHasher()
         );
@@ -67,6 +69,7 @@ public class AuthServiceRefreshTests
             new FakeLoginValidator(),
             new ForgotPasswordRequestValidator(),
             new ResetPasswordRequestValidator(),
+            new FakeEmailSender(),
             new FakeHostEnvironment(),
             new PasswordHasher()
         );
@@ -93,6 +96,7 @@ public class AuthServiceRefreshTests
             new FakeLoginValidator(),
             new ForgotPasswordRequestValidator(),
             new ResetPasswordRequestValidator(),
+            new FakeEmailSender(),
             new FakeHostEnvironment(),
             new PasswordHasher()
         );
@@ -130,6 +134,7 @@ public class AuthServiceRefreshTests
             new FakeLoginValidator(),
             new ForgotPasswordRequestValidator(),
             new ResetPasswordRequestValidator(),
+            new FakeEmailSender(),
             new FakeHostEnvironment(),
             new PasswordHasher()
         );
@@ -168,6 +173,7 @@ public class AuthServiceRefreshTests
             new FakeLoginValidator(),
             new ForgotPasswordRequestValidator(),
             new ResetPasswordRequestValidator(),
+            new FakeEmailSender(),
             new FakeHostEnvironment(),
             new PasswordHasher()
         );
@@ -212,6 +218,7 @@ public class AuthServiceRefreshTests
             new FakeLoginValidator(),
             new ForgotPasswordRequestValidator(),
             new ResetPasswordRequestValidator(),
+            new FakeEmailSender(),
             new FakeHostEnvironment(),
             new PasswordHasher()
         );
@@ -254,6 +261,7 @@ public class AuthServiceRefreshTests
             new FakeLoginValidator(),
             new ForgotPasswordRequestValidator(),
             new ResetPasswordRequestValidator(),
+            new FakeEmailSender(),
             new FakeHostEnvironment(),
             new PasswordHasher()
         );

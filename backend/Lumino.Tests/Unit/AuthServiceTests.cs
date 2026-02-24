@@ -4,6 +4,7 @@ using Lumino.Api.Application.Validators;
 using Lumino.Api.Domain.Entities;
 using Lumino.Api.Utils;
 using Xunit;
+using Lumino.Tests.Stubs;
 
 namespace Lumino.Tests;
 
@@ -22,6 +23,7 @@ public class AuthServiceTests
             new FakeLoginValidator(),
             new ForgotPasswordRequestValidator(),
             new ResetPasswordRequestValidator(),
+            new FakeEmailSender(),
             new FakeHostEnvironment(),
             new PasswordHasher()
         );
@@ -62,6 +64,7 @@ public class AuthServiceTests
             new FakeLoginValidator(),
             new ForgotPasswordRequestValidator(),
             new ResetPasswordRequestValidator(),
+            new FakeEmailSender(),
             new FakeHostEnvironment(),
             new PasswordHasher()
         );
@@ -90,6 +93,7 @@ public class AuthServiceTests
             new FakeLoginValidator(),
             new ForgotPasswordRequestValidator(),
             new ResetPasswordRequestValidator(),
+            new FakeEmailSender(),
             new FakeHostEnvironment(),
             new PasswordHasher()
         );
@@ -121,6 +125,7 @@ public class AuthServiceTests
             new FakeLoginValidator(),
             new ForgotPasswordRequestValidator(),
             new ResetPasswordRequestValidator(),
+            new FakeEmailSender(),
             new FakeHostEnvironment(),
             new PasswordHasher()
         );
