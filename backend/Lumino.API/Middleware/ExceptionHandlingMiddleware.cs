@@ -100,6 +100,11 @@ namespace Lumino.Api.Middleware
                 return ((int)HttpStatusCode.Forbidden, "forbidden", ex.Message);
             }
 
+            if (ex is EmailNotVerifiedException)
+            {
+                return ((int)HttpStatusCode.Unauthorized, "email_not_verified", ex.Message);
+            }
+
             if (ex is UnauthorizedAccessException)
             {
                 return ((int)HttpStatusCode.Unauthorized, "unauthorized", ex.Message);

@@ -130,6 +130,46 @@ public class AuthServiceTests
         Assert.Equal("en", user.TargetLanguageCode);
     }
 
+
+    [Fact]
+    public void Login_EmailNotVerified_ShouldThrow()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var configuration = TestConfigurationFactory.Create();
+
+        var emailSender = new FakeEmailSender();
+
+        var service = new AuthService(
+            dbContext,
+            configuration,
+            new FakeRegisterValidator(),
+            new FakeLoginValidator(),
+            new ForgotPasswordRequestValidator(),
+            new ResetPasswordRequestValidator(),
+            new VerifyEmailRequestValidator(),
+            new ResendVerificationRequestValidator(),
+            emailSender,
+            new FakeOpenIdTokenValidator(),
+            new FakeHostEnvironment(),
+            new PasswordHasher()
+        );
+
+        service.Register(new RegisterRequest
+        {
+            Email = "test@mail.com",
+            Password = "123456"
+        });
+
+        Assert.Throws<EmailNotVerifiedException>(() =>
+        {
+            service.Login(new LoginRequest
+            {
+                Email = "test@mail.com",
+                Password = "123456"
+            });
+        });
+    }
+
 [Fact]
     public void Login_InvalidPassword_ShouldThrow()
     {

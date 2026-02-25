@@ -161,7 +161,7 @@ namespace Lumino.Api.Application.Services
 
             if (!user.IsEmailVerified)
             {
-                throw new UnauthorizedAccessException("Email not verified");
+                throw new EmailNotVerifiedException("Email not verified");
             }
 
             var isPasswordValid = _passwordHasher.Verify(request.Password, user.PasswordHash);
