@@ -111,6 +111,11 @@ namespace Lumino.Api
                 builder.Configuration.GetSection("Demo")
             );
 
+            // конфіг email (forgot/reset password)
+            builder.Services.Configure<EmailSettings>(
+                builder.Configuration.GetSection("Email")
+            );
+
             builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
             builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
