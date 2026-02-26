@@ -6,5 +6,7 @@ namespace Lumino.Api.Application.Interfaces
     public interface IMediaService
     {
         UploadMediaResponse Upload(IFormFile file, string baseUrl);
+
+        List<MediaFileResponse> List(string baseUrl, string? query = null, int skip = 0, int take = 100);
     }
 }

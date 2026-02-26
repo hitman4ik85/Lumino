@@ -35,6 +35,84 @@ namespace Lumino.Api.Application.Services
                 .ToList();
         }
 
+        public AdminExerciseDetailsResponse GetById(int id)
+        {
+            var exercise = _dbContext.Exercises.FirstOrDefault(x => x.Id == id);
+
+            if (exercise == null)
+            {
+                throw new KeyNotFoundException("Exercise not found");
+            }
+
+            var correctAnswers = ParseCorrectAnswers(exercise.CorrectAnswer);
+
+            var preview = BuildPreview(exercise.Type, exercise.Data, correctAnswers);
+
+            return new AdminExerciseDetailsResponse
+            {
+                Id = exercise.Id,
+                LessonId = exercise.LessonId,
+                Type = exercise.Type.ToString(),
+                Question = exercise.Question,
+                Data = exercise.Data,
+                CorrectAnswer = exercise.CorrectAnswer,
+                Order = exercise.Order,
+                CorrectAnswers = correctAnswers,
+                Preview = preview
+            };
+        }
+
+        public AdminExerciseResponse Copy(int id, CopyItemRequest? request)
+        {
+            var source = _dbContext.Exercises.FirstOrDefault(x => x.Id == id);
+
+            if (source == null)
+            {
+                throw new KeyNotFoundException("Exercise not found");
+            }
+
+            int targetLessonId = request?.TargetLessonId ?? source.LessonId;
+
+            var lessonExists = _dbContext.Lessons.Any(x => x.Id == targetLessonId);
+
+            if (!lessonExists)
+            {
+                throw new KeyNotFoundException("Target lesson not found");
+            }
+
+            var maxOrder = _dbContext.Exercises
+                .Where(x => x.LessonId == targetLessonId)
+                .Select(x => x.Order)
+                .DefaultIfEmpty(0)
+                .Max();
+
+            var newOrder = maxOrder > 0 ? maxOrder + 1 : 0;
+
+            var copy = new Exercise
+            {
+                LessonId = targetLessonId,
+                Type = source.Type,
+                Question = source.Question,
+                Data = source.Data,
+                CorrectAnswer = source.CorrectAnswer,
+                Order = newOrder
+            };
+
+            _dbContext.Exercises.Add(copy);
+            _dbContext.SaveChanges();
+
+            return new AdminExerciseResponse
+            {
+                Id = copy.Id,
+                LessonId = copy.LessonId,
+                Type = copy.Type.ToString(),
+                Question = copy.Question,
+                Data = copy.Data,
+                CorrectAnswer = copy.CorrectAnswer,
+                Order = copy.Order
+            };
+        }
+
         public AdminExerciseResponse Create(CreateExerciseRequest request)
         {
             if (request == null)
@@ -218,9 +296,16 @@ namespace Lumino.Api.Application.Services
 
         private static void ValidateInputData(string data, string correctAnswer)
         {
-            if (string.IsNullOrWhiteSpace(correctAnswer))
+            var answers = ParseCorrectAnswers(correctAnswer);
+
+            if (answers.Count == 0)
             {
                 throw new ArgumentException("CorrectAnswer is required");
+            }
+
+            if (answers.Any(x => string.IsNullOrWhiteSpace(x)))
+            {
+                throw new ArgumentException("CorrectAnswer is invalid");
             }
 
             try
@@ -281,18 +366,21 @@ namespace Lumino.Api.Application.Services
 
                     if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
                     {
-                        throw new ArgumentException("Match Data values are invalid");
+                        throw new ArgumentException("Match Data item.left/right must not be empty");
                     }
 
-                    if (!leftSet.Add(left))
+                    if (leftSet.Contains(left))
                     {
-                        throw new ArgumentException("Match Data has duplicate left values");
+                        throw new ArgumentException("Match Data item.left must be unique");
                     }
 
-                    if (!rightSet.Add(right))
+                    if (rightSet.Contains(right))
                     {
-                        throw new ArgumentException("Match Data has duplicate right values");
+                        throw new ArgumentException("Match Data item.right must be unique");
                     }
+
+                    leftSet.Add(left);
+                    rightSet.Add(right);
 
                     count++;
                 }
@@ -308,35 +396,105 @@ namespace Lumino.Api.Application.Services
             }
         }
 
-        private static List<string> ParseStringArray(string data)
+        private static List<string> ParseStringArray(string json)
         {
             try
             {
-                using var doc = JsonDocument.Parse(data);
+                var list = JsonSerializer.Deserialize<List<string>>(json);
 
-                if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                if (list == null)
                 {
-                    throw new ArgumentException("Data is invalid JSON");
-                }
-
-                var list = new List<string>();
-
-                foreach (var el in doc.RootElement.EnumerateArray())
-                {
-                    if (el.ValueKind != JsonValueKind.String)
-                    {
-                        throw new ArgumentException("Data is invalid JSON");
-                    }
-
-                    list.Add(el.GetString() ?? string.Empty);
+                    return new List<string>();
                 }
 
                 return list;
             }
-            catch (JsonException)
+            catch
             {
-                throw new ArgumentException("Data is invalid JSON");
+                return new List<string>();
             }
+        }
+
+        private static List<string> ParseCorrectAnswers(string correctAnswer)
+        {
+            if (correctAnswer == null)
+            {
+                return new List<string>();
+            }
+
+            var trimmed = correctAnswer.Trim();
+
+            if (trimmed.Length == 0)
+            {
+                return new List<string>();
+            }
+
+            if (trimmed.StartsWith("[") && trimmed.EndsWith("]"))
+            {
+                try
+                {
+                    var list = JsonSerializer.Deserialize<List<string>>(trimmed);
+                    return list ?? new List<string>();
+                }
+                catch
+                {
+                    return new List<string>();
+                }
+            }
+
+            return new List<string> { correctAnswer };
+        }
+
+        private static AdminExercisePreviewResponse BuildPreview(ExerciseType type, string data, List<string> correctAnswers)
+        {
+            if (type == ExerciseType.MultipleChoice)
+            {
+                var options = ParseStringArray(data);
+
+                return new AdminExercisePreviewResponse
+                {
+                    Summary = $"MultipleChoice ({options.Count} options)",
+                    OptionsCount = options.Count,
+                    PairsCount = 0
+                };
+            }
+
+            if (type == ExerciseType.Match)
+            {
+                int pairs = 0;
+
+                try
+                {
+                    using var doc = JsonDocument.Parse(data);
+
+                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    {
+                        pairs = doc.RootElement.GetArrayLength();
+                    }
+                }
+                catch
+                {
+                    pairs = 0;
+                }
+
+                return new AdminExercisePreviewResponse
+                {
+                    Summary = $"Match ({pairs} pairs)",
+                    OptionsCount = 0,
+                    PairsCount = pairs
+                };
+            }
+
+            var answersCount = correctAnswers.Count;
+
+            return new AdminExercisePreviewResponse
+            {
+                Summary = answersCount <= 1
+                    ? "Input (1 correct answer)"
+                    : $"Input ({answersCount} correct answers)",
+                OptionsCount = 0,
+                PairsCount = 0
+            };
         }
     }
 }

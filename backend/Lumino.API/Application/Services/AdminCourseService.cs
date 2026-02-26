@@ -29,6 +29,75 @@ namespace Lumino.Api.Application.Services
                 .ToList();
         }
 
+        public AdminCourseDetailsResponse GetById(int id)
+        {
+            var course = _dbContext.Courses.FirstOrDefault(x => x.Id == id);
+
+            if (course == null)
+            {
+                throw new KeyNotFoundException("Course not found");
+            }
+
+            var topics = _dbContext.Topics
+                .Where(x => x.CourseId == id)
+                .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
+                .ThenBy(x => x.Id)
+                .Select(x => new AdminTopicResponse
+                {
+                    Id = x.Id,
+                    CourseId = x.CourseId,
+                    Title = x.Title,
+                    Order = x.Order
+                })
+                .ToList();
+
+            var topicIds = topics.Select(x => x.Id).ToList();
+
+            var lessonsCount = _dbContext.Lessons.Count(x => topicIds.Contains(x.TopicId));
+
+            var lessonIds = _dbContext.Lessons
+                .Where(x => topicIds.Contains(x.TopicId))
+                .Select(x => x.Id)
+                .ToList();
+
+            var exercisesCount = _dbContext.Exercises.Count(x => lessonIds.Contains(x.LessonId));
+
+            var scenesQuery = _dbContext.Scenes.Where(x => x.CourseId == id);
+            var scenesCount = scenesQuery.Count();
+
+            var scenesPreview = scenesQuery
+                .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
+                .ThenBy(x => x.Id)
+                .Take(5)
+                .Select(x => new AdminSceneResponse
+                {
+                    Id = x.Id,
+                    CourseId = x.CourseId,
+                    Title = x.Title,
+                    Description = x.Description,
+                    SceneType = x.SceneType,
+                    BackgroundUrl = x.BackgroundUrl,
+                    AudioUrl = x.AudioUrl,
+                    Order = x.Order
+                })
+                .ToList();
+
+            return new AdminCourseDetailsResponse
+            {
+                Id = course.Id,
+                Title = course.Title,
+                Description = course.Description,
+                LanguageCode = course.LanguageCode,
+                IsPublished = course.IsPublished,
+                TopicsCount = topics.Count,
+                LessonsCount = lessonsCount,
+                ExercisesCount = exercisesCount,
+                ScenesCount = scenesCount,
+                Topics = topics,
+                ScenesPreview = scenesPreview
+            };
+        }
+
         public AdminCourseResponse Create(CreateCourseRequest request)
         {
             if (request == null)

@@ -29,6 +29,24 @@ namespace Lumino.Api.Controllers
             return Ok(_adminSceneService.GetById(id));
         }
 
+        [HttpGet("{id}/export")]
+        public IActionResult Export(int id)
+        {
+            return Ok(_adminSceneService.Export(id));
+        }
+
+        [HttpPost("import")]
+        public IActionResult Import(ExportSceneJson request)
+        {
+            return Ok(_adminSceneService.Import(request));
+        }
+
+        [HttpPost("{id}/copy")]
+        public IActionResult Copy(int id, CopyItemRequest? request)
+        {
+            return Ok(_adminSceneService.Copy(id, request));
+        }
+
         [HttpPost]
         public IActionResult Create(CreateSceneRequest request)
         {

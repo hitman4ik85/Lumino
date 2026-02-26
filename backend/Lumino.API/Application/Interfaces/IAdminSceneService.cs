@@ -8,6 +8,12 @@ namespace Lumino.Api.Application.Interfaces
 
         AdminSceneDetailsResponse GetById(int id);
 
+        ExportSceneJson Export(int id);
+
+        AdminSceneDetailsResponse Import(ExportSceneJson request);
+
+        AdminSceneDetailsResponse Copy(int id, CopyItemRequest? request);
+
         AdminSceneDetailsResponse Create(CreateSceneRequest request);
 
         void Update(int id, UpdateSceneRequest request);

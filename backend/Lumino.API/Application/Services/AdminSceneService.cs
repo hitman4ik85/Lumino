@@ -1,6 +1,7 @@
 using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
+using Microsoft.EntityFrameworkCore;
 using Lumino.Api.Domain.Entities;
 
 namespace Lumino.Api.Application.Services
@@ -57,6 +58,210 @@ namespace Lumino.Api.Application.Services
                 AudioUrl = scene.AudioUrl,
                 Steps = steps
             };
+        }
+
+        public ExportSceneJson Export(int id)
+        {
+            var scene = _dbContext.Scenes.FirstOrDefault(x => x.Id == id);
+
+            if (scene == null)
+            {
+                throw new KeyNotFoundException("Scene not found");
+            }
+
+            var steps = _dbContext.SceneSteps
+                .Where(x => x.SceneId == id)
+                .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
+                .ThenBy(x => x.Id)
+                .Select(x => new ExportSceneStepJson
+                {
+                    Order = x.Order,
+                    Speaker = x.Speaker,
+                    Text = x.Text,
+                    StepType = x.StepType,
+                    MediaUrl = x.MediaUrl,
+                    ChoicesJson = x.ChoicesJson
+                })
+                .ToList();
+
+            return new ExportSceneJson
+            {
+                CourseId = scene.CourseId,
+                Order = scene.Order,
+                Title = scene.Title,
+                Description = scene.Description,
+                SceneType = scene.SceneType,
+                BackgroundUrl = scene.BackgroundUrl,
+                AudioUrl = scene.AudioUrl,
+                Steps = steps
+            };
+        }
+
+        public AdminSceneDetailsResponse Import(ExportSceneJson request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentException("Request is required");
+            }
+
+            var useTransaction = _dbContext.Database.ProviderName == null ||
+                                 !_dbContext.Database.ProviderName.Contains("InMemory", StringComparison.OrdinalIgnoreCase);
+
+            using var transaction = useTransaction ? _dbContext.Database.BeginTransaction() : null;
+
+            try
+            {
+                var courseId = GetCourseIdOrDefault(request.CourseId);
+                var sceneOrder = NormalizeOrder(request.Order);
+
+                ValidateUniqueSceneOrder(courseId, sceneOrder, null);
+
+                var scene = new Scene
+                {
+                    Title = request.Title,
+                    Description = request.Description,
+                    SceneType = request.SceneType,
+                    BackgroundUrl = request.BackgroundUrl,
+                    CourseId = courseId,
+                    Order = sceneOrder,
+                    AudioUrl = request.AudioUrl
+                };
+
+                _dbContext.Scenes.Add(scene);
+                _dbContext.SaveChanges();
+
+                if (request.Steps != null && request.Steps.Count > 0)
+                {
+                    var normalizedSteps = request.Steps
+                        .Select(x => new CreateSceneStepRequest
+                        {
+                            Order = x.Order,
+                            Speaker = x.Speaker,
+                            Text = x.Text,
+                            StepType = x.StepType,
+                            MediaUrl = x.MediaUrl,
+                            ChoicesJson = x.ChoicesJson
+                        })
+                        .ToList();
+
+                    NormalizeStepsOrders(normalizedSteps);
+                    ValidateStepsOrders(normalizedSteps);
+
+                    var steps = normalizedSteps
+                        .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
+                        .Select(x => new SceneStep
+                        {
+                            SceneId = scene.Id,
+                            Order = x.Order,
+                            Speaker = x.Speaker,
+                            Text = x.Text,
+                            StepType = x.StepType,
+                            MediaUrl = x.MediaUrl,
+                            ChoicesJson = x.ChoicesJson
+                        })
+                        .ToList();
+
+                    _dbContext.SceneSteps.AddRange(steps);
+                    _dbContext.SaveChanges();
+                }
+
+                transaction?.Commit();
+
+                return GetById(scene.Id);
+            }
+            catch
+            {
+                transaction?.Rollback();
+                throw;
+            }
+        }
+
+        public AdminSceneDetailsResponse Copy(int id, CopyItemRequest? request)
+        {
+            var source = _dbContext.Scenes.FirstOrDefault(x => x.Id == id);
+
+            if (source == null)
+            {
+                throw new KeyNotFoundException("Scene not found");
+            }
+
+            int? targetCourseId = request?.TargetCourseId ?? source.CourseId;
+
+            if (targetCourseId.HasValue && targetCourseId.Value > 0)
+            {
+                var courseExists = _dbContext.Courses.Any(x => x.Id == targetCourseId.Value);
+
+                if (!courseExists)
+                {
+                    throw new KeyNotFoundException("Target course not found");
+                }
+            }
+
+            var maxOrder = _dbContext.Scenes
+                .Where(x => x.CourseId == targetCourseId)
+                .Select(x => (int?)x.Order)
+                .Max() ?? 0;
+
+            var suffix = string.IsNullOrWhiteSpace(request?.TitleSuffix)
+                ? " (Copy)"
+                : request!.TitleSuffix!.Trim();
+
+            if (!suffix.StartsWith(" "))
+            {
+                suffix = " " + suffix;
+            }
+var useTransaction = _dbContext.Database.ProviderName == null ||
+                                 !_dbContext.Database.ProviderName.Contains("InMemory", StringComparison.OrdinalIgnoreCase);
+
+            using var transaction = useTransaction ? _dbContext.Database.BeginTransaction() : null;
+
+            try
+            {
+                var newScene = new Scene
+                {
+                    Title = source.Title + suffix,
+                    Description = source.Description,
+                    SceneType = source.SceneType,
+                    BackgroundUrl = source.BackgroundUrl,
+                    AudioUrl = source.AudioUrl,
+                    CourseId = targetCourseId,
+                    Order = maxOrder > 0 ? maxOrder + 1 : 0
+                };
+
+                _dbContext.Scenes.Add(newScene);
+                _dbContext.SaveChanges();
+
+                var steps = _dbContext.SceneSteps
+                    .Where(x => x.SceneId == source.Id)
+                    .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
+                    .ThenBy(x => x.Id)
+                    .ToList();
+
+                foreach (var step in steps)
+                {
+                    _dbContext.SceneSteps.Add(new SceneStep
+                    {
+                        SceneId = newScene.Id,
+                        Order = step.Order,
+                        Speaker = step.Speaker,
+                        Text = step.Text,
+                        StepType = step.StepType,
+                        MediaUrl = step.MediaUrl,
+                        ChoicesJson = step.ChoicesJson
+                    });
+                }
+
+                _dbContext.SaveChanges();
+
+                transaction?.Commit();
+
+                return GetById(newScene.Id);
+            }
+            catch
+            {
+                transaction?.Rollback();
+                throw;
+            }
         }
 
         public AdminSceneDetailsResponse Create(CreateSceneRequest request)

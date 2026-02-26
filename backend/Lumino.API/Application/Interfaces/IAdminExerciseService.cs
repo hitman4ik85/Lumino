@@ -7,6 +7,10 @@ namespace Lumino.Api.Application.Interfaces
     {
         List<AdminExerciseResponse> GetByLesson(int lessonId);
 
+        AdminExerciseDetailsResponse GetById(int id);
+
+        AdminExerciseResponse Copy(int id, CopyItemRequest? request);
+
         AdminExerciseResponse Create(CreateExerciseRequest request);
 
         void Update(int id, UpdateExerciseRequest request);

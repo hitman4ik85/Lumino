@@ -17,10 +17,16 @@ namespace Lumino.Api.Controllers
             _adminTopicService = adminTopicService;
         }
 
-        [HttpGet("{courseId}")]
+        [HttpGet("course/{courseId}")]
         public IActionResult GetByCourse(int courseId)
         {
             return Ok(_adminTopicService.GetByCourse(courseId));
+        }
+
+        [HttpGet("{id}")]
+        public IActionResult GetById(int id)
+        {
+            return Ok(_adminTopicService.GetById(id));
         }
 
         [HttpPost]

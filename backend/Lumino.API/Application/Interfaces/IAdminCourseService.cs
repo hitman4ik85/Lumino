@@ -7,6 +7,8 @@ namespace Lumino.Api.Application.Interfaces
     {
         List<AdminCourseResponse> GetAll();
 
+        AdminCourseDetailsResponse GetById(int id);
+
         AdminCourseResponse Create(CreateCourseRequest request);
 
         void Update(int id, UpdateCourseRequest request);

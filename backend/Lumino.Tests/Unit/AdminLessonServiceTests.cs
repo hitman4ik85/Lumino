@@ -303,4 +303,143 @@ public class AdminLessonServiceTests
             Order = 1
         }));
     }
+
+    [Fact]
+    public void Copy_CreatesNewLesson_WithExercises_AndVocabularyLinks()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var course = new Course { Title = "C", LanguageCode = "en", IsPublished = true };
+        dbContext.Courses.Add(course);
+        dbContext.SaveChanges();
+
+        var topic = new Topic { CourseId = course.Id, Title = "Topic", Order = 1 };
+        dbContext.Topics.Add(topic);
+        dbContext.SaveChanges();
+
+        var lesson = new Lesson { TopicId = topic.Id, Title = "L1", Theory = "T1", Order = 1 };
+        dbContext.Lessons.Add(lesson);
+        dbContext.SaveChanges();
+
+        dbContext.Exercises.AddRange(
+            new Exercise { LessonId = lesson.Id, Type = Lumino.Api.Domain.Enums.ExerciseType.Input, Question = "Q1", Data = "{}", CorrectAnswer = "a", Order = 1 },
+            new Exercise { LessonId = lesson.Id, Type = Lumino.Api.Domain.Enums.ExerciseType.MultipleChoice, Question = "Q2", Data = "[\"a\",\"b\"]", CorrectAnswer = "a", Order = 2 }
+        );
+
+        var vocab = new VocabularyItem { Word = "cat", Translation = "кіт", Example = "cat" };
+        dbContext.VocabularyItems.Add(vocab);
+        dbContext.SaveChanges();
+
+        dbContext.LessonVocabularies.Add(new LessonVocabulary { LessonId = lesson.Id, VocabularyItemId = vocab.Id });
+        dbContext.SaveChanges();
+
+        var service = new AdminLessonService(dbContext);
+
+        var copied = service.Copy(lesson.Id, new CopyItemRequest { TitleSuffix = " (Copy)" });
+
+        Assert.NotEqual(lesson.Id, copied.Id);
+        Assert.Equal(topic.Id, copied.TopicId);
+        Assert.Equal("L1 (Copy)", copied.Title);
+
+        Assert.Equal(2, copied.ExercisesCount);
+        Assert.Single(copied.Vocabulary);
+        Assert.Equal(vocab.Id, copied.Vocabulary[0].Id);
+
+        var copiedExercises = dbContext.Exercises.Where(x => x.LessonId == copied.Id).ToList();
+        Assert.Equal(2, copiedExercises.Count);
+
+        var copiedLinks = dbContext.LessonVocabularies.Where(x => x.LessonId == copied.Id).ToList();
+        Assert.Single(copiedLinks);
+        Assert.Equal(vocab.Id, copiedLinks[0].VocabularyItemId);
+    }
+
+    [Fact]
+    public void ExportExercises_ReturnsExercisesOrdered()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var topic = new Topic { CourseId = 1, Title = "Topic", Order = 1 };
+        dbContext.Topics.Add(topic);
+        dbContext.SaveChanges();
+
+        var lesson = new Lesson { TopicId = topic.Id, Title = "L1", Theory = "T1", Order = 1 };
+        dbContext.Lessons.Add(lesson);
+        dbContext.SaveChanges();
+
+        dbContext.Exercises.AddRange(
+            new Exercise { LessonId = lesson.Id, Type = Lumino.Api.Domain.Enums.ExerciseType.Input, Question = "Q2", Data = "{}", CorrectAnswer = "a", Order = 2 },
+            new Exercise { LessonId = lesson.Id, Type = Lumino.Api.Domain.Enums.ExerciseType.Input, Question = "Q1", Data = "{}", CorrectAnswer = "a", Order = 1 }
+        );
+        dbContext.SaveChanges();
+
+        var service = new AdminLessonService(dbContext);
+
+        var exported = service.ExportExercises(lesson.Id);
+
+        Assert.Equal(2, exported.Count);
+        Assert.Equal(1, exported[0].Order);
+        Assert.Equal("Q1", exported[0].Question);
+        Assert.Equal(2, exported[1].Order);
+        Assert.Equal("Q2", exported[1].Question);
+    }
+
+    [Fact]
+    public void ImportExercises_WithReplaceExisting_ReplacesExercises()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var topic = new Topic { CourseId = 1, Title = "Topic", Order = 1 };
+        dbContext.Topics.Add(topic);
+        dbContext.SaveChanges();
+
+        var lesson = new Lesson { TopicId = topic.Id, Title = "L1", Theory = "T1", Order = 1 };
+        dbContext.Lessons.Add(lesson);
+        dbContext.SaveChanges();
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            LessonId = lesson.Id,
+            Type = Lumino.Api.Domain.Enums.ExerciseType.Input,
+            Question = "Old",
+            Data = "{}",
+            CorrectAnswer = "old",
+            Order = 1
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new AdminLessonService(dbContext);
+
+        var result = service.ImportExercises(lesson.Id, new ImportExercisesRequest
+        {
+            ReplaceExisting = true,
+            Exercises = new()
+            {
+                new ExportExerciseJson
+                {
+                    Type = "Input",
+                    Question = "New1",
+                    Data = "{}",
+                    CorrectAnswer = "a",
+                    Order = 1
+                },
+                new ExportExerciseJson
+                {
+                    Type = "MultipleChoice",
+                    Question = "New2",
+                    Data = "[\"a\",\"b\"]",
+                    CorrectAnswer = "a",
+                    Order = 2
+                }
+            }
+        });
+
+        Assert.Equal(2, result.ExercisesCount);
+
+        var saved = dbContext.Exercises.Where(x => x.LessonId == lesson.Id).OrderBy(x => x.Order).ToList();
+        Assert.Equal(2, saved.Count);
+        Assert.Equal("New1", saved[0].Question);
+        Assert.Equal("New2", saved[1].Question);
+    }
+
 }

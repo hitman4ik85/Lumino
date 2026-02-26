@@ -1,3 +1,4 @@
+using System;
 ﻿using Lumino.Api.Application.Services;
 using Microsoft.AspNetCore.Http;
 using Xunit;
@@ -140,4 +141,92 @@ public class MediaServiceTests
             }
         }
     }
+
+
+    [Fact]
+    public void List_WhenUploadsFolderMissing_ShouldReturnEmpty()
+    {
+        var service = new MediaService();
+
+        var originalDir = Directory.GetCurrentDirectory();
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), "LuminoMediaTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            Directory.SetCurrentDirectory(tempRoot);
+
+            var list = service.List("http://localhost");
+
+            Assert.NotNull(list);
+            Assert.Empty(list);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalDir);
+
+            try
+            {
+                if (Directory.Exists(tempRoot))
+                {
+                    Directory.Delete(tempRoot, recursive: true);
+                }
+            }
+            catch
+            {
+                // cleanup intentionally ignored
+            }
+        }
+    }
+
+
+    [Fact]
+    public void List_WithQueryAndPaging_ShouldFilterAndPage()
+    {
+        var service = new MediaService();
+
+        var originalDir = Directory.GetCurrentDirectory();
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), "LuminoMediaTests", Guid.NewGuid().ToString("N"));
+        var uploadsPath = Path.Combine(tempRoot, "wwwroot", "uploads");
+        Directory.CreateDirectory(uploadsPath);
+
+        try
+        {
+            Directory.SetCurrentDirectory(tempRoot);
+
+            File.WriteAllBytes(Path.Combine(uploadsPath, "a_cat.png"), new byte[] { 1 });
+            File.WriteAllBytes(Path.Combine(uploadsPath, "b_dog.png"), new byte[] { 2 });
+            File.WriteAllBytes(Path.Combine(uploadsPath, "c_cat.webp"), new byte[] { 3 });
+            File.WriteAllBytes(Path.Combine(uploadsPath, "d_bird.jpg"), new byte[] { 4 });
+
+            var all = service.List("http://localhost", query: null, skip: 0, take: 100);
+            Assert.Equal(4, all.Count);
+
+            var cats = service.List("http://localhost", query: "cat", skip: 0, take: 100);
+            Assert.Equal(2, cats.Count);
+            Assert.All(cats, x => Assert.Contains("cat", x.FileName, StringComparison.OrdinalIgnoreCase));
+
+            var page = service.List("http://localhost", query: null, skip: 1, take: 2);
+            Assert.Equal(2, page.Count);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalDir);
+
+            try
+            {
+                if (Directory.Exists(tempRoot))
+                {
+                    Directory.Delete(tempRoot, recursive: true);
+                }
+            }
+            catch
+            {
+                // cleanup intentionally ignored
+            }
+        }
+    }
+
 }

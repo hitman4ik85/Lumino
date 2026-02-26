@@ -30,6 +30,45 @@ namespace Lumino.Api.Application.Services
                 .ToList();
         }
 
+        public AdminTopicDetailsResponse GetById(int id)
+        {
+            var topic = _dbContext.Topics.FirstOrDefault(x => x.Id == id);
+
+            if (topic == null)
+            {
+                throw new KeyNotFoundException("Topic not found");
+            }
+
+            var lessons = _dbContext.Lessons
+                .Where(x => x.TopicId == id)
+                .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
+                .ThenBy(x => x.Id)
+                .Select(x => new AdminLessonResponse
+                {
+                    Id = x.Id,
+                    TopicId = x.TopicId,
+                    Title = x.Title,
+                    Theory = x.Theory,
+                    Order = x.Order
+                })
+                .ToList();
+
+            var lessonIds = lessons.Select(x => x.Id).ToList();
+
+            var exercisesCount = _dbContext.Exercises.Count(x => lessonIds.Contains(x.LessonId));
+
+            return new AdminTopicDetailsResponse
+            {
+                Id = topic.Id,
+                CourseId = topic.CourseId,
+                Title = topic.Title,
+                Order = topic.Order,
+                LessonsCount = lessons.Count,
+                ExercisesCount = exercisesCount,
+                Lessons = lessons
+            };
+        }
+
         public AdminTopicResponse Create(CreateTopicRequest request)
         {
             if (request == null)

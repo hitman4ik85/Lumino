@@ -187,6 +187,29 @@ public class AdminExerciseServiceTests
         });
     }
 
+
+    [Fact]
+    public void Create_Input_CorrectAnswerAsJsonArray_ShouldCreate()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        SeedLesson(dbContext);
+
+        var service = new AdminExerciseService(dbContext);
+
+        var result = service.Create(new CreateExerciseRequest
+        {
+            LessonId = 1,
+            Type = "Input",
+            Question = "Q1",
+            Data = "{}",
+            CorrectAnswer = "[\"A\",\"B\"]",
+            Order = 1
+        });
+
+        Assert.True(result.Id > 0);
+        Assert.Equal("Input", result.Type);
+    }
+
 private static void SeedLesson(Lumino.Api.Data.LuminoDbContext dbContext)
     {
         dbContext.Courses.Add(new Course

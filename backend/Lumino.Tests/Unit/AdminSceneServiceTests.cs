@@ -716,4 +716,95 @@ public class AdminSceneServiceTests
 
         dbContext.SaveChanges();
     }
+
+    [Fact]
+    public void Export_ReturnsSceneWithSteps()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var service = new AdminSceneService(dbContext);
+
+        var created = service.Create(new CreateSceneRequest
+        {
+            Title = "Scene",
+            Description = "Desc",
+            SceneType = "intro",
+            BackgroundUrl = "bg",
+            AudioUrl = "aud",
+            Steps = new()
+            {
+                new CreateSceneStepRequest { Order = 1, Speaker = "A", Text = "T1", StepType = "Text" },
+                new CreateSceneStepRequest { Order = 2, Speaker = "B", Text = "T2", StepType = "Text", MediaUrl = "m", ChoicesJson = "[\"X\",\"Y\"]" }
+            }
+        });
+
+        var exported = service.Export(created.Id);
+
+        Assert.Equal("Scene", exported.Title);
+        Assert.Equal(2, exported.Steps.Count);
+        Assert.Equal(1, exported.Steps[0].Order);
+        Assert.Equal("A", exported.Steps[0].Speaker);
+        Assert.Equal(2, exported.Steps[1].Order);
+        Assert.Equal("B", exported.Steps[1].Speaker);
+    }
+
+    [Fact]
+    public void Import_CreatesSceneAndSteps()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var service = new AdminSceneService(dbContext);
+
+        var imported = service.Import(new ExportSceneJson
+        {
+            Title = "Imported",
+            Description = "Desc",
+            SceneType = "intro",
+            BackgroundUrl = "bg",
+            AudioUrl = "aud",
+            CourseId = null,
+            Order = 1,
+            Steps = new()
+            {
+                new ExportSceneStepJson { Order = 1, Speaker = "A", Text = "T1", StepType = "Text" },
+                new ExportSceneStepJson { Order = 2, Speaker = "B", Text = "T2", StepType = "Text" }
+            }
+        });
+
+        Assert.True(imported.Id > 0);
+        Assert.Equal("Imported", imported.Title);
+        Assert.Equal(2, imported.Steps.Count);
+
+        var savedSteps = dbContext.SceneSteps.Where(x => x.SceneId == imported.Id).OrderBy(x => x.Order).ToList();
+        Assert.Equal(2, savedSteps.Count);
+        Assert.Equal("A", savedSteps[0].Speaker);
+        Assert.Equal("B", savedSteps[1].Speaker);
+    }
+
+    [Fact]
+    public void Copy_CopiesSteps()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var service = new AdminSceneService(dbContext);
+
+        var created = service.Create(new CreateSceneRequest
+        {
+            Title = "Source",
+            Description = "Desc",
+            SceneType = "intro",
+            Steps = new()
+            {
+                new CreateSceneStepRequest { Order = 1, Speaker = "A", Text = "T1", StepType = "Text" },
+                new CreateSceneStepRequest { Order = 2, Speaker = "B", Text = "T2", StepType = "Text" }
+            }
+        });
+
+        var copied = service.Copy(created.Id, new CopyItemRequest { TitleSuffix = " (Copy)" });
+
+        Assert.NotEqual(created.Id, copied.Id);
+        Assert.Equal("Source (Copy)", copied.Title);
+        Assert.Equal(2, copied.Steps.Count);
+
+        var copiedSteps = dbContext.SceneSteps.Where(x => x.SceneId == copied.Id).ToList();
+        Assert.Equal(2, copiedSteps.Count);
+    }
+
 }

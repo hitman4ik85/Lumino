@@ -17,10 +17,34 @@ namespace Lumino.Api.Controllers
             _adminLessonService = adminLessonService;
         }
 
-        [HttpGet("{topicId}")]
+        [HttpGet("topic/{topicId}")]
         public IActionResult GetByTopic(int topicId)
         {
             return Ok(_adminLessonService.GetByTopic(topicId));
+        }
+
+        [HttpGet("{id}")]
+        public IActionResult GetById(int id)
+        {
+            return Ok(_adminLessonService.GetById(id));
+        }
+
+        [HttpPost("{id}/copy")]
+        public IActionResult Copy(int id, CopyItemRequest? request)
+        {
+            return Ok(_adminLessonService.Copy(id, request));
+        }
+
+        [HttpGet("{lessonId}/exercises/export")]
+        public IActionResult ExportExercises(int lessonId)
+        {
+            return Ok(_adminLessonService.ExportExercises(lessonId));
+        }
+
+        [HttpPost("{lessonId}/exercises/import")]
+        public IActionResult ImportExercises(int lessonId, ImportExercisesRequest request)
+        {
+            return Ok(_adminLessonService.ImportExercises(lessonId, request));
         }
 
         [HttpPost]

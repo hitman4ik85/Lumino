@@ -1101,10 +1101,59 @@ namespace Lumino.Api.Application.Services
                 return IsMatchCorrect(exercise.Data, userAnswerText);
             }
 
-            var correctAnswer = (exercise.CorrectAnswer ?? string.Empty);
+            var correctAnswerRaw = (exercise.CorrectAnswer ?? string.Empty);
+
+            if (exercise.Type == ExerciseType.Input)
+            {
+                var answers = ParseCorrectAnswers(correctAnswerRaw);
+
+                if (answers.Count == 0)
+                {
+                    return false;
+                }
+
+                if (string.IsNullOrWhiteSpace(userAnswerText))
+                {
+                    return false;
+                }
+
+                var normalizedUser = Normalize(userAnswerText);
+
+                return answers.Any(x => Normalize(x) == normalizedUser);
+            }
 
             return !string.IsNullOrWhiteSpace(userAnswerText) &&
-                Normalize(userAnswerText) == Normalize(correctAnswer);
+                Normalize(userAnswerText) == Normalize(correctAnswerRaw);
+        }
+
+        private static List<string> ParseCorrectAnswers(string correctAnswer)
+        {
+            if (correctAnswer == null)
+            {
+                return new List<string>();
+            }
+
+            var trimmed = correctAnswer.Trim();
+
+            if (trimmed.Length == 0)
+            {
+                return new List<string>();
+            }
+
+            if (trimmed.StartsWith("[") && trimmed.EndsWith("]"))
+            {
+                try
+                {
+                    var list = JsonSerializer.Deserialize<List<string>>(trimmed);
+                    return list ?? new List<string>();
+                }
+                catch
+                {
+                    return new List<string>();
+                }
+            }
+
+            return new List<string> { correctAnswer };
         }
 
         private bool IsMatchCorrect(string dataJson, string userJson)

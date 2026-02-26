@@ -23,6 +23,12 @@ namespace Lumino.Api.Controllers
             return Ok(_adminCourseService.GetAll());
         }
 
+        [HttpGet("{id}")]
+        public IActionResult GetById(int id)
+        {
+            return Ok(_adminCourseService.GetById(id));
+        }
+
         [HttpPost]
         public IActionResult Create(CreateCourseRequest request)
         {

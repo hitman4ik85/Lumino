@@ -27,5 +27,13 @@ namespace Lumino.Api.Controllers
 
             return Ok(result);
         }
+
+        [HttpGet("list")]
+        public IActionResult List([FromQuery] string? query, [FromQuery] int skip = 0, [FromQuery] int take = 100)
+        {
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";
+
+            return Ok(_mediaService.List(baseUrl, query, skip, take));
+        }
     }
 }

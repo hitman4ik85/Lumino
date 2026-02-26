@@ -171,6 +171,7 @@ namespace Lumino.Api
             builder.Services.AddScoped<IAchievementQueryService, AchievementQueryService>();
             builder.Services.AddScoped<ILessonResultQueryService, LessonResultQueryService>();
             builder.Services.AddScoped<IVocabularyService, VocabularyService>();
+            builder.Services.AddScoped<IAdminVocabularyService, AdminVocabularyService>();
             builder.Services.AddScoped<ISceneService, SceneService>();
             builder.Services.AddScoped<IAdminSceneService, AdminSceneService>();
             builder.Services.AddScoped<IMediaService, MediaService>();
