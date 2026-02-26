@@ -27,8 +27,8 @@ public class AchievementQueryServiceTests
         var dbContext = TestDbContextFactory.Create();
 
         dbContext.Achievements.AddRange(
-            new Achievement { Id = 1, Title = "A1", Description = "D1" },
-            new Achievement { Id = 2, Title = "A2", Description = "D2" }
+            new Achievement { Id = 1, Code = "test.a1", Title = "A1", Description = "D1" },
+            new Achievement { Id = 2, Code = "test.a2", Title = "A2", Description = "D2" }
         );
 
         var earned1 = new DateTime(2026, 2, 10, 10, 0, 0, DateTimeKind.Utc);

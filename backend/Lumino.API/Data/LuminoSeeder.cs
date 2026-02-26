@@ -84,58 +84,92 @@ namespace Lumino.Api.Data
             {
                 new Achievement
                 {
+                    Code = "sys.first_lesson",
                     Title = "First Lesson",
                     Description = "Complete your first lesson"
                 },
                 new Achievement
                 {
+                    Code = "sys.five_lessons",
                     Title = "5 Lessons Completed",
                     Description = "Complete 5 lessons"
                 },
                 new Achievement
                 {
+                    Code = "sys.perfect_lesson",
                     Title = "Perfect Lesson",
                     Description = "Complete a lesson without mistakes"
                 },
                 new Achievement
                 {
+                    Code = "sys.hundred_xp",
                     Title = "100 XP",
                     Description = "Earn 100 total score"
                 },
                 new Achievement
                 {
+                    Code = "sys.first_scene",
                     Title = "First Scene",
                     Description = "Complete your first scene"
                 },
                 new Achievement
                 {
+                    Code = "sys.five_scenes",
                     Title = "5 Scenes Completed",
                     Description = "Complete 5 scenes"
                 },
                 new Achievement
                 {
+                    Code = "sys.streak_starter",
                     Title = "Streak Starter",
                     Description = "Study 3 days in a row"
+                },
+                new Achievement
+                {
+                    Code = "sys.streak_7",
+                    Title = "Streak 7",
+                    Description = "Study 7 days in a row"
+                },
+                new Achievement
+                {
+                    Code = "sys.streak_30",
+                    Title = "Streak 30",
+                    Description = "Study 30 days in a row"
+                },
+                new Achievement
+                {
+                    Code = "sys.daily_goal",
+                    Title = "Daily Goal",
+                    Description = "Reach your daily goal"
                 }
             };
 
             var fromDbList = dbContext.Achievements.ToList();
             var fromDbMap = fromDbList
+                .Where(x => !string.IsNullOrWhiteSpace(x.Code))
+                .GroupBy(x => x.Code)
+                .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+
+            var fromDbTitleMap = fromDbList
                 .GroupBy(x => x.Title)
                 .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
 
             foreach (var item in achievements)
             {
-                if (!fromDbMap.TryGetValue(item.Title, out var fromDb))
+                if (fromDbMap.TryGetValue(item.Code, out var fromDb))
                 {
-                    dbContext.Achievements.Add(item);
+                    // Do not overwrite Title/Description here to keep admin edits.
                     continue;
                 }
 
-                if (fromDb.Description != item.Description)
+                // Backward-compatibility: old DB rows could exist without Code.
+                if (fromDbTitleMap.TryGetValue(item.Title, out var byTitle) && string.IsNullOrWhiteSpace(byTitle.Code))
                 {
-                    fromDb.Description = item.Description;
+                    byTitle.Code = item.Code;
+                    continue;
                 }
+
+                dbContext.Achievements.Add(item);
             }
 
             dbContext.SaveChanges();

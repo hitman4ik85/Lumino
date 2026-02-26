@@ -12,6 +12,17 @@ namespace Lumino.Api.Application.Services
 {
     public class AchievementService : IAchievementService
     {
+        private const string FirstLessonCode = "sys.first_lesson";
+        private const string FiveLessonsCode = "sys.five_lessons";
+        private const string PerfectLessonCode = "sys.perfect_lesson";
+        private const string HundredXpCode = "sys.hundred_xp";
+        private const string FirstSceneCode = "sys.first_scene";
+        private const string FiveScenesCode = "sys.five_scenes";
+        private const string StreakStarterCode = "sys.streak_starter";
+        private const string Streak7Code = "sys.streak_7";
+        private const string Streak30Code = "sys.streak_30";
+        private const string DailyGoalCode = "sys.daily_goal";
+
         private readonly LuminoDbContext _dbContext;
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly LearningSettings _learningSettings;
@@ -88,6 +99,7 @@ namespace Lumino.Api.Application.Services
             if (passedDistinctLessons < 1) return;
 
             var achievement = GetOrCreateAchievement(
+                FirstLessonCode,
                 "First Lesson",
                 "Complete your first lesson"
             );
@@ -112,6 +124,7 @@ namespace Lumino.Api.Application.Services
             if (passedDistinctLessons < 5) return;
 
             var achievement = GetOrCreateAchievement(
+                FiveLessonsCode,
                 "5 Lessons Completed",
                 "Complete 5 lessons"
             );
@@ -124,6 +137,7 @@ namespace Lumino.Api.Application.Services
             if (total <= 0 || score != total) return;
 
             var achievement = GetOrCreateAchievement(
+                PerfectLessonCode,
                 "Perfect Lesson",
                 "Complete a lesson without mistakes"
             );
@@ -153,6 +167,7 @@ namespace Lumino.Api.Application.Services
             if (totalScore < 100) return;
 
             var achievement = GetOrCreateAchievement(
+                HundredXpCode,
                 "100 XP",
                 "Earn 100 total score"
             );
@@ -171,6 +186,7 @@ namespace Lumino.Api.Application.Services
             if (completedDistinctScenes < 1) return;
 
             var achievement = GetOrCreateAchievement(
+                FirstSceneCode,
                 "First Scene",
                 "Complete your first scene"
             );
@@ -189,6 +205,7 @@ namespace Lumino.Api.Application.Services
             if (completedDistinctScenes < 5) return;
 
             var achievement = GetOrCreateAchievement(
+                FiveScenesCode,
                 "5 Scenes Completed",
                 "Complete 5 scenes"
             );
@@ -235,6 +252,7 @@ namespace Lumino.Api.Application.Services
             if (todayScore < targetScore) return;
 
             var achievement = GetOrCreateAchievement(
+                DailyGoalCode,
                 "Daily Goal",
                 "Reach your daily goal"
             );
@@ -249,6 +267,7 @@ namespace Lumino.Api.Application.Services
             if (maxStreak < 3) return;
 
             var achievement = GetOrCreateAchievement(
+                StreakStarterCode,
                 "Streak Starter",
                 "Study 3 days in a row"
             );
@@ -263,6 +282,7 @@ namespace Lumino.Api.Application.Services
             if (maxStreak < 7) return;
 
             var achievement = GetOrCreateAchievement(
+                Streak7Code,
                 "Streak 7",
                 "Study 7 days in a row"
             );
@@ -277,6 +297,7 @@ namespace Lumino.Api.Application.Services
             if (maxStreak < 30) return;
 
             var achievement = GetOrCreateAchievement(
+                Streak30Code,
                 "Streak 30",
                 "Study 30 days in a row"
             );
@@ -336,23 +357,23 @@ namespace Lumino.Api.Application.Services
             return max;
         }
 
-        private Achievement GetOrCreateAchievement(string title, string description)
+        private Achievement GetOrCreateAchievement(string code, string title, string description)
         {
-            var achievement = _dbContext.Achievements.FirstOrDefault(x => x.Title == title);
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                throw new ArgumentException("Achievement code is required");
+            }
+
+            var achievement = _dbContext.Achievements.FirstOrDefault(x => x.Code == code);
 
             if (achievement != null)
             {
-                if (achievement.Description != description)
-                {
-                    achievement.Description = description;
-                    _dbContext.SaveChanges();
-                }
-
                 return achievement;
             }
 
             achievement = new Achievement
             {
+                Code = code,
                 Title = title,
                 Description = description
             };

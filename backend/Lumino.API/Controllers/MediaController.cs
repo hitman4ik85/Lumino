@@ -29,8 +29,12 @@ namespace Lumino.Api.Controllers
         }
 
         [HttpGet("list")]
-        public IActionResult List([FromQuery] string? query, [FromQuery] int skip = 0, [FromQuery] int take = 100)
+        public IActionResult List([FromQuery] string? query = null, [FromQuery] int skip = 0, [FromQuery] int take = 100)
         {
+            if (skip < 0) skip = 0;
+            if (take <= 0) take = 100;
+            if (take > 500) take = 500;
+
             var baseUrl = $"{Request.Scheme}://{Request.Host}";
 
             return Ok(_mediaService.List(baseUrl, query, skip, take));
