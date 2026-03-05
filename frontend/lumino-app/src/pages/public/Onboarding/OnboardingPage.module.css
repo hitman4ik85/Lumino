@@ -55,12 +55,11 @@
   color: #000000;
   margin: 0;
   text-align: center;
-  pointer-events: none;
-  user-select: none;
 }
 
 .bubbleText strong{
   font-weight: 800;
+  margin-left: 6px;
 }
 
 .mascot{
