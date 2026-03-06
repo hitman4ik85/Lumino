@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import styles from "./OnboardingPage.module.css";
 
-import BgLeft from "../../../assets/backgrounds/bg-left@2x.png";
-import BgRight from "../../../assets/backgrounds/bg-right@2x.png";
+import BgLeft from "../../../assets/backgrounds/bg-left.png";
+import BgRight from "../../../assets/backgrounds/bg-right.png";
 
 import Bubble from "../../../assets/onboarding/bubble.svg";
 import Mascot from "../../../assets/mascot/mascot1.svg";

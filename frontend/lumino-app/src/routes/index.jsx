@@ -10,6 +10,8 @@ import ForgotPasswordPage from "../pages/public/ForgotPassword/ForgotPasswordPag
 import VerifyEmailPage from "../pages/public/VerifyEmail/VerifyEmailPage.jsx";
 import OnboardingPage from "../pages/public/Onboarding/OnboardingPage.jsx";
 import OnboardingLevelPage from "../pages/public/OnboardingLevel/OnboardingLevelPage.jsx";
+import OnboardingLevelQuestionPage from "../pages/public/OnboardingLevelQuestion/OnboardingLevelQuestionPage.jsx";
+import OnboardingLevelQuestionFlyPage from "../pages/public/OnboardingLevelQuestionFly/OnboardingLevelQuestionFlyPage.jsx";
 import HomePage from "../pages/user/Home/HomePage.jsx";
 
 export default function AppRoutes() {
@@ -25,6 +27,8 @@ export default function AppRoutes() {
       <Route path={PATHS.verifyEmail} element={<VerifyEmailPage />} />
       <Route path={PATHS.onboarding} element={<OnboardingPage />} />
       <Route path={PATHS.onboardingLevel} element={<OnboardingLevelPage />} />
+      <Route path={PATHS.onboardingLevelQuestion} element={<OnboardingLevelQuestionPage />} />
+      <Route path={PATHS.onboardingLevelQuestionFly} element={<OnboardingLevelQuestionFlyPage />} />
 
       <Route element={<UserLayout />}>
         <Route path={PATHS.home} element={isAuthed ? <HomePage /> : <Navigate to={PATHS.login} replace />} />

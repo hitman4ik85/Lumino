@@ -4,8 +4,8 @@ import { PATHS } from "../../../routes/paths.js";
 import { onboardingService } from "../../../services/onboardingService.js";
 import styles from "./StartPage.module.css";
 
-import BgLeft from "../../../assets/backgrounds/bg-left@2x.png";
-import BgRight from "../../../assets/backgrounds/bg-right@2x.png";
+import BgLeft from "../../../assets/backgrounds/bg-left.png";
+import BgRight from "../../../assets/backgrounds/bg-right.png";
 
 import Mascot from "../../../assets/mascot/mascot.svg";
 import ArrowLeft from "../../../assets/icons/arrow-left.svg";
