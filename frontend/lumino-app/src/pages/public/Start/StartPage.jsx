@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { onboardingService } from "../../../services/onboardingService.js";
 import styles from "./StartPage.module.css";
-
-import BgLeft from "../../../assets/backgrounds/bg-left.png";
-import BgRight from "../../../assets/backgrounds/bg-right.png";
+import { useStageScale } from "../../../hooks/useStageScale.js";
+import BgLeft from "../../../assets/backgrounds/bg-left.webp";
+import BgRight from "../../../assets/backgrounds/bg-right.webp";
 
 import Mascot from "../../../assets/mascot/mascot.svg";
 import ArrowLeft from "../../../assets/icons/arrow-left.svg";
@@ -39,6 +39,8 @@ export default function Start() {
   const navigate = useNavigate();
   const stageRef = useRef(null);
 
+  useStageScale(stageRef, { mode: "absolute" });
+
   const itemsRef = useRef(null);
   const itemRefs = useRef([]);
   const activeIndexRef = useRef(0);
@@ -53,29 +55,6 @@ export default function Start() {
     activeIndexRef.current = activeIndex;
   }, [activeIndex]);
 
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-
-    const resize = () => {
-      const w = 1920;
-      const h = 1080;
-
-      const sx = window.innerWidth / w;
-      const sy = window.innerHeight / h;
-      const s = Math.min(sx, sy);
-
-      stage.style.transform = `scale(${s})`;
-      stage.style.left = `${(window.innerWidth - w * s) / 2}px`;
-      stage.style.top = `${(window.innerHeight - h * s) / 2}px`;
-      stage.style.position = "absolute";
-    };
-
-    resize();
-    window.addEventListener("resize", resize);
-
-    return () => window.removeEventListener("resize", resize);
-  }, []);
 
   const scrollToIndex = useCallback((idx, behavior = "smooth") => {
     const el = itemsRef.current;
@@ -91,24 +70,47 @@ export default function Start() {
     el.scrollTo({ left, behavior });
   }, []);
 
+  const getClosestIndex = useCallback(() => {
+    const el = itemsRef.current;
+    if (!el) return 0;
+
+    const centerX = el.scrollLeft + el.clientWidth / 2;
+    let bestIdx = 0;
+    let bestDist = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < LANGS.length; i++) {
+      const item = itemRefs.current[i];
+      if (!item) continue;
+
+      const itemCenter = item.offsetLeft + item.offsetWidth / 2;
+      const d = Math.abs(itemCenter - centerX);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+
+    return bestIdx;
+  }, []);
+
   const onPrev = useCallback(() => {
-    const cur = activeIndexRef.current;
+    const cur = getClosestIndex();
     const el = itemsRef.current;
     const atStart = !el || el.scrollLeft <= 2;
     const next = atStart || cur === 0 ? LANGS.length - 1 : cur - 1;
     setActiveIndex(next);
     scrollToIndex(next, "smooth");
-  }, [scrollToIndex]);
+  }, [getClosestIndex, scrollToIndex]);
 
   const onNext = useCallback(() => {
-    const cur = activeIndexRef.current;
+    const cur = getClosestIndex();
     const el = itemsRef.current;
     const max = el ? Math.max(0, el.scrollWidth - el.clientWidth) : 0;
     const atEnd = !el || el.scrollLeft >= max - 2;
     const next = atEnd || cur === LANGS.length - 1 ? 0 : cur + 1;
     setActiveIndex(next);
     scrollToIndex(next, "smooth");
-  }, [scrollToIndex]);
+  }, [getClosestIndex, scrollToIndex]);
 
   const closeModal = useCallback(() => {
     setModal({ open: false, title: "", message: "" });
@@ -160,7 +162,9 @@ export default function Start() {
 
   useEffect(() => {
     scrollToIndex(0, "auto");
-  }, [scrollToIndex]);
+    const idx = getClosestIndex();
+    setActiveIndex(idx);
+  }, [getClosestIndex, scrollToIndex]);
 
   const onScroll = useCallback(() => {
     const el = itemsRef.current;
@@ -168,25 +172,10 @@ export default function Start() {
 
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
-      const centerX = el.scrollLeft + el.clientWidth / 2;
-      let bestIdx = 0;
-      let bestDist = Number.POSITIVE_INFINITY;
-
-      for (let i = 0; i < LANGS.length; i++) {
-        const item = itemRefs.current[i];
-        if (!item) continue;
-
-        const itemCenter = item.offsetLeft + item.offsetWidth / 2;
-        const d = Math.abs(itemCenter - centerX);
-        if (d < bestDist) {
-          bestDist = d;
-          bestIdx = i;
-        }
-      }
-
+      const bestIdx = getClosestIndex();
       setActiveIndex(bestIdx);
     });
-  }, []);
+  }, [getClosestIndex]);
 
   return (
     <div className={styles.viewport}>

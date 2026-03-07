@@ -1,0 +1,15 @@
+:root{ --w:1920; --h:1080; }
+
+.viewport{
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.stage{
+  width: calc(var(--w) * 1px);
+  height: calc(var(--h) * 1px);
+  position: relative;
+  transform-origin: 0 0;
+}

@@ -18,15 +18,20 @@
 .bgRight{
   position: absolute;
   top: 0;
-  width: 50%;
-  height: 100%;
-  object-fit: cover;
+  height: calc(var(--h) * 1px);
   pointer-events: none;
   user-select: none;
 }
 
-.bgLeft{ left: 0; }
-.bgRight{ right: 0; }
+.bgLeft{
+  left: 0;
+  width: 780px;
+}
+
+.bgRight{
+  right: 0;
+  width: 1120px;
+}
 
 .logo{
   position: absolute;
@@ -152,17 +157,16 @@
 .carousel{
   position: absolute;
   left: 264px;
-  right: 263px;
+  width: 1393px;
   top: 935px;
   height: 45px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 
 .arrowBtn{
-  width: 22px;
-  height: 22px;
+  position: absolute;
+  top: 11.29px;
+  width: 28px;
+  height: 25px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -172,19 +176,27 @@
   padding: 0;
 }
 
-.arrowBtn img{
-  width: 100%;
-  height: 100%;
+.arrowLeft{
+  left: -2px;
 }
 
+.arrowRight{
+  right: -1px;
+}
+
+.arrowBtn img{
+  width: 22px;
+  height: 22px;
+}
 
 .itemsViewport{
+  position: absolute;
+  left: 76px;
+  top: 0;
   width: 1241px;
   height: 45px;
   overflow: hidden;
-  margin: 0 50px;
 }
-
 
 .items{
   display: flex;

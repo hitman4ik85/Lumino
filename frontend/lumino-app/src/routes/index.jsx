@@ -17,6 +17,7 @@ import OnboardingResultsPage from "../pages/public/Onboarding/OnboardingResults/
 import OnboardingDailyGoalPage from "../pages/public/Onboarding/OnboardingDailyGoal/OnboardingDailyGoalPage.jsx";
 import OnboardingTrialPage from "../pages/public/Onboarding/OnboardingTrial/OnboardingTrialPage.jsx";
 import OnboardingRunLessonPage from "../pages/public/Onboarding/OnboardingRunLesson/OnboardingRunLessonPage.jsx";
+import OnboardingDemoLessonStubPage from "../pages/public/Onboarding/OnboardingDemoLessonStub/OnboardingDemoLessonStubPage.jsx";
 import OnboardingPreCreateProfPage from "../pages/public/Onboarding/OnboardingPreCreateProf/OnboardingPreCreateProfPage.jsx";
 import HomePage from "../pages/user/Home/HomePage.jsx";
 
@@ -40,6 +41,7 @@ export default function AppRoutes() {
       <Route path={PATHS.onboardingDailyGoal} element={<OnboardingDailyGoalPage />} />
       <Route path={PATHS.onboardingTrial} element={<OnboardingTrialPage />} />
       <Route path={PATHS.onboardingRunLesson} element={<OnboardingRunLessonPage />} />
+      <Route path={PATHS.onboardingDemoLessonStub} element={<OnboardingDemoLessonStubPage />} />
       <Route path={PATHS.onboardingPreCreateProf} element={<OnboardingPreCreateProfPage />} />
 
       <Route element={<UserLayout />}>

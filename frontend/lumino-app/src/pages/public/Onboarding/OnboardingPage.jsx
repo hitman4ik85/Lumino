@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import styles from "./OnboardingPage.module.css";
-
-import BgLeft from "../../../assets/backgrounds/bg-left.png";
-import BgRight from "../../../assets/backgrounds/bg-right.png";
+import { useStageScale } from "../../../hooks/useStageScale.js";
+import BgLeft from "../../../assets/backgrounds/bg-left.webp";
+import BgRight from "../../../assets/backgrounds/bg-right.webp";
 
 import Bubble from "../../../assets/onboarding/bubble.svg";
 import Mascot from "../../../assets/mascot/mascot1.svg";
@@ -13,29 +13,8 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const stageRef = useRef(null);
 
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
+  useStageScale(stageRef);
 
-    const resize = () => {
-      const w = 1920;
-      const h = 1080;
-
-      const sx = window.innerWidth / w;
-      const sy = window.innerHeight / h;
-      const s = Math.min(sx, sy);
-
-      stage.style.transform = `
-        translate(${Math.round((window.innerWidth - w * s) / 2)}px, ${Math.round((window.innerHeight - h * s) / 2)}px)
-        scale(${s})
-      `;
-    };
-
-    resize();
-    window.addEventListener("resize", resize);
-
-    return () => window.removeEventListener("resize", resize);
-  }, []);
 
   const handleContinue = () => {
     navigate(PATHS.onboardingLevel);

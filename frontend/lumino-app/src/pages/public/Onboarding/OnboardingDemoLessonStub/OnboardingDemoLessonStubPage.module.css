@@ -8,8 +8,23 @@
   composes: stage from "../shared/OnboardingSharedLayout.module.css";
 }
 
-.bg{
-  composes: bg from "../shared/OnboardingStepCommon.module.css";
+.bgLeft,
+.bgRight{
+  position: absolute;
+  top: 0;
+  width: auto;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.bgLeft{ left: 0; }
+.bgRight{ right: 0; }
+
+.bottomShade{
+  composes: bottomShade from "../shared/OnboardingStepCommon.module.css";
 }
 
 .backBtn{
@@ -20,23 +35,12 @@
   composes: backIcon from "../shared/OnboardingStepCommon.module.css";
 }
 
-.progressTrack{
-  composes: progressTrack from "../shared/OnboardingStepCommon.module.css";
-}
-
-.progressFill{
-  width: 1108px;
-  height: 28px;
-  border-radius: 15px;
-  background: #83a6ce;
-}
-
 .mascot{
   position: absolute;
-  left: 248.8px;
-  top: 97.66px;
-  width: 223.17px;
-  height: 223.17px;
+  left: 248px;
+  top: 130px;
+  width: 223px;
+  height: 223px;
   pointer-events: none;
   user-select: none;
 }
@@ -44,8 +48,8 @@
 .bubble{
   position: absolute;
   left: 520px;
-  top: 196.29px;
-  width: 273.63px;
+  top: 196px;
+  width: 360px;
   height: 118px;
   pointer-events: none;
   user-select: none;
@@ -53,9 +57,9 @@
 
 .bubbleText{
   position: absolute;
-  left: 572px;
-  top: 226px;
-  width: 187px;
+  left: 565px;
+  top: 225px;
+  width: 270px;
   height: 58px;
   margin: 0;
   display: flex;
@@ -77,58 +81,50 @@
 
 .title{
   position: absolute;
-  left: 658px;
-  top: 435.29px;
-  width: 605px;
-  height: 49px;
+  left: 604px;
+  top: 430px;
+  width: 712px;
   margin: 0;
+  text-align: center;
   font-family: Montserrat, sans-serif;
   font-size: 40px;
   font-weight: 600;
   line-height: 49px;
-  letter-spacing: 0;
   color: #0b1b32;
-  white-space: nowrap;
 }
 
-.goalBtn{
+.description{
   position: absolute;
-  height: 70px;
-  padding: 0 24px;
-  border-radius: 15px;
-  border: 1px solid rgba(193,210,230,0.45);
-  background: #ffffff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+  left: 596px;
+  top: 520px;
+  width: 728px;
+  margin: 0;
+  text-align: center;
   font-family: Montserrat, sans-serif;
   font-size: 24px;
   font-weight: 500;
-  line-height: 29px;
-  letter-spacing: 0;
-  color: #0b1b32;
-  box-shadow: 0 4px 14px rgba(11,27,50,0.10);
+  line-height: 34px;
+  color: #32435d;
 }
 
-.goalBtn:hover,
-.goalBtnActive{
-  background: #83a6ce;
-  color: #ffffff;
-}
-
-.goalIcon{
-  width: 24px;
-  height: 24px;
-  display: block;
-  object-fit: contain;
+.note{
+  position: absolute;
+  left: 670px;
+  top: 646px;
+  width: 580px;
+  margin: 0;
+  text-align: center;
+  font-family: Montserrat, sans-serif;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 28px;
+  color: #607089;
 }
 
 .continueBtn{
   position: absolute;
   left: 745px;
-  top: 910.29px;
+  top: 910px;
   width: 430px;
   height: 70px;
   border-radius: 15px;
@@ -144,13 +140,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 120ms ease, color 120ms ease, opacity 120ms ease;
+  transition: background 120ms ease;
 }
 
 .continueBtn:hover{
   background: var(--color-primary);
-}
-
-.bottomShade{
-  composes: bottomShade from "../shared/OnboardingStepCommon.module.css";
 }

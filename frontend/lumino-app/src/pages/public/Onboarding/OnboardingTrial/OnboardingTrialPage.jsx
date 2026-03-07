@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../../routes/paths.js";
 import styles from "./OnboardingTrialPage.module.css";
-
-import BgLeft from "../../../../assets/backgrounds/bg1-left.png";
-import BgRight from "../../../../assets/backgrounds/bg1-right.png";
+import { useStageScale } from "../../../../hooks/useStageScale.js";
+import BgLeft from "../../../../assets/backgrounds/bg1-left.webp";
+import BgRight from "../../../../assets/backgrounds/bg1-right.webp";
 
 import ArrowPrev from "../../../../assets/icons/arrow-previous.svg";
 import Bubble from "../../../../assets/onboarding/bubble6.svg";
@@ -31,32 +31,11 @@ export default function OnboardingTrialPage() {
   const navigate = useNavigate();
   const stageRef = useRef(null);
 
+  useStageScale(stageRef);
+
   const [selected, setSelected] = useState("");
   const [hovered, setHovered] = useState("");
 
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-
-    const resize = () => {
-      const w = 1920;
-      const h = 1080;
-
-      const sx = window.innerWidth / w;
-      const sy = window.innerHeight / h;
-      const s = Math.min(sx, sy);
-
-      stage.style.transform = `
-        translate(${Math.round((window.innerWidth - w * s) / 2)}px, ${Math.round((window.innerHeight - h * s) / 2)}px)
-        scale(${s})
-      `;
-    };
-
-    resize();
-    window.addEventListener("resize", resize);
-
-    return () => window.removeEventListener("resize", resize);
-  }, []);
 
   useEffect(() => {
     if (!selected) {

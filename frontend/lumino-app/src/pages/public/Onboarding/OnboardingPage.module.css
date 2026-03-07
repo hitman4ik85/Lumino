@@ -1,26 +1,21 @@
 :root{ --w:1920; --h:1080; }
 
 .viewport{
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-  background: #ffffff;
+  composes: viewport from "./shared/OnboardingSharedLayout.module.css";
 }
 
 .stage{
-  width: calc(var(--w) * 1px);
-  height: calc(var(--h) * 1px);
-  position: relative;
-  transform-origin: 0 0;
+  composes: stage from "./shared/OnboardingSharedLayout.module.css";
 }
 
 .bgLeft,
 .bgRight{
   position: absolute;
   top: 0;
-  width: 50%;
+  width: auto;
   height: 100%;
-  object-fit: cover;
+  max-width: none;
+  object-fit: contain;
   pointer-events: none;
   user-select: none;
 }
@@ -48,9 +43,9 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-ui);
-  font-size: 20px;
-  font-weight: 600;
-  line-height: 1.2;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 22px;
   letter-spacing: 0;
   color: #000000;
   margin: 0;
@@ -58,7 +53,7 @@
 }
 
 .bubbleText strong{
-  font-weight: 800;
+  font-weight: 700;
   margin-left: 6px;
 }
 

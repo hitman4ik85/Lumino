@@ -1,0 +1,8 @@
+bubble.svg (391*90)
+bubble1.svg (430*149)
+bubble2.svg (86*368)
+bubble3.svg (320*108)
+bubble4.svg (118*313)
+bubble5.svg (118*273.63)
+bubble6.svg (118*358)
+bubble7.svg (430*108)

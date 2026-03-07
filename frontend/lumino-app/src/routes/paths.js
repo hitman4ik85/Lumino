@@ -13,6 +13,7 @@ export const PATHS = {
   onboardingDailyGoal: "/onboarding/daily-goal",
   onboardingTrial: "/onboarding/trial",
   onboardingRunLesson: "/onboarding/run-lesson",
+  onboardingDemoLessonStub: "/onboarding/demo-lesson-stub",
   onboardingPreCreateProf: "/onboarding/pre-create-profile",
   home: "/home",
   admin: "/admin",
