@@ -1,0 +1,113 @@
+:root{ --w:1920; --h:1080; }
+
+.viewport{
+  composes: viewport from "../shared/OnboardingSharedLayout.module.css";
+}
+
+.stage{
+  composes: stage from "../shared/OnboardingSharedLayout.module.css";
+}
+
+.bgLeft,
+.bgRight{
+  position: absolute;
+  top: 0;
+  width: auto;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.bgLeft{ left: 0; }
+.bgRight{ right: 0; }
+
+.backBtn{
+  composes: backBtn from "../shared/OnboardingStepCommon.module.css";
+}
+
+.backIcon{
+  composes: backIcon from "../shared/OnboardingStepCommon.module.css";
+}
+
+.bubble{
+  position: absolute;
+  left: 765px;
+  top: 245px;
+  width: 391px;
+  height: 90px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.bubbleText{
+  position: absolute;
+  left: 805px;
+  top: 269px;
+  width: 311px;
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 27px;
+  color: #000001;
+}
+
+.mascot{
+  position: absolute;
+  left: 800px;
+  top: 379px;
+  width: 320px;
+  height: 320px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.createBtn{
+  position: absolute;
+  left: 745px;
+  top: 813px;
+  width: 430px;
+  height: 70px;
+  border-radius: 15px;
+  border: 0;
+  background: var(--color-start);
+  color: #ffffff;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0;
+  transition: background 120ms ease;
+}
+
+.createBtn:hover{
+  background: var(--color-primary);
+}
+
+.laterBtn{
+  position: absolute;
+  left: 913px;
+  top: 933px;
+  width: 95px;
+  height: 24px;
+  border: 0;
+  background: transparent;
+  color: #26415e;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 24px;
+}

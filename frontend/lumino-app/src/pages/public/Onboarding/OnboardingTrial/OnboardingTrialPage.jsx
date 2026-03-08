@@ -36,7 +36,6 @@ export default function OnboardingTrialPage() {
   const [selected, setSelected] = useState("");
   const [hovered, setHovered] = useState("");
 
-
   useEffect(() => {
     if (!selected) {
       localStorage.removeItem(STORAGE_KEY);
@@ -80,7 +79,7 @@ export default function OnboardingTrialPage() {
     }
 
     if (selected === "withoutRecommendation") {
-      navigate(PATHS.onboardingPreCreateProf);
+      navigate(PATHS.register);
     }
   };
 

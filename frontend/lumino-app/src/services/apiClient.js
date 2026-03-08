@@ -1,8 +1,11 @@
+import { authStorage } from "./authStorage.js";
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 const buildUrl = (path) => {
   if (!path) return BASE_URL;
   if (path.startsWith("http")) return path;
+  if (path.startsWith("/api/") && BASE_URL === "/api") return path;
   if (path.startsWith("/")) return `${BASE_URL}${path}`;
   return `${BASE_URL}/${path}`;
 };
@@ -18,9 +21,11 @@ const safeJson = async (res) => {
 export const apiClient = {
   async request(path, options = {}) {
     const url = buildUrl(path);
+    const accessToken = authStorage.getAccessToken();
 
     const headers = {
       "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(options.headers || {}),
     };
 

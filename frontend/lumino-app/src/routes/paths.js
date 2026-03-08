@@ -3,6 +3,7 @@ export const PATHS = {
   login: "/login",
   register: "/register",
   forgotPassword: "/forgot-password",
+  resetPassword: "/reset-password",
   verifyEmail: "/verify-email",
   onboarding: "/onboarding",
   onboardingLevel: "/onboarding/level",
@@ -15,6 +16,7 @@ export const PATHS = {
   onboardingRunLesson: "/onboarding/run-lesson",
   onboardingDemoLessonStub: "/onboarding/demo-lesson-stub",
   onboardingPreCreateProf: "/onboarding/pre-create-profile",
+  onboardingCreateProfLater: "/onboarding/create-profile-later",
   home: "/home",
   admin: "/admin",
 };

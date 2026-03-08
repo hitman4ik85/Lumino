@@ -2,30 +2,28 @@ import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../../routes/paths.js";
 import { useStageScale } from "../../../../hooks/useStageScale.js";
-import styles from "./OnboardingPreCreateProfPage.module.css";
+import styles from "./OnboardingCreateProfLaterPage.module.css";
 
 import BgLeft from "../../../../assets/backgrounds/bg-left.webp";
 import BgRight from "../../../../assets/backgrounds/bg-right.webp";
 import ArrowPrev from "../../../../assets/icons/arrow-previous.svg";
-import Bubble from "../../../../assets/onboarding/bubble.svg";
-import Mascot from "../../../../assets/mascot/mascot7.svg";
+import Bubble from "../../../../assets/onboarding/bubble1.svg";
+import Mascot from "../../../../assets/mascot/mascot8.svg";
+import MascotPlanet from "../../../../assets/mascot/mascotplanet.svg";
 
-export default function OnboardingPreCreateProfPage() {
+export default function OnboardingCreateProfLaterPage() {
   const navigate = useNavigate();
   const stageRef = useRef(null);
 
   useStageScale(stageRef);
 
   const handleBack = () => {
-    navigate(PATHS.onboardingDemoLessonStub);
+    navigate(PATHS.onboardingPreCreateProf);
   };
 
-  const handleCreateProfile = () => {
-    navigate(PATHS.register);
-  };
-
-  const handleLater = () => {
-    navigate(PATHS.onboardingCreateProfLater);
+  const handleContinue = () => {
+    localStorage.setItem("lumino_guest_preview", "true");
+    navigate(PATHS.home);
   };
 
   return (
@@ -39,16 +37,17 @@ export default function OnboardingPreCreateProfPage() {
         </button>
 
         <img className={styles.bubble} src={Bubble} alt="" />
-        <p className={styles.bubbleText}>Створімо профіль!</p>
+        <p className={styles.bubbleText}>
+          <span>Спочатку можете</span>
+          <span>ознайомитися з курсом, а</span>
+          <span>профіль створити пізніше.</span>
+        </p>
 
+        <img className={styles.mascotPlanet} src={MascotPlanet} alt="" />
         <img className={styles.mascot} src={Mascot} alt="" />
 
-        <button className={styles.createBtn} type="button" onClick={handleCreateProfile}>
-          СТВОРИТИ ПРОФІЛЬ
-        </button>
-
-        <button className={styles.laterBtn} type="button" onClick={handleLater}>
-          ПІЗНІШЕ
+        <button className={styles.continueBtn} type="button" onClick={handleContinue}>
+          ПРОДОВЖИТИ
         </button>
       </div>
     </div>
