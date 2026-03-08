@@ -79,7 +79,7 @@ namespace Lumino.Api.Application.Services
                     };
                 }
 
-                throw new ArgumentException("User already exists");
+                throw new ConflictException("Користувач з таким email уже існує. Увійдіть у свій профіль або скористайтеся відновленням пароля.");
             }
 
             var passwordHash = _passwordHasher.Hash(request.Password);
@@ -572,7 +572,7 @@ namespace Lumino.Api.Application.Services
 
             if (existing != null)
             {
-                throw new ArgumentException("Username already exists");
+                throw new ConflictException("Користувач з таким username уже існує.");
             }
         }
 

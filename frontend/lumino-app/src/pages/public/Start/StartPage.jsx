@@ -21,7 +21,8 @@ import FlagJa from "../../../assets/flags/flag-ja.svg";
 import FlagKo from "../../../assets/flags/flag-ko.svg";
 import FlagZn from "../../../assets/flags/flag-zn.svg";
 
-import Modal from "../../../components/common/Modal/Modal.jsx";
+import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
+import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 
 const LANGS = [
   { code: "en", label: "АНГЛІЙСЬКА", src: FlagEn },
@@ -179,7 +180,8 @@ export default function Start() {
 
   return (
     <div className={styles.viewport}>
-      <Modal open={modal.open} title={modal.title} message={modal.message} onClose={closeModal} />
+      <GlassModal open={modal.open} title={modal.title} message={modal.message} onClose={closeModal} primaryText="Зрозуміло" />
+      <GlassLoading open={checking} text="Перевіряємо доступність курсу..." />
       <div className={styles.stage} ref={stageRef}>
         <img className={styles.bgLeft} src={BgLeft} alt="" aria-hidden="true" />
         <img className={styles.bgRight} src={BgRight} alt="" aria-hidden="true" />
@@ -195,7 +197,7 @@ export default function Start() {
           <div className={styles.subtitle}>Щоб розпочати оберіть мову</div>
 
           <button className={styles.startBtn} type="button" disabled={!selected || checking} onClick={onStart}>
-            {checking ? "ПЕРЕВІРКА..." : "РОЗПОЧАТИ"}
+            РОЗПОЧАТИ
           </button>
 
           <button className={styles.accountBtn} type="button" onClick={() => navigate(PATHS.login)}>

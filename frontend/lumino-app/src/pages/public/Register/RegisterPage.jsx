@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { authService } from "../../../services/authService.js";
 import { authStorage } from "../../../services/authStorage.js";
-import Modal from "../../../components/common/Modal/Modal.jsx";
+import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
+import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import styles from "./RegisterPage.module.css";
 
 import BgLeft from "../../../assets/backgrounds/bg2-left.webp";
@@ -41,7 +42,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const stageRef = useRef(null);
   const googleBtnHostRef = useRef(null);
 
@@ -111,6 +111,8 @@ export default function RegisterPage() {
             username: form.username.trim() || null,
           };
 
+          setSubmitting(true);
+
           const res = await authService.oauthGoogle(dto);
 
           if (!res.ok) {
@@ -123,6 +125,7 @@ export default function RegisterPage() {
               onPrimary: null,
               onSecondary: null,
             });
+            setSubmitting(false);
             return;
           }
 
@@ -139,10 +142,12 @@ export default function RegisterPage() {
               onPrimary: null,
               onSecondary: null,
             });
+            setSubmitting(false);
             return;
           }
 
           authStorage.setTokens(token, refreshToken);
+          setSubmitting(false);
           navigate(PATHS.home);
         },
       });
@@ -266,7 +271,7 @@ export default function RegisterPage() {
   };
 
   const handleBack = () => {
-    navigate(location.state?.backTo || PATHS.onboardingPreCreateProf);
+    navigate(PATHS.onboardingPreCreateProf);
   };
 
   const handleGoToLogin = () => {
@@ -326,14 +331,35 @@ export default function RegisterPage() {
       const res = await authService.register(dto);
 
       if (!res.ok) {
+        const isConflict = res.status === 409;
+
         setModal({
           open: true,
-          title: "Не вдалося створити профіль",
+          title: isConflict ? "Профіль уже існує" : "Не вдалося створити профіль",
           message: res.error || "Спробуйте ще раз трохи пізніше.",
-          primaryText: "OK",
-          secondaryText: "",
-          onPrimary: null,
-          onSecondary: null,
+          primaryText: isConflict ? "До входу" : "OK",
+          secondaryText: isConflict ? "Забули пароль?" : "",
+          onPrimary: isConflict
+            ? () => {
+                resetModal();
+                navigate(PATHS.login, {
+                  state: {
+                    from: "start",
+                    prefillEmail: dto.email,
+                  },
+                });
+              }
+            : null,
+          onSecondary: isConflict
+            ? () => {
+                resetModal();
+                navigate(PATHS.forgotPassword, {
+                  state: {
+                    email: dto.email,
+                  },
+                });
+              }
+            : null,
         });
         return;
       }
@@ -391,7 +417,8 @@ export default function RegisterPage() {
 
   return (
     <div className={styles.viewport}>
-      <Modal
+      <GlassLoading open={submitting} text="Створюємо профіль..." />
+      <GlassModal
         open={modal.open}
         title={modal.title}
         message={modal.message}
@@ -468,7 +495,7 @@ export default function RegisterPage() {
             </div>
 
             <button className={styles.createBtn} type="submit" disabled={!canSubmit}>
-              {submitting ? "СТВОРЕННЯ..." : "СТВОРИТИ ПРОФІЛЬ"}
+              СТВОРИТИ ПРОФІЛЬ
             </button>
           </form>
 

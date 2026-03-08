@@ -6,6 +6,7 @@ import styles from "./OnboardingLevelQuestionPage.module.css";
 import { useStageScale } from "../../../../hooks/useStageScale.js";
 import BgLeft from "../../../../assets/backgrounds/bg1-left.webp";
 import BgRight from "../../../../assets/backgrounds/bg1-right.webp";
+import GlassLoading from "../../../../components/common/GlassLoading/GlassLoading.jsx";
 
 import ArrowPrev from "../../../../assets/icons/arrow-previous.svg";
 import Bubble from "../../../../assets/onboarding/bubble2.svg";
@@ -90,6 +91,7 @@ const levels = useMemo(
   };
   return (
     <div className={styles.viewport}>
+      <GlassLoading open={loading} text="Готуємо урок..." />
       <div ref={stageRef} className={styles.stage} onMouseDown={handleStageMouseDown}>
         <div
           className={styles.bg}
@@ -134,7 +136,7 @@ const levels = useMemo(
           onClick={handleContinue}
           disabled={!level || loading}
         >
-          {loading ? "ЗАВАНТАЖЕННЯ..." : "ПРОДОВЖИТИ"}
+          ПРОДОВЖИТИ
         </button>
       </div>
     </div>

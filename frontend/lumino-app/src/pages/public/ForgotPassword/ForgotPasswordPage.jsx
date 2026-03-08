@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { authService } from "../../../services/authService.js";
-import Modal from "../../../components/common/Modal/Modal.jsx";
+import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
+import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import styles from "./ForgotPasswordPage.module.css";
 
 import BgLeft from "../../../assets/backgrounds/bg2-left.webp";
@@ -90,7 +91,9 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className={styles.viewport}>
-      <Modal
+      <GlassLoading open={submitting} text="Надсилаємо лист..." />
+
+      <GlassModal
         open={modalOpen}
         title="Лист надіслано"
         message="Якщо обліковий запис існує, ми надіслали лист для скидання пароля на вашу електронну адресу."
@@ -142,7 +145,7 @@ export default function ForgotPasswordPage() {
             </div>
 
             <button className={styles.sendBtn} type="submit" disabled={!canSubmit}>
-              {submitting ? "НАДСИЛАННЯ..." : "НАДІСЛАТИ"}
+              НАДІСЛАТИ
             </button>
 
             {!!inlineError && <div className={styles.inlineError}>{inlineError}</div>}

@@ -74,7 +74,7 @@ namespace Lumino.Api.Application.Services
 
                 if (exists)
                 {
-                    throw new ArgumentException("Username already exists");
+                    throw new ConflictException("Користувач з таким username уже існує.");
                 }
 
                 user.Username = username;

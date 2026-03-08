@@ -82,7 +82,7 @@ public class AuthServiceTests
             new PasswordHasher()
         );
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<ConflictException>(() =>
         {
             service.Register(new RegisterRequest
             {

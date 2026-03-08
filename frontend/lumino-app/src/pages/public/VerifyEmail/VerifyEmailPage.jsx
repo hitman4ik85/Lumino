@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { PATHS } from "../../../routes/paths";
+import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import { authService } from "../../../services/authService";
 
 export default React.memo(function VerifyEmailPage() {
@@ -30,6 +31,7 @@ export default React.memo(function VerifyEmailPage() {
 
   return (
     <div className="page-center">
+      <GlassLoading open={status.type === "loading"} text="Підтверджуємо пошту..." />
       <div className="card">
         <h1 className="h1">Підтвердження пошти</h1>
 

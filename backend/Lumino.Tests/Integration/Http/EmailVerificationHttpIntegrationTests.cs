@@ -69,6 +69,50 @@ public class EmailVerificationHttpIntegrationTests : IClassFixture<ApiWebApplica
     }
 
     [Fact]
+    public async Task Register_WithExistingVerifiedEmail_ShouldReturnConflict()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<LuminoDbContext>();
+
+            dbContext.Database.EnsureDeleted();
+            dbContext.Database.EnsureCreated();
+
+            dbContext.Users.Add(new User
+            {
+                Email = "existing@lumino.com",
+                PasswordHash = "hash",
+                Role = Role.User,
+                CreatedAt = DateTime.UtcNow,
+                Username = "existing_user",
+                IsEmailVerified = true,
+                Hearts = 5,
+                Crystals = 0,
+                Theme = "light"
+            });
+
+            dbContext.SaveChanges();
+        }
+
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            email = "existing@lumino.com",
+            password = "123456",
+            username = "existing_user_2"
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+
+        Assert.Equal("conflict", doc.RootElement.GetProperty("type").GetString());
+        Assert.Contains("email", doc.RootElement.GetProperty("detail").GetString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task VerifyEmail_ShouldReturnTokens_AndAllowLogin()
     {
         string token;

@@ -4,7 +4,8 @@ import { PATHS } from "../../../routes/paths.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { authService } from "../../../services/authService.js";
 import { authStorage } from "../../../services/authStorage.js";
-import Modal from "../../../components/common/Modal/Modal.jsx";
+import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
+import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import styles from "./LoginPage.module.css";
 
 import BgLeft from "../../../assets/backgrounds/bg2-left.webp";
@@ -95,6 +96,8 @@ export default function LoginPage() {
             return;
           }
 
+          setSubmitting(true);
+
           const res = await authService.oauthGoogle({
             idToken: credential,
             username: null,
@@ -102,6 +105,7 @@ export default function LoginPage() {
 
           if (!res.ok) {
             setErrorText(res.error || "Не вдалося виконати вхід через Google.");
+            setSubmitting(false);
             return;
           }
 
@@ -110,10 +114,12 @@ export default function LoginPage() {
 
           if (!token || !refreshToken) {
             setErrorText("Бекенд не повернув токени авторизації.");
+            setSubmitting(false);
             return;
           }
 
           authStorage.setTokens(token, refreshToken);
+          setSubmitting(false);
           navigate(PATHS.home);
         },
       });
@@ -345,7 +351,8 @@ export default function LoginPage() {
 
   return (
     <div className={styles.viewport}>
-      <Modal
+      <GlassLoading open={submitting} text="Виконуємо вхід..." />
+      <GlassModal
         open={modal.open}
         title={modal.title}
         message={modal.message}
@@ -412,7 +419,7 @@ export default function LoginPage() {
             </button>
 
             <button className={styles.loginBtn} type="submit" disabled={!canSubmit}>
-              {submitting ? "ВХІД..." : "УВІЙТИ"}
+              УВІЙТИ
             </button>
 
             {!!errorText && <div className={styles.inlineError}>{errorText}</div>}

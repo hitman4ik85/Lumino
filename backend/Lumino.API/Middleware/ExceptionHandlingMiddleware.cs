@@ -110,6 +110,11 @@ namespace Lumino.Api.Middleware
                 return ((int)HttpStatusCode.Unauthorized, "unauthorized", ex.Message);
             }
 
+            if (ex is ConflictException)
+            {
+                return ((int)HttpStatusCode.Conflict, "conflict", ex.Message);
+            }
+
             if (ex is KeyNotFoundException)
             {
                 return ((int)HttpStatusCode.NotFound, "not_found", ex.Message);
@@ -130,6 +135,7 @@ namespace Lumino.Api.Middleware
             if (statusCode == (int)HttpStatusCode.Unauthorized) return "Unauthorized";
             if (statusCode == (int)HttpStatusCode.Forbidden) return "Forbidden";
             if (statusCode == (int)HttpStatusCode.NotFound) return "Not Found";
+            if (statusCode == (int)HttpStatusCode.Conflict) return "Conflict";
             return "Server Error";
         }
 

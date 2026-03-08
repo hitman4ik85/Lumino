@@ -41,7 +41,7 @@ export const apiClient = {
     }
 
     const error =
-      (data && (data.message || data.error || data.title)) ||
+      (data && (data.detail || data.message || data.error || data.title)) ||
       `HTTP ${res.status}`;
 
     return { ok: false, status: res.status, data, error };

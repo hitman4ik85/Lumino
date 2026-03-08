@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { authService } from "../../../services/authService.js";
-import Modal from "../../../components/common/Modal/Modal.jsx";
+import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
+import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import styles from "./ResetPasswordPage.module.css";
 
 import BgLeft from "../../../assets/backgrounds/bg2-left.webp";
@@ -131,7 +132,9 @@ export default function ResetPasswordPage() {
 
   return (
     <div className={styles.viewport}>
-      <Modal
+      <GlassLoading open={submitting} text="Змінюємо пароль..." />
+
+      <GlassModal
         open={modalOpen}
         title="Пароль змінено"
         message="Тепер ви можете увійти з новим паролем."
@@ -190,7 +193,7 @@ export default function ResetPasswordPage() {
             </div>
 
             <button className={styles.saveBtn} type="submit" disabled={!canSubmit}>
-              {submitting ? "ЗБЕРЕЖЕННЯ..." : "ЗБЕРЕГТИ"}
+              ЗБЕРЕГТИ
             </button>
 
             {!!inlineError && <div className={styles.inlineError}>{inlineError}</div>}
