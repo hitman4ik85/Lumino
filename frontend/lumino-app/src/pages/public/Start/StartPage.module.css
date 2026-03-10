@@ -252,3 +252,94 @@
 .itemActive .langLabel{
   font-weight: 700;
 }
+
+
+/*
+PHONE 
+ */
+
+ @media (max-width: 768px) {
+
+   .logo {
+     left: 50%;
+     transform: translateX(-50%);
+     top: 40px;
+     font-size: 36px;
+   }
+
+   .mascot {
+     left: 50%;
+     transform: translateX(-50%);
+     top: 120px;
+     width: 220px;
+     height: auto;
+   }
+
+   .title {
+     left: 50%;
+     transform: translateX(-50%);
+     top: 360px;
+     width: 90%;
+     font-size: 28px;
+   }
+
+   .subtitle {
+     left: 50%;
+     transform: translateX(-50%);
+     top: 420px;
+     width: 90%;
+     font-size: 18px;
+   }
+
+ .startBtn {
+   left: 50%;
+   transform: translateX(-50%);
+   top: 480px;
+   width: 90%;
+   max-width: 360px;
+   height: 56px;
+   font-size: 18px;
+ }
+
+ .accountBtn {
+   left: 50%;
+   transform: translateX(-50%);
+   top: 550px;
+   width: 90%;
+   max-width: 360px;
+   height: 56px;
+   font-size: 16px;
+ }
+
+ .carousel {
+   left: 50%;
+   transform: translateX(-50%);
+   width: 92%;
+   max-width: 360px;
+   top: 640px;
+ }
+
+     .itemsViewport {
+       width: 100%;
+       left: 0;
+     }
+
+   .items {
+     gap: 18px;
+   }
+
+   .flag {
+     width: 45px;
+     height: 34px;
+   }
+
+   .langLabel {
+     font-size: 16px;
+   }
+
+   .bgLeft,
+   .bgRight {
+     opacity: 0.25;
+   }
+
+ }
