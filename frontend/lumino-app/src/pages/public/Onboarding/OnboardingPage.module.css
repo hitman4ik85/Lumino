@@ -101,3 +101,43 @@
 .continueBtn:disabled:hover{
   background: var(--color-start);
 }
+
+
+/* Phone */
+@media (max-width: 768px) {
+
+  .bubble {
+    left: 50%;
+    transform: translateX(-50%);
+    top: 140px;
+    width: 300px;
+    height: auto;
+  }
+
+  .bubbleText {
+    left: 50%;
+    transform: translateX(-50%);
+    top: 140px;
+    width: 300px;
+    font-size: 16px;
+  }
+
+  .mascot {
+    left: 50%;
+    transform: translateX(-50%);
+    top: 260px;
+    width: 230px;
+    height: auto;
+  }
+
+  .continueBtn {
+    left: 50%;
+    transform: translateX(-50%);
+    top: 520px;
+    width: 90%;
+    max-width: 360px;
+    height: 56px;
+    font-size: 18px;
+  }
+
+}

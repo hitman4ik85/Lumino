@@ -117,18 +117,21 @@ const levels = useMemo(
 
         <h1 className={styles.title}>Наскільки добре ви знаєте англійську?</h1>
 
-        {levels.map((it) => (
-          <button
-            key={it.key}
-            type="button"
-            className={`${styles.levelBtn} ${level === it.key ? styles.levelBtnActive : ""}`}
-            style={{ left: `${it.x}px`, top: `${it.y}px`, width: `${it.w}px` }}
-            onClick={() => setLevel(it.key)}
-          >
-            <img className={styles.levelIcon} src={it.icon} alt={it.key} />
-            {it.title}
-          </button>
-        ))}
+        <div className={styles.levelsContainer}>
+          {levels.map((it) => (
+            <button
+              key={it.key}
+              type="button"
+              className={`${styles.levelBtn} ${level === it.key ? styles.levelBtnActive : ""}`}
+              style={{ left: `${it.x}px`, top: `${it.y}px`, width: `${it.w}px` }}
+              onClick={() => setLevel(it.key)}
+            >
+              <img className={styles.levelIcon} src={it.icon} alt={it.key} />
+              {it.title}
+            </button>
+          ))}
+        </div>
+        
 
         <button
           className={styles.continueBtn}

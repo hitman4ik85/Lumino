@@ -1,18 +1,21 @@
-:root{ --w:1920; --h:1080; }
+:root {
+  --w: 1920;
+  --h: 1080;
+}
 
-.viewport{
+.viewport {
   composes: viewport from "../shared/OnboardingSharedLayout.module.css";
 }
 
-.stage{
+.stage {
   composes: stage from "../shared/OnboardingSharedLayout.module.css";
 }
 
-.bg{
+.bg {
   composes: bg from "../shared/OnboardingStepCommon.module.css";
 }
 
-.backBtn{
+.backBtn {
   position: absolute;
   left: 73px;
   top: 52px;
@@ -27,22 +30,23 @@
   justify-content: center;
 }
 
-.backIcon{
+.backIcon {
   composes: backIcon from "../shared/OnboardingStepCommon.module.css";
 }
 
-.progressTrack{
+
+.progressTrack {
   composes: progressTrack from "../shared/OnboardingStepCommon.module.css";
 }
 
-.progressFill{
+.progressFill {
   width: 430px;
   height: 28px;
   border-radius: 15px;
   background: #83a6ce;
 }
 
-.mascot{
+.mascot {
   position: absolute;
   left: 247px;
   top: 144px;
@@ -50,9 +54,11 @@
   height: 223.17px;
   pointer-events: none;
   user-select: none;
+
+  z-index: 1;
 }
 
-.bubble{
+.bubble {
   position: absolute;
   left: 529px;
   top: 212px;
@@ -62,7 +68,7 @@
   user-select: none;
 }
 
-.bubbleText{
+.bubbleText {
   position: absolute;
   left: 557px;
   top: 241px;
@@ -78,7 +84,7 @@
   white-space: nowrap;
 }
 
-.title{
+.title {
   position: absolute;
   left: 539px;
   top: 435px;
@@ -94,12 +100,12 @@
   white-space: nowrap;
 }
 
-.levelBtn{
+.levelBtn {
   position: absolute;
   height: 70px;
   padding: 0 24px;
   border-radius: 15px;
-  border: 1px solid rgba(193,210,230,0.35);
+  border: 1px solid rgba(193, 210, 230, 0.35);
   background: #ffffff;
   cursor: pointer;
 
@@ -115,10 +121,10 @@
   letter-spacing: 0;
   color: #0b1b32;
 
-  box-shadow: 0 4px 14px rgba(11,27,50,0.10);
+  box-shadow: 0 4px 14px rgba(11, 27, 50, 0.10);
 }
 
-.levelIcon{
+.levelIcon {
   width: 24px;
   height: 24px;
   display: block;
@@ -126,12 +132,12 @@
 }
 
 .levelBtn:hover,
-.levelBtnActive{
+.levelBtnActive {
   background: #83a6ce;
   color: #ffffff;
 }
 
-.continueBtn{
+.continueBtn {
   position: absolute;
   left: 745px;
   top: 910px;
@@ -154,20 +160,72 @@
   transition: background 120ms ease, color 120ms ease, opacity 120ms ease;
 }
 
-.continueBtn:hover{
+.continueBtn:hover {
   background: var(--color-primary);
 }
 
-.continueBtn:disabled{
+.continueBtn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.continueBtn:disabled:hover{
+.continueBtn:disabled:hover {
   background: var(--color-start);
 }
 
 
-.bottomShade{
+.bottomShade {
   composes: bottomShade from "../shared/OnboardingStepCommon.module.css";
+}
+
+/* PHONE */
+@media (max-width: 768px) {
+  .stage {
+    padding-top: 485px;
+    /* місце для title, bubble та mascot */
+  }
+
+  .levelsContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 80%;
+    margin: 0 auto;
+    align-items: center;
+    /* по центру горизонтально */
+  }
+
+  .levelBtn {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 50% !important;
+    justify-content: center;
+    align-items: center;
+    padding: 12px 16px;
+    font-size: 20px;
+  }
+
+  .levelIcon {
+    width: 32px;
+    height: 32px;
+  }
+
+    .bubble {
+      left: 50% !important;
+      transform: translateX(-50%);
+    }
+    
+    .mascot{
+      left: 35% !important;
+      transform: translateX(-40%);
+    }
+  
+    .bubbleText {
+      left: 50% !important;
+      transform: translateX(-50%);
+      text-align: center;
+      width: auto;
+      /* або конкретна ширина, наприклад 80% */
+    }
 }
