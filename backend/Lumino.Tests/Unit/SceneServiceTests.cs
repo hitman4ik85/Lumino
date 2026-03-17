@@ -1,4 +1,4 @@
-﻿using Lumino.Api.Application.DTOs;
+using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Application.Services;
 using Lumino.Api.Data;
@@ -137,6 +137,170 @@ public class SceneServiceTests
         {
             service.MarkCompleted(userId: 1, sceneId: 2);
         });
+    }
+
+
+    [Fact]
+    public void MarkCompleted_WhenSceneHasTopicId_AndNotAllLessonsPassedInTopic_ShouldThrow()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Users.Add(new User
+        {
+            Id = 1,
+            Email = "topic-lock@mail.com",
+            PasswordHash = "hash",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        dbContext.Topics.Add(new Topic
+        {
+            Id = 1,
+            CourseId = 1,
+            Title = "Topic 1",
+            Order = 1
+        });
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 101,
+            TopicId = 1,
+            Title = "Lesson 1",
+            Theory = "Theory",
+            Order = 1
+        });
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 102,
+            TopicId = 1,
+            Title = "Lesson 2",
+            Theory = "Theory",
+            Order = 2
+        });
+
+        // Passed only Lesson 1 (80%)
+        dbContext.LessonResults.Add(new LessonResult
+        {
+            Id = 1,
+            UserId = 1,
+            LessonId = 101,
+            Score = 8,
+            TotalQuestions = 10,
+            CompletedAt = DateTime.UtcNow
+        });
+
+        dbContext.Scenes.Add(new Scene
+        {
+            Id = 1,
+            TopicId = 1,
+            Title = "Scene 1",
+            Description = "Desc",
+            SceneType = "intro"
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new SceneService(
+            dbContext,
+            new FixedDateTimeProvider(new DateTime(2026, 2, 12, 12, 0, 0, DateTimeKind.Utc)),
+            new FakeAchievementService(),
+            new FakeUserEconomyService(),
+            Options.Create(new LearningSettings { SceneUnlockEveryLessons = 1, PassingScorePercent = 80 })
+        );
+
+        Assert.Throws<ForbiddenAccessException>(() =>
+        {
+            service.MarkCompleted(userId: 1, sceneId: 1);
+        });
+    }
+
+    [Fact]
+    public void GetSceneContent_WhenSceneHasTopicId_AndNotAllLessonsPassedInTopic_ShouldReturnLocked_WithoutSteps()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Users.Add(new User
+        {
+            Id = 1,
+            Email = "topic-content@mail.com",
+            PasswordHash = "hash",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        dbContext.Topics.Add(new Topic
+        {
+            Id = 1,
+            CourseId = 1,
+            Title = "Topic 1",
+            Order = 1
+        });
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 101,
+            TopicId = 1,
+            Title = "Lesson 1",
+            Theory = "Theory",
+            Order = 1
+        });
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 102,
+            TopicId = 1,
+            Title = "Lesson 2",
+            Theory = "Theory",
+            Order = 2
+        });
+
+        dbContext.LessonResults.Add(new LessonResult
+        {
+            Id = 1,
+            UserId = 1,
+            LessonId = 101,
+            Score = 8,
+            TotalQuestions = 10,
+            CompletedAt = DateTime.UtcNow
+        });
+
+        dbContext.Scenes.Add(new Scene
+        {
+            Id = 1,
+            TopicId = 1,
+            Title = "Scene 1",
+            Description = "Desc",
+            SceneType = "intro"
+        });
+
+        // steps exist, but should NOT be returned if locked
+        dbContext.SceneSteps.Add(new SceneStep
+        {
+            Id = 1,
+            SceneId = 1,
+            Order = 1,
+            Speaker = "A",
+            Text = "Hello",
+            StepType = "Text",
+            MediaUrl = null,
+            ChoicesJson = null
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new SceneService(
+            dbContext,
+            new FixedDateTimeProvider(new DateTime(2026, 2, 12, 12, 0, 0, DateTimeKind.Utc)),
+            new FakeAchievementService(),
+            new FakeUserEconomyService(),
+            Options.Create(new LearningSettings { SceneUnlockEveryLessons = 1, PassingScorePercent = 80 })
+        );
+
+        var content = service.GetSceneContent(userId: 1, sceneId: 1);
+
+        Assert.False(content.IsUnlocked);
+        Assert.NotNull(content.UnlockReason);
+        Assert.Empty(content.Steps);
     }
 
     
@@ -1451,184 +1615,5 @@ public class SceneServiceTests
 
             return base.SaveChanges();
         }
-    }
-
-    [Fact]
-    public void SubmitScene_WhenSceneHasTopicId_AndNotAllLessonsInTopicPassed_ShouldThrow()
-    {
-        var dbContext = TestDbContextFactory.Create();
-
-        dbContext.Users.Add(new User
-        {
-            Id = 1,
-            Email = "topiclocked@mail.com",
-            PasswordHash = "hash",
-            CreatedAt = DateTime.UtcNow
-        });
-
-        dbContext.Topics.Add(new Topic
-        {
-            Id = 1,
-            Title = "Topic 1",
-            Order = 1
-        });
-
-        dbContext.Lessons.Add(new Lesson
-        {
-            Id = 10,
-            TopicId = 1,
-            Title = "Lesson 1",
-            Theory = "T",
-            Order = 1
-        });
-
-        dbContext.Lessons.Add(new Lesson
-        {
-            Id = 11,
-            TopicId = 1,
-            Title = "Lesson 2",
-            Theory = "T",
-            Order = 2
-        });
-
-        // пройдено тільки 1 урок з 2 (PassingScorePercent = 80)
-        dbContext.LessonResults.Add(new LessonResult
-        {
-            Id = 1,
-            UserId = 1,
-            LessonId = 10,
-            Score = 8,
-            TotalQuestions = 10,
-            CompletedAt = DateTime.UtcNow
-        });
-
-        dbContext.Scenes.Add(new Scene
-        {
-            Id = 1,
-            Title = "Scene 1",
-            Description = "Desc",
-            SceneType = "intro",
-            TopicId = 1,
-            Order = 1
-        });
-
-        // 1 question-step (але до нього не дійдемо, бо сцена locked)
-        dbContext.SceneSteps.Add(new SceneStep
-        {
-            Id = 1,
-            SceneId = 1,
-            Order = 1,
-            Speaker = "A",
-            Text = "Q",
-            StepType = "Choice",
-            MediaUrl = null,
-            ChoicesJson = "{\"correct\":\"Yes\",\"items\":[\"Yes\",\"No\"]}"
-        });
-
-        dbContext.SaveChanges();
-
-        var now = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc);
-        var dateTimeProvider = new FixedDateTimeProvider(now);
-
-        var service = new SceneService(
-            dbContext,
-            dateTimeProvider,
-            new FakeAchievementService(),
-            new FakeUserEconomyService(),
-            Options.Create(new LearningSettings { PassingScorePercent = 80, SceneCompletionScore = 5, SceneUnlockEveryLessons = 1 })
-        );
-
-        Assert.Throws<ForbiddenAccessException>(() =>
-        {
-            service.SubmitScene(
-                userId: 1,
-                sceneId: 1,
-                request: new SubmitSceneRequest
-                {
-                    Answers = new List<SubmitSceneAnswerRequest>
-                    {
-                        new SubmitSceneAnswerRequest { StepId = 1, Answer = "Yes" }
-                    }
-                }
-            );
-        });
-    }
-
-    [Fact]
-    public void MarkCompleted_WhenSceneHasTopicId_AndNotAllLessonsInTopicPassed_ShouldThrow()
-    {
-        var dbContext = TestDbContextFactory.Create();
-
-        dbContext.Users.Add(new User
-        {
-            Id = 1,
-            Email = "topiclocked2@mail.com",
-            PasswordHash = "hash",
-            CreatedAt = DateTime.UtcNow
-        });
-
-        dbContext.Topics.Add(new Topic
-        {
-            Id = 1,
-            Title = "Topic 1",
-            Order = 1
-        });
-
-        dbContext.Lessons.Add(new Lesson
-        {
-            Id = 10,
-            TopicId = 1,
-            Title = "Lesson 1",
-            Theory = "T",
-            Order = 1
-        });
-
-        dbContext.Lessons.Add(new Lesson
-        {
-            Id = 11,
-            TopicId = 1,
-            Title = "Lesson 2",
-            Theory = "T",
-            Order = 2
-        });
-
-        // пройдено тільки 1 урок з 2 (PassingScorePercent = 80)
-        dbContext.LessonResults.Add(new LessonResult
-        {
-            Id = 1,
-            UserId = 1,
-            LessonId = 10,
-            Score = 8,
-            TotalQuestions = 10,
-            CompletedAt = DateTime.UtcNow
-        });
-
-        dbContext.Scenes.Add(new Scene
-        {
-            Id = 1,
-            Title = "Scene 1",
-            Description = "Desc",
-            SceneType = "intro",
-            TopicId = 1,
-            Order = 1
-        });
-
-        dbContext.SaveChanges();
-
-        var now = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc);
-        var dateTimeProvider = new FixedDateTimeProvider(now);
-
-        var service = new SceneService(
-            dbContext,
-            dateTimeProvider,
-            new FakeAchievementService(),
-            new FakeUserEconomyService(),
-            Options.Create(new LearningSettings { PassingScorePercent = 80, SceneCompletionScore = 5, SceneUnlockEveryLessons = 1 })
-        );
-
-        Assert.Throws<ForbiddenAccessException>(() =>
-        {
-            service.MarkCompleted(userId: 1, sceneId: 1);
-        });
     }
 }

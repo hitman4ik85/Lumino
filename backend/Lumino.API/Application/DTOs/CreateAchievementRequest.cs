@@ -1,4 +1,4 @@
-namespace Lumino.Api.Application.DTOs
+﻿namespace Lumino.Api.Application.DTOs
 {
     public class CreateAchievementRequest
     {
@@ -7,5 +7,7 @@ namespace Lumino.Api.Application.DTOs
         public string Title { get; set; } = null!;
 
         public string Description { get; set; } = null!;
+
+        public string? ImageUrl { get; set; }
     }
 }

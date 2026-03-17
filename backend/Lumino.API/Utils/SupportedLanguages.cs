@@ -8,6 +8,7 @@ namespace Lumino.Api.Utils
         // Ukrainian is considered the default native language for the application.
         // It must NOT be available as a language to learn.
         public const string DefaultNativeLanguageCode = "uk";
+        public const string DefaultTargetLanguageCode = "en";
 
         private static readonly List<LanguageOption> _all = new()
         {

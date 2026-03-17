@@ -73,6 +73,7 @@ namespace Lumino.Tests.Unit
 
             var external = dbContext.UserExternalLogins.FirstOrDefault(x => x.UserId == user!.Id && x.Provider == "google");
             Assert.NotNull(external);
+            Assert.Equal("en", user.TargetLanguageCode);
         }
 
         [Fact]

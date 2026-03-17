@@ -1,4 +1,4 @@
-using Lumino.Api.Application.DTOs;
+﻿using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using System.Collections.Generic;
@@ -32,7 +32,8 @@ namespace Lumino.Api.Application.Services
                         Id = a.Id,
                         Title = a.Title,
                         Description = a.Description,
-                        EarnedAt = ua.EarnedAt
+                        EarnedAt = ua.EarnedAt,
+                        ImageUrl = a.ImageUrl
                     }
                 )
                 .ToList();

@@ -58,9 +58,25 @@ namespace Lumino.Api.Application.Services
                 throw new KeyNotFoundException("User not found");
             }
 
-            var ok = _passwordHasher.Verify(request.Password, user.PasswordHash);
+            var hasGoogleExternalLogin = _dbContext.UserExternalLogins.Any(x => x.UserId == userId && x.Provider == "google");
+            var hasPassword = !hasGoogleExternalLogin && !string.IsNullOrWhiteSpace(user.PasswordHash);
+            var hasRequestPassword = !string.IsNullOrWhiteSpace(request.Password);
 
-            if (!ok)
+            if (hasPassword)
+            {
+                if (!hasRequestPassword)
+                {
+                    throw new ArgumentException("Password is required");
+                }
+
+                var ok = _passwordHasher.Verify(request.Password, user.PasswordHash);
+
+                if (!ok)
+                {
+                    throw new UnauthorizedAccessException("Invalid credentials");
+                }
+            }
+            else if (!hasGoogleExternalLogin)
             {
                 throw new UnauthorizedAccessException("Invalid credentials");
             }

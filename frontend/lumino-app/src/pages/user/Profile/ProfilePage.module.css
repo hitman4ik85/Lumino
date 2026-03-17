@@ -1,0 +1,1478 @@
+:global(:root){
+  --profile-blue-900:#26415E;
+  --profile-blue-800:#3E5A7C;
+  --profile-blue-700:#6E88A9;
+  --profile-blue-600:#99B5D6;
+  --profile-blue-500:#B2C3D5;
+  --profile-blue-400:#D3E1F0;
+  --profile-blue-300:#EAF3FF;
+  --profile-surface:#F7FBFF;
+  --profile-dark-bg:#22364D;
+  --profile-dark-card:#8AA2BC;
+  --profile-dark-text:#F5FAFF;
+  --profile-dark-muted:#D4E3F3;
+  --profile-font-ui:var(--font-ui);
+}
+
+.viewport{
+  width:100%;
+  min-height:100vh;
+  overflow:hidden;
+  background:#F5F7FB;
+  font-family:var(--profile-font-ui);
+  color:var(--profile-blue-900);
+}
+
+.viewportDark{
+  background:transparent;
+  color:var(--profile-dark-text);
+}
+
+.viewportDark::before{
+  background:linear-gradient(180deg, rgba(34, 54, 77, .34) 0%, rgba(34, 54, 77, .48) 100%);
+}
+
+
+.embeddedViewport{
+  position:relative;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:transparent;
+  font-family:var(--profile-font-ui);
+  color:var(--profile-blue-900);
+}
+
+.embeddedViewport::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+}
+
+.embeddedContent{
+  width:100%;
+  min-height:100%;
+  display:flex;
+  gap:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+.stage{
+  position:relative;
+  width:1920px;
+  height:1080px;
+  transform-origin:top left;
+  overflow:hidden;
+}
+
+.bgLeft{
+  position:absolute;
+  left:0;
+  top:0;
+  width:351px;
+  height:1080px;
+  object-fit:cover;
+}
+
+.sidebar{
+  position:absolute;
+  left:62px;
+  top:42px;
+  width:255px;
+}
+
+.logo{
+  font-size:57px;
+  font-weight:700;
+  line-height:69px;
+  color:var(--profile-blue-900);
+}
+
+.viewportDark .logo{
+  color:#DCEAF8;
+}
+
+.nav{
+  margin-top:78px;
+  display:flex;
+  flex-direction:column;
+  gap:30px;
+}
+
+.navButton{
+  width:256px;
+  height:68px;
+  border:1px solid transparent;
+  border-radius:18px;
+  background:transparent;
+  display:flex;
+  align-items:center;
+  gap:18px;
+  padding:0 20px;
+  cursor:pointer;
+  font-size:24px;
+  font-weight:700;
+  color:var(--profile-blue-900);
+}
+
+.navButton:hover,
+.navButtonActive{
+  background:#99B5D6;
+  border-color:#6E88A9;
+}
+
+.viewportDark .navButton{
+  color:#DCEAF8;
+}
+
+.viewportDark .navButton:hover,
+.viewportDark .navButtonActive{
+  background:#5B6F86;
+  border-color:#88ABD4;
+}
+
+.navIcon{
+  width:38px;
+  height:38px;
+  object-fit:contain;
+}
+
+.sidebarDivider{
+  position:absolute;
+  left:349px;
+  top:0;
+  width:4px;
+  height:1080px;
+  background:#99B5D6;
+}
+
+.viewportDark .sidebarDivider{
+  background:#0F233A;
+}
+
+.content{
+  position:absolute;
+  left:492px;
+  top:111px;
+  width:1340px;
+  min-height:790px;
+  display:flex;
+}
+
+.profileColumn{
+  width:770px;
+  margin-left:145px;
+  margin-top:0;
+}
+
+.heroCard{
+  position:relative;
+  width:770px;
+  height:292px;
+  border-radius:22px;
+  background:#B2C3D5;
+  overflow:hidden;
+}
+
+.viewportDark .heroCard{
+  background:#8DA4BC;
+}
+
+.heroName{
+  position:absolute;
+  left:18px;
+  top:28px;
+  max-width:724px;
+  font-size:32px;
+  font-weight:700;
+  line-height:32px;
+  letter-spacing:0;
+  color:#FFFFFF;
+  white-space:normal;
+  word-break:normal;
+  overflow-wrap:break-word;
+}
+
+.viewportDark .heroName{
+  color:#F5FAFF;
+}
+
+.heroAvatar{
+  position:absolute;
+  left:50%;
+  top:63%;
+  width:182px;
+  height:252px;
+  object-fit:contain;
+  transform:translate(-50%, -50%);
+}
+
+.profileMeta{
+  display:inline-flex;
+  align-items:center;
+  max-width:100%;
+  width:max-content;
+  margin-top:18px;
+  font-size:20px;
+  font-weight:600;
+  line-height:22px;
+  white-space:nowrap;
+  color:#5B6E83;
+}
+
+.viewportDark .profileMeta{
+  color:var(--profile-dark-muted);
+}
+
+.topDivider,
+.bottomDivider{
+  width:150px;
+  height:4px;
+  margin-top:17px;
+  background:var(--profile-blue-900);
+}
+
+.viewportDark .topDivider,
+.viewportDark .bottomDivider{
+  background:#3F6794;
+}
+
+.statsRow{
+  margin-top:12px;
+  display:flex;
+  align-items:center;
+  gap:15px;
+  flex-wrap:wrap;
+}
+
+.statCard{
+  width:auto;
+  min-width:max-content;
+  height:57px;
+  border:1.5px solid #B2C2D5;
+  border-radius:15px;
+  background:rgba(255,255,255,.7);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:0 18px;
+  box-sizing:border-box;
+  font-size:20px;
+  font-weight:600;
+  line-height:22px;
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+
+.statCardLanguage{}
+.statCardStreak{}
+.statCardPoints{}
+.statCardCrystals{ padding:0 18px; }
+.statCardEnergy{ padding:0 14px; gap:8px; }
+
+.viewportDark .statCard{
+  border-color:#6F89A9;
+  background:rgba(255,255,255,.14);
+  color:#EDF5FF;
+}
+
+.statIcon,
+.statIconFlag{
+  width:33px;
+  height:33px;
+  object-fit:contain;
+  flex:0 0 auto;
+}
+
+.statIconFlag{
+  width:43px;
+  height:39px;
+}
+
+.viewportDark .statIcon,
+.viewportDark .statIconFlag{
+  filter:brightness(1.28) saturate(1.08) contrast(1.04);
+  opacity:1;
+  mix-blend-mode:normal;
+}
+
+
+.sectionTitle{
+  margin-top:28px;
+  font-size:20px;
+  font-weight:600;
+  line-height:22px;
+}
+
+.chartWrap{
+  margin-top:30px;
+  width:760px;
+  height:252px;
+}
+
+.chartSvg{
+  width:100%;
+  height:100%;
+}
+
+.chartAxisLabel{
+  font-family:var(--profile-font-ui);
+  font-size:20px;
+  font-weight:600;
+  fill:currentColor;
+}
+
+.chartGrid{
+  stroke:#BFD0E5;
+  stroke-width:5;
+}
+
+.viewportDark .chartGrid{
+  stroke:#86A2C3;
+}
+
+.chartLinePrevious,
+.chartLineCurrent{
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  stroke-width:6;
+}
+
+.chartLinePrevious{
+  stroke:#86A8D3;
+}
+
+.chartLineCurrent{
+  stroke:#26415E;
+}
+
+.viewportDark .chartLineCurrent{
+  stroke:#3F6794;
+}
+
+.chartPointPrevious{
+  fill:#86A8D3;
+}
+
+.chartPointCurrent{
+  fill:#26415E;
+}
+
+.viewportDark .chartPointCurrent{
+  fill:#3F6794;
+}
+
+.legend{
+  margin-top:18px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-bottom:0;
+}
+
+.legendRow{
+  display:grid;
+  grid-template-columns:29px 200px 1fr;
+  align-items:center;
+  column-gap:18px;
+  font-size:20px;
+  font-weight:600;
+  line-height:22px;
+}
+
+.legendDot{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  display:block;
+}
+
+.legendDotPrevious{ background:#86A8D3; }
+.legendDotCurrent{ background:#26415E; }
+.viewportDark .legendDotCurrent{ background:#3F6794; }
+
+.contentDivider{
+  width:4px;
+  height:770px;
+  margin:27px 0 0 122px;
+  background:#99B5D6;
+}
+
+.viewportDark .contentDivider{
+  background:#8AA6C7;
+}
+
+.settingsColumn{
+  width:450px;
+  padding-top:0;
+  margin-left:19px;
+}
+
+.settingsTitle{
+  width:194px;
+  margin-left:101px;
+  font-family:var(--profile-font-ui);
+  font-size:24px;
+  font-weight:700;
+  line-height:22px;
+  text-align:center;
+  color:#26415E;
+}
+
+.accountTitle{
+  margin-top:36px;
+  font-family:var(--profile-font-ui);
+  font-size:20px;
+  font-weight:700;
+  line-height:22px;
+  letter-spacing:0;
+  color:#899DB4;
+}
+
+.viewportDark .accountTitle{
+  color:#E7F1FC;
+}
+
+.settingsNav{
+  margin-top:17px;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:18px;
+}
+
+.settingsButton{
+  display:inline-flex;
+  align-items:center;
+  min-height:38px;
+  border:0;
+  background:transparent;
+  padding:6px 14px;
+  margin-left:-14px;
+  border-radius:14px;
+  cursor:pointer;
+  font-family:var(--profile-font-ui);
+  font-size:24px;
+  font-weight:700;
+  line-height:22px;
+  letter-spacing:0;
+  color:#587089;
+  transition:background .14s ease, color .14s ease, box-shadow .14s ease;
+}
+
+.settingsButton:hover,
+.settingsButtonActive{
+  background:#DDE7F2;
+  color:var(--profile-blue-900);
+  box-shadow:none;
+}
+
+.viewportDark .settingsButton{
+  color:#E6F1FC;
+}
+
+.viewportDark .settingsButton:hover,
+.viewportDark .settingsButtonActive{
+  background:rgba(91,111,134,.34);
+  color:var(--profile-dark-text);
+  box-shadow:inset 0 0 0 1px rgba(136,171,212,.22);
+}
+
+.settingsDivider,
+.smallDivider{
+  width:430px;
+  height:4px;
+  margin-top:25px;
+  background:#99B5D6;
+}
+
+.viewportDark .settingsDivider,
+.viewportDark .smallDivider{
+  background:#8AA6C7;
+}
+
+.panelContent,
+.accountActions{
+  margin-top:28px;
+  width:430px;
+}
+
+.panelHeaderRow,
+.parameterRow,
+.linkedAccountRow,
+.languageRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.panelTitle{
+  font-family:var(--profile-font-ui);
+  font-size:20px;
+  font-weight:700;
+  line-height:22px;
+  letter-spacing:0;
+  color:#899DB4;
+}
+
+.panelClose{
+  position:relative;
+  width:22px;
+  height:22px;
+  border:0;
+  background:transparent;
+  cursor:pointer;
+  padding:0;
+  color:#26415E;
+}
+
+.panelClose::before,
+.panelClose::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:3px;
+  height:22px;
+  border-radius:999px;
+  background:currentColor;
+  transform-origin:center;
+}
+
+.panelClose::before{ transform:translate(-50%, -50%) rotate(45deg); }
+.panelClose::after{ transform:translate(-50%, -50%) rotate(-45deg); }
+
+.parameterRow{
+  margin-top:22px;
+}
+
+.parameterLabel,
+.simpleFieldLabel,
+.linkedAccountTitle,
+.languageRow{
+  font-family:var(--profile-font-ui);
+  font-size:24px;
+  font-weight:700;
+  line-height:22px;
+  letter-spacing:0;
+  color:#587089;
+}
+
+.themeSwitch{
+  position:relative;
+  width:78px;
+  height:35px;
+  border:0;
+  border-radius:12px;
+  background:#D6E5F6;
+  cursor:pointer;
+  padding:0 8px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.themeSwitchDark{
+  background:#D6E5F6;
+}
+
+.themeThumb{
+  position:absolute;
+  left:44px;
+  top:4px;
+  width:28px;
+  height:27px;
+  border-radius:9px;
+  background:#7D8DA0;
+  transition:left .18s ease;
+}
+
+.themeThumbDark{
+  left:7px;
+}
+
+.themeIcon{
+  position:relative;
+  z-index:1;
+  object-fit:contain;
+  flex:0 0 auto;
+}
+
+.themeIconSun{
+  width:26px;
+  height:26px;
+}
+
+.themeIconMoon{
+  width:25px;
+  height:25px;
+}
+
+.changeButton,
+.saveButton,
+.deleteButton,
+.logoutButton{
+  min-width:150px;
+  height:50px;
+  border-radius:14px;
+  border:0;
+  cursor:pointer;
+  font-family:var(--profile-font-ui);
+  font-size:20px;
+  font-weight:700;
+  line-height:24px;
+  letter-spacing:0;
+  text-transform:uppercase;
+  color:#FFFFFF;
+  background:#26415E;
+}
+
+.deleteButton{
+  background:#6E88A9;
+}
+
+.viewportDark .changeButton,
+.viewportDark .saveButton,
+.viewportDark .logoutButton{
+  background:#3F6794;
+}
+
+.simpleFieldLabel{
+  margin-top:12px;
+}
+
+.simpleFieldValue{
+  margin-top:8px;
+  min-height:22px;
+  font-size:20px;
+  font-weight:600;
+  line-height:26px;
+  color:#6E88A9;
+}
+
+.viewportDark .simpleFieldValue{
+  color:#D7E6F7;
+}
+
+.deleteForm{
+  margin-top:18px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.input{
+  width:430px;
+  height:54px;
+  border:2px solid #B2C3D5;
+  border-radius:16px;
+  box-sizing:border-box;
+  background:rgba(255,255,255,.82);
+  padding:0 18px;
+  font-size:19px;
+  font-weight:600;
+  color:#26415E;
+  outline:none;
+}
+
+.viewportDark .input{
+  border-color:#87A4C5;
+  background:rgba(20, 37, 56, .92);
+  color:#D8E8FA;
+}
+
+.saveButton{
+  margin-top:18px;
+}
+
+.languageList{
+  display:flex;
+  flex-direction:column;
+  gap:20px;
+  margin-top:28px;
+}
+
+.languageRow{
+  width:430px;
+  min-height:74px;
+}
+
+.languageRowLeft{
+  display:flex;
+  align-items:center;
+  gap:26px;
+}
+
+.languageRowFlagWrap{
+  width:84px;
+  height:74px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
+.languageRowFlag{
+  width:84px;
+  height:74px;
+  object-fit:contain;
+  border-radius:0;
+  flex:0 0 auto;
+}
+
+.languageRowTitle{
+  font-family:var(--profile-font-ui);
+  font-size:24px;
+  font-weight:700;
+  line-height:22px;
+  letter-spacing:0;
+  color:#587089;
+}
+
+.languageDelete{
+  position:relative;
+  width:30px;
+  height:30px;
+  border:0;
+  border-radius:50%;
+  background:#26415E;
+  cursor:pointer;
+  flex:0 0 auto;
+}
+
+.languageDelete::before,
+.languageDelete::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:3px;
+  height:18px;
+  background:#FFFFFF;
+  border-radius:999px;
+}
+
+.languageDelete::before{ transform:translate(-50%, -50%) rotate(45deg); }
+.languageDelete::after{ transform:translate(-50%, -50%) rotate(-45deg); }
+
+.linkedAccountRow{
+  width:430px;
+  min-height:51px;
+  margin-top:28px;
+}
+
+.linkedAccountLeft{
+  display:flex;
+  align-items:center;
+  gap:28px;
+}
+
+.googleBadge{
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  border:1px solid #899DB4;
+  background:#FFFFFF;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-sizing:border-box;
+  font-family:var(--profile-font-ui);
+  font-size:30px;
+  font-weight:700;
+  line-height:30px;
+  color:#C8BDD5;
+  flex:0 0 auto;
+}
+
+.linkedAccountTitle{
+  flex:0 1 auto;
+  margin-left:0;
+}
+
+.linkedAccountState{
+  position:relative;
+  width:39px;
+  height:35px;
+  border-radius:10px;
+  background:#D3E1F0;
+  box-sizing:border-box;
+  flex:0 0 auto;
+}
+
+.linkedAccountStateActive{
+  background:#D3E1F0;
+}
+
+.linkedAccountThumb{
+  position:absolute;
+  right:5px;
+  top:5px;
+  width:29px;
+  height:25px;
+  border-radius:10px;
+  background:#587089;
+  color:transparent;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-left:0;
+  font-size:0;
+  line-height:1;
+}
+
+.linkedAccountThumbActive{
+  color:#FFFFFF;
+  font-size:17px;
+  font-weight:700;
+}
+
+.logoutButton{
+  width:430px;
+}
+
+.myDataPanel{
+  position:relative;
+  width:430px;
+  min-height:360px;
+  margin-top:28px;
+  padding-top:0;
+  box-sizing:border-box;
+}
+
+.myDataHeaderRow{
+  margin-bottom:24px;
+}
+
+.myDataClose{
+  color:#26415E;
+}
+
+.myDataLabel{
+  margin-top:0;
+  margin-left:63px;
+  font-family:var(--profile-font-ui);
+  font-size:15px;
+  font-weight:700;
+  line-height:22px;
+  color:#899DB4;
+  text-transform:uppercase;
+}
+
+.myDataEmailLabel{
+  margin-top:16px;
+}
+
+.myDataField{
+  position:relative;
+  width:354px;
+  height:44.53px;
+  margin-top:4px;
+  margin-left:51px;
+  border:1.5px solid #B2C3D5;
+  border-radius:15px;
+  background:#D3E1F0;
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  padding:0 16px;
+}
+
+.myDataFieldWithAction{
+  justify-content:space-between;
+  padding-right:18px;
+}
+
+
+.myDataFieldEditing{
+  padding-right:12px;
+}
+
+.myDataFieldInput{
+  width:100%;
+  border:0;
+  outline:none;
+  background:transparent;
+  padding:0;
+  margin:0;
+  font-family:var(--profile-font-ui);
+  font-size:15px;
+  font-weight:600;
+  line-height:22px;
+  color:#587089;
+}
+
+.myDataFieldInput::placeholder{
+  color:#587089;
+}
+
+.myDataFieldValue{
+  font-family:var(--profile-font-ui);
+  font-size:15px;
+  font-weight:600;
+  line-height:22px;
+  color:#587089;
+}
+
+.myDataActionButton{
+  width:18px;
+  height:18px;
+  border:0;
+  background:transparent;
+  padding:0;
+  cursor:pointer;
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.myDataActionIcon{
+  width:18px;
+  height:18px;
+  object-fit:contain;
+  display:block;
+}
+
+.myDataDivider{
+  width:354px;
+  height:2px;
+  margin-top:20px;
+  margin-left:51px;
+  background:#83A6CE;
+}
+
+.myDataDeleteButton{
+  width:354px;
+  height:50px;
+  margin-top:20px;
+  margin-left:51px;
+  border:0;
+  border-radius:15px;
+  background:#26415E;
+  font-family:var(--profile-font-ui);
+  font-size:20px;
+  font-weight:700;
+  line-height:24px;
+  letter-spacing:0;
+  text-transform:uppercase;
+  color:#FFFFFF;
+  cursor:pointer;
+}
+
+.viewportDark .myDataClose{
+  color:#D8E8FA;
+}
+
+.viewportDark .myDataLabel{
+  color:#D7E6F7;
+}
+
+.viewportDark .myDataField{
+  border-color:#87A4C5;
+  background:rgba(20, 37, 56, .92);
+}
+
+.viewportDark .myDataFieldValue,
+.viewportDark .myDataActionIcon{
+  color:#D8E8FA;
+}
+
+.viewportDark .myDataFieldInput{
+  color:#D8E8FA;
+}
+
+.viewportDark .myDataFieldInput::placeholder{
+  color:#D8E8FA;
+}
+
+.viewportDark .myDataActionIcon{
+  filter:brightness(0) saturate(100%) invert(91%) sepia(15%) saturate(534%) hue-rotate(180deg) brightness(103%) contrast(96%);
+}
+
+.viewportDark .myDataDivider{
+  background:#8AA6C7;
+}
+
+.viewportDark .myDataDeleteButton{
+  background:#3F6794;
+}
+
+.deleteAccountModal{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:536px;
+  min-height:330px;
+  border-radius:20px;
+  background:#B2C3D5;
+  box-sizing:border-box;
+  padding:28px 28px 32px;
+  transform:translate(-50%, -50%);
+}
+
+.deleteAccountClose{
+  position:absolute;
+  right:28px;
+  top:28px;
+  width:22px;
+  height:22px;
+  border:0;
+  background:transparent;
+  cursor:pointer;
+  padding:0;
+}
+
+.deleteAccountClose::before,
+.deleteAccountClose::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:3px;
+  height:22px;
+  border-radius:999px;
+  background:#26415E;
+  transform-origin:center;
+}
+
+.deleteAccountClose::before{
+  transform:translate(-50%, -50%) rotate(45deg);
+}
+
+.deleteAccountClose::after{
+  transform:translate(-50%, -50%) rotate(-45deg);
+}
+
+.deleteAccountContent{
+  margin-top:52px;
+  border-radius:17px;
+  background:#D3E1F0;
+  padding:28px 24px;
+  box-sizing:border-box;
+}
+
+.deleteAccountTitle{
+  margin:0;
+  text-align:center;
+  font-family:var(--profile-font-ui);
+  font-size:30px;
+  font-weight:700;
+  line-height:34px;
+  color:#26415E;
+}
+
+.deleteAccountText{
+  margin-top:18px;
+  text-align:center;
+  font-family:var(--profile-font-ui);
+  font-size:18px;
+  font-weight:600;
+  line-height:24px;
+  color:#587089;
+}
+
+.deleteAccountInput{
+  width:100%;
+  height:44.53px;
+  margin-top:22px;
+  border:1.5px solid #B2C3D5;
+  border-radius:15px;
+  box-sizing:border-box;
+  background:#FFFFFF;
+  padding:0 16px;
+  font-family:var(--profile-font-ui);
+  font-size:14px;
+  font-weight:600;
+  color:#587089;
+  outline:none;
+}
+
+.deleteAccountActions{
+  margin-top:26px;
+  display:flex;
+  justify-content:center;
+  gap:18px;
+}
+
+.deleteAccountButton{
+  width:180px;
+  height:50px;
+  border:0;
+  border-radius:15px;
+  cursor:pointer;
+  font-family:var(--profile-font-ui);
+  font-size:18px;
+  font-weight:700;
+  line-height:24px;
+  color:#FFFFFF;
+}
+
+.deleteAccountButtonLight{
+  background:#99B5D6;
+}
+
+.deleteAccountButtonDark{
+  background:#26415E;
+}
+
+.viewportDark .deleteAccountModal{
+  background:#A8BED5;
+}
+
+.viewportDark .deleteAccountContent{
+  background:#D6E4F2;
+}
+
+.viewportDark .deleteAccountTitle,
+.viewportDark .deleteAccountClose::before,
+.viewportDark .deleteAccountClose::after{
+  color:#173049;
+  background:#173049;
+}
+
+.viewportDark .deleteAccountText{
+  color:#35506E;
+}
+
+.viewportDark .deleteAccountInput{
+  border-color:#87A4C5;
+  background:rgba(20, 37, 56, .92);
+  color:#D8E8FA;
+}
+
+.viewportDark .deleteAccountButtonDark{
+  background:#3F6794;
+}
+
+
+.profileWarningOverlay{
+  position:absolute;
+  inset:0;
+  z-index:9999;
+}
+
+.profileWarningBackdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(210, 216, 225, .72);
+}
+
+.profileWarningModal{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:472px;
+  height:353px;
+  border-radius:20px;
+  background:#B2C3D5;
+  box-sizing:border-box;
+  transform:translate(-50%, -50%);
+}
+
+.profileWarningClose{
+  position:absolute;
+  left:28px;
+  top:28px;
+  width:22px;
+  height:22px;
+  border:0;
+  background:transparent;
+  cursor:pointer;
+  padding:0;
+}
+
+.profileWarningClose::before,
+.profileWarningClose::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:3px;
+  height:22px;
+  border-radius:999px;
+  background:#26415E;
+  transform-origin:center;
+}
+
+.profileWarningClose::before{
+  transform:translate(-50%, -50%) rotate(45deg);
+}
+
+.profileWarningClose::after{
+  transform:translate(-50%, -50%) rotate(-45deg);
+}
+
+.profileWarningContentBox{
+  position:absolute;
+  left:22px;
+  top:76px;
+  width:428px;
+  height:135px;
+  border-radius:17px;
+  background:#D3E1F0;
+  padding:0;
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.profileWarningTitle{
+  width:421px;
+  margin:0;
+  text-align:center;
+  white-space:pre-line;
+  font-size:31px;
+  font-weight:700;
+  line-height:34px;
+  color:#26415E;
+}
+
+.profileWarningActions{
+  position:absolute;
+  left:77px;
+  top:248px;
+  display:flex;
+  align-items:center;
+  gap:38px;
+}
+
+.profileWarningButton{
+  width:141px;
+  height:70px;
+  border:0;
+  border-radius:15px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:22px;
+  font-weight:700;
+  line-height:27px;
+  color:#FFFFFF;
+}
+
+.profileWarningButtonLight{
+  background:#99B5D6;
+}
+
+.profileWarningButtonDark{
+  background:#26415E;
+}
+
+.viewportDark .profileWarningBackdrop{
+  background:rgba(27, 40, 56, .56);
+}
+
+.viewportDark .profileWarningModal{
+  background:#A8BED5;
+}
+
+.viewportDark .profileWarningContentBox{
+  background:#D6E4F2;
+}
+.avatarOverlay{
+  position:fixed;
+  inset:0;
+  z-index:9998;
+  background:rgba(2, 11, 23, .46);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.avatarDialog{
+  width:640px;
+  border-radius:24px;
+  background:#B2C3D5;
+  padding:28px;
+  box-sizing:border-box;
+}
+
+.avatarDialogHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.avatarDialogTitle{
+  font-size:28px;
+  font-weight:700;
+  line-height:34px;
+}
+
+.avatarGrid{
+  margin-top:28px;
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:18px;
+}
+
+.avatarOption{
+  height:146px;
+  border:2px solid transparent;
+  border-radius:18px;
+  background:#D3E1F0;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.avatarOption img{
+  width:96px;
+  height:96px;
+  object-fit:contain;
+}
+
+.avatarOptionActive{
+  border-color:#26415E;
+}
+
+.viewportDark .avatarDialog{
+  background:#30475F;
+  color:#D8E8FA;
+}
+
+.viewportDark .avatarOption{
+  background:#173049;
+}
+
+@media (max-width: 768px){
+  .stage{
+    width:100%;
+    min-height:100vh;
+    height:auto;
+  }
+}
+
+
+.changePasswordPanel{
+  position:relative;
+  width:430px;
+  min-height:420px;
+  margin-top:28px;
+  padding-top:0;
+  box-sizing:border-box;
+}
+
+.changePasswordHeaderRow{
+  margin-bottom:24px;
+}
+
+.changePasswordClose{
+  color:#26415E;
+}
+
+.changePasswordLabel{
+  margin-top:0;
+  margin-left:63px;
+  font-family:var(--profile-font-ui);
+  font-size:15px;
+  font-weight:700;
+  line-height:22px;
+  color:#899DB4;
+  text-transform:uppercase;
+}
+
+.changePasswordNextLabel{
+  margin-top:14px;
+}
+
+.changePasswordFieldWrap{
+  position:relative;
+  width:354px;
+  height:44.53px;
+  margin-top:4px;
+  margin-left:51px;
+}
+
+.changePasswordField{
+  width:100%;
+  height:100%;
+  border:1.5px solid #B2C3D5;
+  border-radius:15px;
+  box-sizing:border-box;
+  background:#D3E1F0;
+  padding:0 52px 0 16px;
+  font-family:var(--profile-font-ui);
+  font-size:15px;
+  font-weight:600;
+  line-height:22px;
+  color:#587089;
+  outline:none;
+}
+
+.changePasswordToggleButton{
+  position:absolute;
+  top:50%;
+  right:16px;
+  transform:translateY(-50%);
+  width:20px;
+  height:21px;
+  border:0;
+  background:transparent;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#587089;
+  cursor:pointer;
+}
+
+.changePasswordDivider{
+  width:354px;
+  height:2px;
+  margin-top:23px;
+  margin-left:51px;
+  background:#83A6CE;
+}
+
+.changePasswordSaveButton{
+  width:354px;
+  height:50px;
+  margin-top:20px;
+  margin-left:51px;
+  border:0;
+  border-radius:15px;
+  background:#26415E;
+  font-family:var(--profile-font-ui);
+  font-size:20px;
+  font-weight:700;
+  line-height:24px;
+  letter-spacing:0;
+  text-transform:uppercase;
+  color:#FFFFFF;
+  cursor:pointer;
+}
+
+.viewportDark .changePasswordClose{
+  color:#D8E8FA;
+}
+
+.viewportDark .changePasswordLabel{
+  color:#D7E6F7;
+}
+
+.viewportDark .changePasswordField{
+  border-color:#87A4C5;
+  background:rgba(20, 37, 56, .92);
+  color:#D8E8FA;
+}
+
+.viewportDark .changePasswordToggleButton{
+  color:#D8E8FA;
+}
+
+.viewportDark .changePasswordDivider{
+  background:#8AA6C7;
+}
+
+.viewportDark .changePasswordSaveButton{
+  background:#3F6794;
+}

@@ -1,4 +1,4 @@
-using Lumino.Api.Application.DTOs;
+﻿using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
@@ -30,7 +30,8 @@ namespace Lumino.Api.Application.Services
                     Question = x.Question,
                     Data = x.Data,
                     CorrectAnswer = x.CorrectAnswer,
-                    Order = x.Order
+                    Order = x.Order,
+                    ImageUrl = x.ImageUrl
                 })
                 .ToList();
         }
@@ -57,6 +58,7 @@ namespace Lumino.Api.Application.Services
                 Data = exercise.Data,
                 CorrectAnswer = exercise.CorrectAnswer,
                 Order = exercise.Order,
+                ImageUrl = exercise.ImageUrl,
                 CorrectAnswers = correctAnswers,
                 Preview = preview
             };
@@ -95,7 +97,8 @@ namespace Lumino.Api.Application.Services
                 Question = source.Question,
                 Data = source.Data,
                 CorrectAnswer = source.CorrectAnswer,
-                Order = newOrder
+                Order = newOrder,
+                ImageUrl = source.ImageUrl
             };
 
             _dbContext.Exercises.Add(copy);
@@ -109,7 +112,8 @@ namespace Lumino.Api.Application.Services
                 Question = copy.Question,
                 Data = copy.Data,
                 CorrectAnswer = copy.CorrectAnswer,
-                Order = copy.Order
+                Order = copy.Order,
+                ImageUrl = copy.ImageUrl
             };
         }
 
@@ -133,7 +137,8 @@ namespace Lumino.Api.Application.Services
                 Question = request.Question,
                 Data = request.Data,
                 CorrectAnswer = request.CorrectAnswer,
-                Order = order
+                Order = order,
+                ImageUrl = request.ImageUrl
             };
 
             _dbContext.Exercises.Add(exercise);
@@ -147,7 +152,8 @@ namespace Lumino.Api.Application.Services
                 Question = exercise.Question,
                 Data = exercise.Data,
                 CorrectAnswer = exercise.CorrectAnswer,
-                Order = exercise.Order
+                Order = exercise.Order,
+                ImageUrl = exercise.ImageUrl
             };
         }
 
@@ -176,6 +182,7 @@ namespace Lumino.Api.Application.Services
             exercise.Data = request.Data;
             exercise.CorrectAnswer = request.CorrectAnswer;
             exercise.Order = order;
+            exercise.ImageUrl = request.ImageUrl;
 
             _dbContext.SaveChanges();
         }

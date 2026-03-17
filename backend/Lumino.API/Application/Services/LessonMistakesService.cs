@@ -1155,7 +1155,8 @@ namespace Lumino.Api.Application.Services
                 Type = ex.Type.ToString(),
                 Question = ex.Question ?? string.Empty,
                 Data = ex.Data ?? string.Empty,
-                Order = ex.Order
+                Order = ex.Order,
+                ImageUrl = ex.ImageUrl
             };
         }
 

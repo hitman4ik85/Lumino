@@ -130,6 +130,38 @@ public class AuthServiceTests
         Assert.Equal("en", user.TargetLanguageCode);
     }
 
+    [Fact]
+    public void Register_WithoutTargetLanguage_ShouldUseDefaultEnglish()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var configuration = TestConfigurationFactory.Create();
+
+        var service = new AuthService(
+            dbContext,
+            configuration,
+            new FakeRegisterValidator(),
+            new FakeLoginValidator(),
+            new ForgotPasswordRequestValidator(),
+            new ResetPasswordRequestValidator(),
+            new VerifyEmailRequestValidator(),
+            new ResendVerificationRequestValidator(),
+            new FakeEmailSender(),
+            new FakeOpenIdTokenValidator(),
+            new FakeHostEnvironment(),
+            new PasswordHasher()
+        );
+
+        service.Register(new RegisterRequest
+        {
+            Email = "defaultlang@mail.com",
+            Password = "123456"
+        });
+
+        var user = dbContext.Users.FirstOrDefault(x => x.Email == "defaultlang@mail.com");
+        Assert.NotNull(user);
+        Assert.Equal("en", user!.TargetLanguageCode);
+    }
+
 
     [Fact]
     public void Login_EmailNotVerified_ShouldThrow()

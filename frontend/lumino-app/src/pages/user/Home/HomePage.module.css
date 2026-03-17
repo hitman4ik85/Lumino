@@ -28,6 +28,30 @@
   transform-origin:0 0;
 }
 
+:global(body[data-lumino-theme="dark"]) .viewport,
+:global(body[data-lumino-theme="dark"]) .stage{
+  background:#020B17;
+}
+
+:global(body[data-lumino-theme="dark"]) .sidebarDivider{
+  background:#0F233A;
+}
+
+:global(body[data-lumino-theme="dark"]) .logo{
+  color:#3E5A7C;
+}
+
+:global(body[data-lumino-theme="dark"]) .navButton{
+  color:#3E5A7C;
+}
+
+:global(body[data-lumino-theme="dark"]) .navButton:hover,
+:global(body[data-lumino-theme="dark"]) .navButtonActive{
+  background:#5B6F86;
+  color:#D8E8FA;
+  box-shadow:inset 0 0 0 2px rgba(136,171,212,.28);
+}
+
 .bgLeft{
   position:absolute;
   left:0;
@@ -1920,4 +1944,118 @@
   width:1180px;
   height:4px;
   background:#D8C2CF;
+}
+
+.homeWarningOverlay{
+  position:absolute;
+  inset:0;
+  z-index:9999;
+}
+
+.homeWarningBackdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(210, 216, 225, .72);
+}
+
+.homeWarningModal{
+  position:absolute;
+  left:866px;
+  top:398px;
+  width:472px;
+  height:353px;
+  border-radius:20px;
+  background:#B2C3D5;
+  box-sizing:border-box;
+}
+
+.homeWarningClose{
+  position:absolute;
+  left:28px;
+  top:29px;
+  width:30px;
+  height:30px;
+  border:0;
+  background:transparent;
+  cursor:pointer;
+  padding:0;
+}
+
+.homeWarningClose::before,
+.homeWarningClose::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:4px;
+  height:34px;
+  border-radius:999px;
+  background:#26415E;
+  transform-origin:center;
+}
+
+.homeWarningClose::before{
+  transform:translate(-50%, -50%) rotate(45deg);
+}
+
+.homeWarningClose::after{
+  transform:translate(-50%, -50%) rotate(-45deg);
+}
+
+.homeWarningContentBox{
+  position:absolute;
+  left:22px;
+  top:80px;
+  width:428px;
+  height:135px;
+  border-radius:17px;
+  background:#D3E1F0;
+  padding:0;
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.homeWarningTitle{
+  width:421px;
+  margin:0;
+  text-align:center;
+  white-space:pre-line;
+  font-size:31px;
+  font-weight:700;
+  line-height:34px;
+  color:#26415E;
+}
+
+.homeWarningActions{
+  position:absolute;
+  left:77px;
+  top:248px;
+  display:flex;
+  align-items:center;
+  gap:38px;
+}
+
+.homeWarningButton{
+  width:141px;
+  height:70px;
+  border:0;
+  border-radius:15px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:22px;
+  font-weight:700;
+  line-height:27px;
+  color:#FFFFFF;
+}
+
+.homeWarningButtonLight{
+  background:#99B5D6;
+}
+
+.homeWarningButtonDark{
+  background:#26415E;
 }

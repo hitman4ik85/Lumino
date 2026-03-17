@@ -1,6 +1,6 @@
 import { apiClient } from "./apiClient.js";
 
-const normalizeLanguagesPayload = (data, fallbackCode = "en") => {
+const normalizeLanguagesPayload = (data, fallbackCode = "") => {
   const activeTargetLanguageCode = data?.activeTargetLanguageCode || data?.targetLanguageCode || fallbackCode;
   const learningLanguages = Array.isArray(data?.learningLanguages) ? data.learningLanguages : [];
 
@@ -48,7 +48,7 @@ export const onboardingService = {
       return { ok: false, data: null, error: res.error || "" };
     }
 
-    return normalizeLanguagesPayload(res.data, "en");
+    return normalizeLanguagesPayload(res.data, "");
   },
 
   async updateMyLanguages(dto) {
@@ -68,6 +68,20 @@ export const onboardingService = {
 
     const code = String(targetLanguageCode).trim().toLowerCase();
     const res = await apiClient.put("/onboarding/target-language/me", { targetLanguageCode: code });
+
+    return {
+      ok: res.ok,
+      status: res.status,
+      error: res.error || "",
+    };
+  },
+  async removeMyLanguage(languageCode) {
+    if (!languageCode) {
+      return { ok: false, error: "LanguageCode is required" };
+    }
+
+    const code = String(languageCode).trim().toLowerCase();
+    const res = await apiClient.del(`/onboarding/languages/me/${code}`);
 
     return {
       ok: res.ok,

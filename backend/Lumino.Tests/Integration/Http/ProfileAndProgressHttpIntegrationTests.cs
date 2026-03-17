@@ -52,13 +52,60 @@ public class ProfileAndProgressHttpIntegrationTests : IClassFixture<ApiWebApplic
 
         var root = doc.RootElement;
 
-        AssertJsonHasProperties(root, "id", "email", "role", "createdAt", "username", "avatarUrl", "hearts", "crystals", "theme");
+        AssertJsonHasProperties(root, "id", "email", "role", "createdAt", "username", "avatarUrl", "hearts", "crystals", "theme", "hasPassword", "isGoogleAccount");
 
         Assert.Equal("tester", root.GetProperty("username").GetString());
         Assert.Equal("/avatars/alien-1.png", root.GetProperty("avatarUrl").GetString());
         Assert.Equal(5, root.GetProperty("hearts").GetInt32());
         Assert.Equal(12, root.GetProperty("crystals").GetInt32());
         Assert.Equal("dark", root.GetProperty("theme").GetString());
+        Assert.True(root.GetProperty("hasPassword").GetBoolean());
+        Assert.False(root.GetProperty("isGoogleAccount").GetBoolean());
+    }
+
+    [Fact]
+    public async Task GetMe_WhenUserIsGoogleAccount_ShouldReturnGoogleFlags()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<LuminoDbContext>();
+
+            dbContext.Database.EnsureDeleted();
+            dbContext.Database.EnsureCreated();
+
+            dbContext.Users.Add(new User
+            {
+                Id = 10,
+                Email = "google@test.com",
+                PasswordHash = "hash:generated-random-password",
+                CreatedAt = DateTime.UtcNow,
+                Username = "googleuser"
+            });
+
+            dbContext.UserExternalLogins.Add(new UserExternalLogin
+            {
+                UserId = 10,
+                Provider = "google",
+                ProviderUserId = "google-10",
+                Email = "google@test.com",
+                CreatedAtUtc = DateTime.UtcNow
+            });
+
+            dbContext.SaveChanges();
+        }
+
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/user/me");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+
+        var root = doc.RootElement;
+
+        Assert.False(root.GetProperty("hasPassword").GetBoolean());
+        Assert.True(root.GetProperty("isGoogleAccount").GetBoolean());
     }
 
     [Fact]

@@ -69,10 +69,6 @@ namespace Lumino.Api.Application.Validators
                 throw new ArgumentException("Username length must be between 3 and 32 characters");
             }
 
-            if (username.Contains(" "))
-            {
-                throw new ArgumentException("Username must not contain spaces");
-            }
         }
 
         private static bool IsValidEmail(string email)

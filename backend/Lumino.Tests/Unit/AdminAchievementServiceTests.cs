@@ -16,12 +16,14 @@ public class AdminAchievementServiceTests
         var created = service.Create(new Lumino.Api.Application.DTOs.CreateAchievementRequest
         {
             Title = "My Achievement",
-            Description = "Desc"
+            Description = "Desc",
+            ImageUrl = "/uploads/ach.png"
         });
 
         Assert.True(created.Id > 0);
         Assert.False(string.IsNullOrWhiteSpace(created.Code));
         Assert.StartsWith("custom.", created.Code);
+        Assert.Equal("/uploads/ach.png", created.ImageUrl);
     }
 
     [Fact]
@@ -67,12 +69,14 @@ public class AdminAchievementServiceTests
         service.Update(a.Id, new Lumino.Api.Application.DTOs.UpdateAchievementRequest
         {
             Title = "New",
-            Description = "NewDesc"
+            Description = "NewDesc",
+            ImageUrl = "/uploads/new.png"
         });
 
         var updated = dbContext.Achievements.First(x => x.Id == a.Id);
         Assert.Equal("New", updated.Title);
         Assert.Equal("NewDesc", updated.Description);
         Assert.Equal("custom.test", updated.Code);
+        Assert.Equal("/uploads/new.png", updated.ImageUrl);
     }
 }

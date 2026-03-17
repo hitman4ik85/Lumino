@@ -1,4 +1,4 @@
-using Lumino.Api.Application.DTOs;
+﻿using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Utils;
@@ -59,7 +59,8 @@ namespace Lumino.Api.Application.Services
                                 Type = x.Type.ToString(),
                                 Question = x.Question,
                                 Data = x.Data,
-                                Order = x.Order
+                                Order = x.Order,
+                                ImageUrl = x.ImageUrl
                             })
                             .ToList();
         }

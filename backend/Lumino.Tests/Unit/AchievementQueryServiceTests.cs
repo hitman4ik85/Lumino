@@ -27,7 +27,7 @@ public class AchievementQueryServiceTests
         var dbContext = TestDbContextFactory.Create();
 
         dbContext.Achievements.AddRange(
-            new Achievement { Id = 1, Code = "test.a1", Title = "A1", Description = "D1" },
+            new Achievement { Id = 1, Code = "test.a1", Title = "A1", Description = "D1", ImageUrl = "/uploads/a1.png" },
             new Achievement { Id = 2, Code = "test.a2", Title = "A2", Description = "D2" }
         );
 
@@ -54,5 +54,6 @@ public class AchievementQueryServiceTests
         Assert.Equal("A1", result[0].Title);
         Assert.Equal("D1", result[0].Description);
         Assert.Equal(earned1, result[0].EarnedAt);
+        Assert.Equal("/uploads/a1.png", result[0].ImageUrl);
     }
 }

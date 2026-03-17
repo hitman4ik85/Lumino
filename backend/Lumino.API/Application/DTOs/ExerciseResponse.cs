@@ -1,4 +1,4 @@
-namespace Lumino.Api.Application.DTOs
+﻿namespace Lumino.Api.Application.DTOs
 {
     public class ExerciseResponse
     {
@@ -11,5 +11,7 @@ namespace Lumino.Api.Application.DTOs
         public string Data { get; set; } = null!;
 
         public int Order { get; set; }
+
+        public string? ImageUrl { get; set; }
     }
 }

@@ -210,6 +210,31 @@ public class AdminExerciseServiceTests
         Assert.Equal("Input", result.Type);
     }
 
+    [Fact]
+    public void Create_WithImageUrl_ShouldSaveImageUrl()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        SeedLesson(dbContext);
+
+        var service = new AdminExerciseService(dbContext);
+
+        var result = service.Create(new CreateExerciseRequest
+        {
+            LessonId = 1,
+            Type = "MultipleChoice",
+            Question = "кіт",
+            Data = "[\"cat\",\"dog\"]",
+            CorrectAnswer = "cat",
+            Order = 1,
+            ImageUrl = "/uploads/cat.png"
+        });
+
+        Assert.Equal("/uploads/cat.png", result.ImageUrl);
+
+        var saved = dbContext.Exercises.First(x => x.Id == result.Id);
+        Assert.Equal("/uploads/cat.png", saved.ImageUrl);
+    }
+
 private static void SeedLesson(Lumino.Api.Data.LuminoDbContext dbContext)
     {
         dbContext.Courses.Add(new Course

@@ -14,9 +14,7 @@ namespace Lumino.Api.Utils
             "/avatars/alien-1.png",
             "/avatars/alien-2.png",
             "/avatars/alien-3.png",
-            "/avatars/alien-4.png",
-            "/avatars/alien-5.png",
-            "/avatars/alien-6.png"
+            "/avatars/alien-4.png"
         };
 
         public static IReadOnlyList<string> GetAllowed(IConfiguration? configuration)

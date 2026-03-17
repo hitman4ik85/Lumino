@@ -33,7 +33,9 @@ function EyeIcon({ opened }) {
 function GoogleIcon() {
   return (
     <span className={styles.googleIcon} aria-hidden="true">
-      G
+      <span className={styles.googleIconCircle}>
+        <span className={styles.googleIconLetter}>G</span>
+      </span>
     </span>
   );
 }
@@ -166,9 +168,15 @@ export default function RegisterPage() {
     const existingScript = document.querySelector('script[data-google-gsi="true"]');
 
     if (existingScript) {
-      initGoogle();
+      if (window.google?.accounts?.id) {
+        initGoogle();
+      } else {
+        existingScript.addEventListener("load", initGoogle, { once: true });
+      }
+
       return () => {
         cancelled = true;
+        existingScript.removeEventListener("load", initGoogle);
       };
     }
 
@@ -177,11 +185,12 @@ export default function RegisterPage() {
     script.async = true;
     script.defer = true;
     script.dataset.googleGsi = "true";
-    script.onload = initGoogle;
+    script.addEventListener("load", initGoogle, { once: true });
     document.head.appendChild(script);
 
     return () => {
       cancelled = true;
+      script.removeEventListener("load", initGoogle);
     };
   }, [navigate, form.username]);
 

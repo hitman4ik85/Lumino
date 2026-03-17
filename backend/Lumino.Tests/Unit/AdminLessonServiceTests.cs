@@ -367,8 +367,8 @@ public class AdminLessonServiceTests
         dbContext.SaveChanges();
 
         dbContext.Exercises.AddRange(
-            new Exercise { LessonId = lesson.Id, Type = Lumino.Api.Domain.Enums.ExerciseType.Input, Question = "Q2", Data = "{}", CorrectAnswer = "a", Order = 2 },
-            new Exercise { LessonId = lesson.Id, Type = Lumino.Api.Domain.Enums.ExerciseType.Input, Question = "Q1", Data = "{}", CorrectAnswer = "a", Order = 1 }
+            new Exercise { LessonId = lesson.Id, Type = Lumino.Api.Domain.Enums.ExerciseType.Input, Question = "Q2", Data = "{}", CorrectAnswer = "a", Order = 2, ImageUrl = "/uploads/q2.png" },
+            new Exercise { LessonId = lesson.Id, Type = Lumino.Api.Domain.Enums.ExerciseType.Input, Question = "Q1", Data = "{}", CorrectAnswer = "a", Order = 1, ImageUrl = "/uploads/q1.png" }
         );
         dbContext.SaveChanges();
 
@@ -379,6 +379,7 @@ public class AdminLessonServiceTests
         Assert.Equal(2, exported.Count);
         Assert.Equal(1, exported[0].Order);
         Assert.Equal("Q1", exported[0].Question);
+        Assert.Equal("/uploads/q1.png", exported[0].ImageUrl);
         Assert.Equal(2, exported[1].Order);
         Assert.Equal("Q2", exported[1].Question);
     }
@@ -421,7 +422,8 @@ public class AdminLessonServiceTests
                     Question = "New1",
                     Data = "{}",
                     CorrectAnswer = "a",
-                    Order = 1
+                    Order = 1,
+                    ImageUrl = "/uploads/new1.png"
                 },
                 new ExportExerciseJson
                 {
@@ -429,7 +431,8 @@ public class AdminLessonServiceTests
                     Question = "New2",
                     Data = "[\"a\",\"b\"]",
                     CorrectAnswer = "a",
-                    Order = 2
+                    Order = 2,
+                    ImageUrl = "/uploads/new2.png"
                 }
             }
         });
@@ -439,7 +442,9 @@ public class AdminLessonServiceTests
         var saved = dbContext.Exercises.Where(x => x.LessonId == lesson.Id).OrderBy(x => x.Order).ToList();
         Assert.Equal(2, saved.Count);
         Assert.Equal("New1", saved[0].Question);
+        Assert.Equal("/uploads/new1.png", saved[0].ImageUrl);
         Assert.Equal("New2", saved[1].Question);
+        Assert.Equal("/uploads/new2.png", saved[1].ImageUrl);
     }
 
 }

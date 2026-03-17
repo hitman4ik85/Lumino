@@ -1,4 +1,4 @@
-using Lumino.Api.Application.DTOs;
+﻿using Lumino.Api.Application.DTOs;
 using Lumino.Api.Utils;
 using Microsoft.Extensions.Configuration;
 using Lumino.Api.Application.Validators;
@@ -14,7 +14,7 @@ namespace Lumino.Api.Application.Validators
             _configuration = configuration;
         }
 
-public void Validate(UpdateProfileRequest request)
+        public void Validate(UpdateProfileRequest request)
         {
             if (request == null)
             {
@@ -30,10 +30,6 @@ public void Validate(UpdateProfileRequest request)
                     throw new ArgumentException("Username length must be between 3 and 32 characters");
                 }
 
-                if (value.Contains(" "))
-                {
-                    throw new ArgumentException("Username must not contain spaces");
-                }
             }
 
             SupportedAvatars.Validate(request.AvatarUrl, "AvatarUrl", _configuration);

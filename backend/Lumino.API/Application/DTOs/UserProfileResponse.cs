@@ -36,6 +36,10 @@ namespace Lumino.Api.Application.DTOs
 
         public string Theme { get; set; } = null!;
 
+        public bool HasPassword { get; set; }
+
+        public bool IsGoogleAccount { get; set; }
+
         public int CurrentStreakDays { get; set; }
 
         public int BestStreakDays { get; set; }

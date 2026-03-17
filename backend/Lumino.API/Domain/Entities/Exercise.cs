@@ -1,4 +1,4 @@
-using Lumino.Api.Domain.Enums;
+﻿using Lumino.Api.Domain.Enums;
 
 namespace Lumino.Api.Domain.Entities
 {
@@ -17,5 +17,7 @@ namespace Lumino.Api.Domain.Entities
         public string CorrectAnswer { get; set; } = null!;
 
         public int Order { get; set; }
+
+        public string? ImageUrl { get; set; }
     }
 }

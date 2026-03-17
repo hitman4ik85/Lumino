@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import SolarLoading from "../SolarLoading/SolarLoading.jsx";
 import styles from "./GlassLoading.module.css";
 
-export default function GlassLoading({ open, text = "Завантаження..." }) {
+export default function GlassLoading({ open, text = "Завантаження...", stageTargetId = "" }) {
   const [stageScale, setStageScale] = useState(1);
+  const [stageTargetNode, setStageTargetNode] = useState(null);
 
   useEffect(() => {
     const updateStageScale = () => {
@@ -20,7 +22,46 @@ export default function GlassLoading({ open, text = "Завантаження...
     };
   }, []);
 
+  useEffect(() => {
+    if (!stageTargetId) {
+      setStageTargetNode(null);
+      return;
+    }
+
+    const updateStageTarget = () => {
+      setStageTargetNode(document.getElementById(stageTargetId));
+    };
+
+    updateStageTarget();
+
+    const frameId = window.requestAnimationFrame(updateStageTarget);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [stageTargetId, open]);
+
   if (!open) return null;
+
+  const content = (
+    <>
+      <div className={styles.backdrop} />
+
+      <div className={styles.box} role="status" aria-live="polite">
+        <SolarLoading />
+        <p className={styles.text}>{text}</p>
+      </div>
+    </>
+  );
+
+  if (stageTargetNode) {
+    return createPortal(
+      <div className={styles.stageOverlayRoot}>
+        {content}
+      </div>,
+      stageTargetNode
+    );
+  }
 
   return (
     <div className={styles.overlayRoot}>
@@ -29,12 +70,7 @@ export default function GlassLoading({ open, text = "Завантаження...
         style={{ transform: `translate(-50%, -50%) scale(${stageScale})` }}
         role="presentation"
       >
-        <div className={styles.backdrop} />
-
-        <div className={styles.box} role="status" aria-live="polite">
-          <SolarLoading />
-          <p className={styles.text}>{text}</p>
-        </div>
+        {content}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-using Lumino.Api.Application.DTOs;
+﻿using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
@@ -55,7 +55,8 @@ namespace Lumino.Api.Application.Services
                     Question = x.Question,
                     Data = x.Data,
                     CorrectAnswer = x.CorrectAnswer,
-                    Order = x.Order
+                    Order = x.Order,
+                    ImageUrl = x.ImageUrl
                 })
                 .ToList();
 
@@ -139,8 +140,8 @@ namespace Lumino.Api.Application.Services
             {
                 suffix = " " + suffix;
             }
-var useTransaction = _dbContext.Database.ProviderName == null ||
-                                 !_dbContext.Database.ProviderName.Contains("InMemory", StringComparison.OrdinalIgnoreCase);
+            var useTransaction = _dbContext.Database.ProviderName == null ||
+                                             !_dbContext.Database.ProviderName.Contains("InMemory", StringComparison.OrdinalIgnoreCase);
 
             using var transaction = useTransaction ? _dbContext.Database.BeginTransaction() : null;
 
@@ -172,7 +173,8 @@ var useTransaction = _dbContext.Database.ProviderName == null ||
                         Question = ex.Question,
                         Data = ex.Data,
                         CorrectAnswer = ex.CorrectAnswer,
-                        Order = ex.Order
+                        Order = ex.Order,
+                        ImageUrl = ex.ImageUrl
                     });
                 }
 
@@ -221,7 +223,8 @@ var useTransaction = _dbContext.Database.ProviderName == null ||
                     Question = x.Question,
                     Data = x.Data,
                     CorrectAnswer = x.CorrectAnswer,
-                    Order = x.Order
+                    Order = x.Order,
+                    ImageUrl = x.ImageUrl
                 })
                 .ToList();
         }
@@ -305,7 +308,8 @@ var useTransaction = _dbContext.Database.ProviderName == null ||
                         Question = ex.Question,
                         Data = ex.Data,
                         CorrectAnswer = ex.CorrectAnswer,
-                        Order = order
+                        Order = order,
+                        ImageUrl = ex.ImageUrl
                     });
                 }
 

@@ -25,7 +25,7 @@ namespace Lumino.Api.Controllers
             return Ok(result);
         }
 
-                [HttpGet("languages/me")]
+        [HttpGet("languages/me")]
         [Authorize]
         public IActionResult GetMyLanguages()
         {
@@ -48,6 +48,33 @@ namespace Lumino.Api.Controllers
         {
             var userId = ClaimsUtils.GetUserIdOrThrow(User);
             _onboardingService.UpdateMyTargetLanguage(userId, request);
+            return NoContent();
+        }
+
+        [HttpDelete("languages/me/{languageCode}")]
+        [Authorize]
+        public IActionResult RemoveMyLanguage(string languageCode)
+        {
+            var userId = ClaimsUtils.GetUserIdOrThrow(User);
+            var result = _onboardingService.RemoveMyLanguage(userId, languageCode);
+
+            if (result.IsSuccess == false)
+            {
+                return new ObjectResult(new
+                {
+                    type = "bad_request",
+                    title = "Bad Request",
+                    status = 400,
+                    detail = result.ErrorMessage,
+                    instance = HttpContext.Request.Path.Value ?? "",
+                    traceId = HttpContext.TraceIdentifier
+                })
+                {
+                    StatusCode = 400,
+                    ContentTypes = { "application/problem+json" }
+                };
+            }
+
             return NoContent();
         }
 

@@ -1,4 +1,4 @@
-using Lumino.Api.Domain.Entities;
+﻿using Lumino.Api.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Lumino.Api.Data
@@ -155,6 +155,7 @@ namespace Lumino.Api.Data
                 entity.Property(x => x.Question).IsRequired();
                 entity.Property(x => x.Data).IsRequired();
                 entity.Property(x => x.CorrectAnswer).IsRequired();
+                entity.Property(x => x.ImageUrl).HasMaxLength(256);
 
                 entity.HasOne<Lesson>()
                     .WithMany()
@@ -191,6 +192,14 @@ namespace Lumino.Api.Data
 
                 entity.HasIndex(x => new { x.UserId, x.LessonId });
 
+            });
+
+            modelBuilder.Entity<Achievement>(entity =>
+            {
+                entity.Property(x => x.Code).IsRequired();
+                entity.Property(x => x.Title).IsRequired();
+                entity.Property(x => x.Description).IsRequired();
+                entity.Property(x => x.ImageUrl).HasMaxLength(256);
             });
 
             modelBuilder.Entity<UserProgress>(entity =>
@@ -312,7 +321,7 @@ namespace Lumino.Api.Data
 
                 entity.HasIndex(x => x.CourseId);
 
-                // stable scene ordering (Order > 0), fallback to Id when Order == 0 in services.
+                // NEW: stable scene ordering (Order > 0), fallback to Id when Order == 0 in services.
                 entity.HasIndex(x => new { x.CourseId, x.Order }).IsUnique().HasFilter("[Order] > 0");
             });
 

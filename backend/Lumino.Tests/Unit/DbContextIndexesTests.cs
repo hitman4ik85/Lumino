@@ -44,4 +44,43 @@ public class DbContextIndexesTests
         Assert.NotNull(index);
         Assert.True(index!.IsUnique);
     }
+
+
+    [Fact]
+    public void UserStreak_ShouldHaveUniqueIndex_OnUserId()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var entity = dbContext.Model.FindEntityType(typeof(UserStreak));
+        Assert.NotNull(entity);
+
+        var index = entity!.GetIndexes()
+            .FirstOrDefault(x =>
+                x.Properties.Count == 1
+                && x.Properties.Any(p => p.Name == nameof(UserStreak.UserId))
+            );
+
+        Assert.NotNull(index);
+        Assert.True(index!.IsUnique);
+    }
+
+    [Fact]
+    public void UserDailyActivity_ShouldHaveUniqueIndex_OnUserIdAndDateUtc()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var entity = dbContext.Model.FindEntityType(typeof(UserDailyActivity));
+        Assert.NotNull(entity);
+
+        var index = entity!.GetIndexes()
+            .FirstOrDefault(x =>
+                x.Properties.Count == 2
+                && x.Properties.Any(p => p.Name == nameof(UserDailyActivity.UserId))
+                && x.Properties.Any(p => p.Name == nameof(UserDailyActivity.DateUtc))
+            );
+
+        Assert.NotNull(index);
+        Assert.True(index!.IsUnique);
+    }
+
 }

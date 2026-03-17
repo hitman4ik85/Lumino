@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import styles from "./GlassModal.module.css";
 
 export default function GlassModal({
@@ -12,8 +13,10 @@ export default function GlassModal({
   onSecondary,
   variant = "default",
   illustrationSrc = "",
+  stageTargetId = "",
 }) {
   const [stageScale, setStageScale] = useState(1);
+  const [stageTargetNode, setStageTargetNode] = useState(null);
 
   useEffect(() => {
     const updateStageScale = () => {
@@ -29,6 +32,26 @@ export default function GlassModal({
       window.removeEventListener("resize", updateStageScale);
     };
   }, []);
+
+
+  useEffect(() => {
+    if (!stageTargetId) {
+      setStageTargetNode(null);
+      return;
+    }
+
+    const updateStageTarget = () => {
+      setStageTargetNode(document.getElementById(stageTargetId));
+    };
+
+    updateStageTarget();
+
+    const frameId = window.requestAnimationFrame(updateStageTarget);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [stageTargetId, open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -75,24 +98,18 @@ export default function GlassModal({
     }
   };
 
-  return (
-    <div className={styles.overlayRoot}>
-      <div
-        className={styles.stageFrame}
-        style={{ transform: `translate(-50%, -50%) scale(${stageScale})` }}
-        role="presentation"
-        onClick={onClose}
-      >
-        <div className={`${styles.backdrop} ${isLanguageWarning ? styles.languageWarningBackdrop : ""} ${isSceneLocked ? styles.sceneLockedBackdrop : ""}`} />
+  const content = (
+    <>
+      <div className={`${styles.backdrop} ${isLanguageWarning ? styles.languageWarningBackdrop : ""} ${isSceneLocked ? styles.sceneLockedBackdrop : ""}`} />
 
-        <div
-          className={`${styles.modal} ${isLanguageWarning ? styles.languageWarningModal : ""} ${isSceneLocked ? styles.sceneLockedModal : ""}`}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="glass-modal-title"
-          aria-describedby="glass-modal-message"
-          onClick={(e) => e.stopPropagation()}
-        >
+      <div
+        className={`${styles.modal} ${isLanguageWarning ? styles.languageWarningModal : ""} ${isSceneLocked ? styles.sceneLockedModal : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="glass-modal-title"
+        aria-describedby="glass-modal-message"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           type="button"
           className={`${styles.closeButton} ${isLanguageWarning ? styles.languageWarningCloseButton : ""} ${isSceneLocked ? styles.sceneLockedCloseButton : ""}`}
@@ -117,43 +134,64 @@ export default function GlassModal({
         </div>
 
         {!isSceneLocked ? (
-        <div className={`${styles.actions} ${isLanguageWarning ? styles.languageWarningActions : ""}`}>
-          {isLanguageWarning ? (
-            <>
-              <button
-                className={`${styles.btn} ${styles.secondaryBtn} ${styles.languageWarningSecondaryBtn}`}
-                type="button"
-                onClick={handlePrimary}
-              >
-                {getButtonText(primaryText)}
-              </button>
-
-              {!!secondaryText && (
+          <div className={`${styles.actions} ${isLanguageWarning ? styles.languageWarningActions : ""}`}>
+            {isLanguageWarning ? (
+              <>
                 <button
-                  className={`${styles.btn} ${styles.primaryBtn} ${styles.languageWarningPrimaryBtn}`}
+                  className={`${styles.btn} ${styles.secondaryBtn} ${styles.languageWarningSecondaryBtn}`}
                   type="button"
-                  onClick={handleSecondary}
+                  onClick={handlePrimary}
                 >
-                  {getButtonText(secondaryText)}
+                  {getButtonText(primaryText)}
                 </button>
-              )}
-            </>
-          ) : (
-            <>
-              {!!secondaryText && (
-                <button className={`${styles.btn} ${styles.secondaryBtn}`} type="button" onClick={handleSecondary}>
-                  {getButtonText(secondaryText)}
-                </button>
-              )}
 
-              <button className={`${styles.btn} ${styles.primaryBtn}`} type="button" onClick={handlePrimary}>
-                {getButtonText(primaryText)}
-              </button>
-            </>
-          )}
-        </div>
+                {!!secondaryText && (
+                  <button
+                    className={`${styles.btn} ${styles.primaryBtn} ${styles.languageWarningPrimaryBtn}`}
+                    type="button"
+                    onClick={handleSecondary}
+                  >
+                    {getButtonText(secondaryText)}
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                {!!secondaryText && (
+                  <button className={`${styles.btn} ${styles.secondaryBtn}`} type="button" onClick={handleSecondary}>
+                    {getButtonText(secondaryText)}
+                  </button>
+                )}
+
+                <button className={`${styles.btn} ${styles.primaryBtn}`} type="button" onClick={handlePrimary}>
+                  {getButtonText(primaryText)}
+                </button>
+              </>
+            )}
+          </div>
         ) : null}
-        </div>
+      </div>
+    </>
+  );
+
+  if (stageTargetNode) {
+    return createPortal(
+      <div className={styles.stageOverlayRoot} role="presentation" onClick={onClose}>
+        {content}
+      </div>,
+      stageTargetNode
+    );
+  }
+
+  return (
+    <div className={styles.overlayRoot}>
+      <div
+        className={styles.stageFrame}
+        style={{ transform: `translate(-50%, -50%) scale(${stageScale})` }}
+        role="presentation"
+        onClick={onClose}
+      >
+        {content}
       </div>
     </div>
   );

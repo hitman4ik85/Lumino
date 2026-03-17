@@ -12,6 +12,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      "/avatars": {
+        target: "https://localhost:7181",
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 });

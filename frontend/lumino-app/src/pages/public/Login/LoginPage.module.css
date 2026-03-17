@@ -317,15 +317,33 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  font-family: Arial, sans-serif;
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--color-primary);
-  transition: color 120ms ease;
+  width: 50px;
+  height: 50px;
   position: relative;
   z-index: 1;
+  flex: 0 0 auto;
+}
+
+.googleIconCircle{
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 1px solid #899DB4;
+  background: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  transition: border-color 120ms ease;
+}
+
+.googleIconLetter{
+  font-family: var(--font-ui);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 30px;
+  color: #C8BDD5;
+  transition: color 120ms ease;
 }
 
 .googleText{

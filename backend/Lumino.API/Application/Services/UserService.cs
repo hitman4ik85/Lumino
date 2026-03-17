@@ -30,6 +30,8 @@ namespace Lumino.Api.Application.Services
             }
 
 
+            var hasGoogleExternalLogin = _dbContext.UserExternalLogins.Any(x => x.UserId == userId && x.Provider == "google");
+            var hasPassword = !hasGoogleExternalLogin && !string.IsNullOrWhiteSpace(user.PasswordHash);
             var (currentStreak, bestStreak) = GetStreakValues(userId);
             return new UserProfileResponse
             {
@@ -50,6 +52,8 @@ namespace Lumino.Api.Application.Services
                 NextHeartAtUtc = HeartsEconomyCalculator.GetNextHeartAtUtc(user.Hearts, user.HeartsUpdatedAtUtc, _learningSettings),
                 NextHeartInSeconds = HeartsEconomyCalculator.GetNextHeartInSeconds(user.Hearts, user.HeartsUpdatedAtUtc, _learningSettings),
                 Theme = string.IsNullOrWhiteSpace(user.Theme) ? "light" : user.Theme,
+                HasPassword = hasPassword,
+                IsGoogleAccount = hasGoogleExternalLogin,
                 CurrentStreakDays = currentStreak,
                 BestStreakDays = bestStreak
             };
@@ -74,7 +78,7 @@ namespace Lumino.Api.Application.Services
 
                 if (exists)
                 {
-                    throw new ConflictException("РљРѕСЂРёСЃС‚СѓРІР°С‡ Р· С‚Р°РєРёРј username СѓР¶Рµ С–СЃРЅСѓС”.");
+                    throw new ConflictException("Користувач з таким username уже існує.");
                 }
 
                 user.Username = username;

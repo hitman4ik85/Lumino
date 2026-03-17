@@ -75,7 +75,6 @@ public class OnboardingServiceTests
         });
     }
 
-
     [Fact]
     public void GetMyLanguages_ReturnsLearningLanguages_AndActive()
     {
@@ -139,4 +138,119 @@ public class OnboardingServiceTests
         Assert.Contains(result.LearningLanguages, x => x.Code == "de" && x.IsActive == false);
     }
 
+    [Fact]
+    public void RemoveMyLanguage_RemovesUserCourse_AndSwitchesActiveLanguage()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 1,
+            Title = "English A1",
+            Description = "desc",
+            LanguageCode = "en",
+            IsPublished = true
+        });
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 2,
+            Title = "German A1",
+            Description = "desc",
+            LanguageCode = "de",
+            IsPublished = true
+        });
+
+        var user = new User
+        {
+            Id = 10,
+            Email = "remove@test.com",
+            PasswordHash = "hash",
+            CreatedAt = DateTime.UtcNow,
+            NativeLanguageCode = "uk",
+            TargetLanguageCode = "en"
+        };
+
+        dbContext.Users.Add(user);
+        dbContext.SaveChanges();
+
+        dbContext.UserCourses.Add(new UserCourse
+        {
+            UserId = user.Id,
+            CourseId = 1,
+            IsActive = true,
+            StartedAt = DateTime.UtcNow,
+            LastOpenedAt = DateTime.UtcNow
+        });
+
+        dbContext.UserCourses.Add(new UserCourse
+        {
+            UserId = user.Id,
+            CourseId = 2,
+            IsActive = false,
+            StartedAt = DateTime.UtcNow,
+            LastOpenedAt = DateTime.UtcNow
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new OnboardingService(dbContext);
+
+        service.RemoveMyLanguage(user.Id, "en");
+
+        var fromDb = dbContext.Users.First(x => x.Id == user.Id);
+        Assert.Equal("de", fromDb.TargetLanguageCode);
+        Assert.DoesNotContain(dbContext.UserCourses, x => x.UserId == user.Id && x.CourseId == 1);
+        Assert.Contains(dbContext.UserCourses, x => x.UserId == user.Id && x.CourseId == 2);
+    }
+
+    [Fact]
+    public void RemoveMyLanguage_WhenItIsLastLanguage_ShouldReturnError_AndKeepTargetLanguage()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 1,
+            Title = "English A1",
+            Description = "desc",
+            LanguageCode = "en",
+            IsPublished = true
+        });
+
+        var user = new User
+        {
+            Id = 15,
+            Email = "last@test.com",
+            PasswordHash = "hash",
+            CreatedAt = DateTime.UtcNow,
+            NativeLanguageCode = "uk",
+            TargetLanguageCode = "en"
+        };
+
+        dbContext.Users.Add(user);
+        dbContext.SaveChanges();
+
+        dbContext.UserCourses.Add(new UserCourse
+        {
+            UserId = user.Id,
+            CourseId = 1,
+            IsActive = true,
+            StartedAt = DateTime.UtcNow,
+            LastOpenedAt = DateTime.UtcNow
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new OnboardingService(dbContext);
+
+        var result = service.RemoveMyLanguage(user.Id, "en");
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Не можна видалити останню мову навчання.", result.ErrorMessage);
+
+        var fromDb = dbContext.Users.First(x => x.Id == user.Id);
+        Assert.Equal("en", fromDb.TargetLanguageCode);
+        Assert.Contains(dbContext.UserCourses, x => x.UserId == user.Id && x.CourseId == 1);
+    }
 }

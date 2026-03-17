@@ -89,7 +89,7 @@ namespace Lumino.Api.Application.Services
                 : request.NativeLanguageCode.Trim().ToLowerInvariant();
 
             var target = string.IsNullOrWhiteSpace(request.TargetLanguageCode)
-                ? null
+                ? SupportedLanguages.DefaultTargetLanguageCode
                 : request.TargetLanguageCode.Trim().ToLowerInvariant();
 
             if (!string.IsNullOrWhiteSpace(target) && string.IsNullOrWhiteSpace(native))
@@ -126,6 +126,7 @@ namespace Lumino.Api.Application.Services
             _dbContext.Users.Add(user);
             _dbContext.SaveChanges();
 
+            EnsureActiveCourseForTargetLanguage(user.Id, user.TargetLanguageCode);
             CreateAndSendEmailVerification(user, ip: null, userAgent: null);
 
             return new AuthResponse
@@ -159,6 +160,8 @@ namespace Lumino.Api.Application.Services
                 throw new UnauthorizedAccessException("Invalid credentials");
             }
 
+            EnsureDefaultTargetLanguage(user);
+
             if (!user.IsEmailVerified)
             {
                 throw new EmailNotVerifiedException("Email not verified");
@@ -176,6 +179,8 @@ namespace Lumino.Api.Application.Services
                 user.PasswordHash = _passwordHasher.Hash(request.Password);
                 _dbContext.SaveChanges();
             }
+
+            EnsureDefaultTargetLanguage(user);
 
             var accessToken = GenerateJwtToken(user);
 
@@ -257,12 +262,15 @@ namespace Lumino.Api.Application.Services
                         CreatedAt = DateTime.UtcNow,
                         Username = BuildOAuthUsername(requestedUsername, name, normalizedEmail),
                         AvatarUrl = BuildOAuthAvatarUrl(requestedAvatarUrl, pictureUrl),
+                        TargetLanguageCode = SupportedLanguages.DefaultTargetLanguageCode,
+                        NativeLanguageCode = SupportedLanguages.DefaultNativeLanguageCode,
                         HeartsUpdatedAtUtc = DateTime.UtcNow,
                         Theme = "light"
                     };
 
                     _dbContext.Users.Add(user);
                     _dbContext.SaveChanges();
+                    EnsureActiveCourseForTargetLanguage(user.Id, user.TargetLanguageCode);
                 }
                 else
                 {
@@ -288,6 +296,8 @@ namespace Lumino.Api.Application.Services
                 _dbContext.UserExternalLogins.Add(external);
                 _dbContext.SaveChanges();
             }
+
+            EnsureDefaultTargetLanguage(user);
 
             var accessToken = GenerateJwtToken(user);
             var refreshToken = CreateRefreshToken(user.Id);
@@ -338,6 +348,8 @@ namespace Lumino.Api.Application.Services
 
             _dbContext.SaveChanges();
 
+            EnsureDefaultTargetLanguage(user);
+
             var accessToken = GenerateJwtToken(user);
             var refreshToken = CreateRefreshToken(user.Id);
 
@@ -382,6 +394,82 @@ namespace Lumino.Api.Application.Services
             };
         }
 
+
+        private void EnsureDefaultTargetLanguage(User user)
+        {
+            if (user == null)
+            {
+                return;
+            }
+
+            var targetLanguageCode = SupportedLanguages.Normalize(user.TargetLanguageCode);
+
+            if (string.IsNullOrWhiteSpace(targetLanguageCode))
+            {
+                targetLanguageCode = SupportedLanguages.DefaultTargetLanguageCode;
+                user.TargetLanguageCode = targetLanguageCode;
+
+                if (string.IsNullOrWhiteSpace(user.NativeLanguageCode))
+                {
+                    user.NativeLanguageCode = SupportedLanguages.DefaultNativeLanguageCode;
+                }
+
+                _dbContext.SaveChanges();
+            }
+
+            EnsureActiveCourseForTargetLanguage(user.Id, targetLanguageCode);
+        }
+
+        private void EnsureActiveCourseForTargetLanguage(int userId, string? targetLanguageCode)
+        {
+            var normalizedTargetLanguageCode = SupportedLanguages.Normalize(targetLanguageCode);
+
+            if (string.IsNullOrWhiteSpace(normalizedTargetLanguageCode))
+            {
+                return;
+            }
+
+            var course = _dbContext.Courses
+                .Where(x => x.IsPublished && x.LanguageCode == normalizedTargetLanguageCode)
+                .OrderByDescending(x => x.Title.Contains("A1"))
+                .ThenBy(x => x.Id)
+                .FirstOrDefault();
+
+            if (course == null)
+            {
+                return;
+            }
+
+            var myCourses = _dbContext.UserCourses.Where(x => x.UserId == userId).ToList();
+
+            foreach (var item in myCourses)
+            {
+                item.IsActive = false;
+            }
+
+            var existing = myCourses.FirstOrDefault(x => x.CourseId == course.Id);
+
+            if (existing == null)
+            {
+                _dbContext.UserCourses.Add(new UserCourse
+                {
+                    UserId = userId,
+                    CourseId = course.Id,
+                    IsActive = true,
+                    IsCompleted = false,
+                    StartedAt = DateTime.UtcNow,
+                    LastOpenedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                existing.IsActive = true;
+                existing.LastOpenedAt = DateTime.UtcNow;
+            }
+
+            _dbContext.SaveChanges();
+        }
+
         private string BuildOAuthUsername(string? requestedUsername, string? name, string email)
         {
             if (!string.IsNullOrWhiteSpace(requestedUsername))
@@ -397,12 +485,19 @@ namespace Lumino.Api.Application.Services
 
             if (!string.IsNullOrWhiteSpace(name))
             {
-                var cleaned = new string(name.Trim().Where(char.IsLetterOrDigit).ToArray());
+                var cleaned = new string(name
+                    .Trim()
+                    .Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))
+                    .ToArray());
+
+                cleaned = string.Join(" ", cleaned
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
                 if (!string.IsNullOrWhiteSpace(cleaned))
                 {
                     if (cleaned.Length > 32)
                     {
-                        cleaned = cleaned.Substring(0, 32);
+                        cleaned = cleaned.Substring(0, 32).Trim();
                     }
 
                     return EnsureUniqueUsername(cleaned);

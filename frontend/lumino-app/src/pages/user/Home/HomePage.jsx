@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { authStorage } from "../../../services/authStorage.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
@@ -11,6 +12,7 @@ import { streakService } from "../../../services/streakService.js";
 import { scenesService } from "../../../services/scenesService.js";
 import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
 import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
+import ProfileContent from "../Profile/ProfileContent.jsx";
 import styles from "./HomePage.module.css";
 
 import FlagEn from "../../../assets/flags/flag-en.svg";
@@ -68,7 +70,7 @@ const HEADER_COUNTERS = {
 const ORBIT_SEQUENCE = [1, 2, 3, 1, 2, 3, 1, 2, 3, 1];
 const SECTION_WIDTH = 879.47;
 const FULL_PANEL_VIEWS = ["languages", "courses", "scenes", "lesson"];
-const TOP_BAR_HIDDEN_VIEWS = ["languages", "lesson"];
+const TOP_BAR_HIDDEN_VIEWS = ["languages", "lesson", "profile"];
 const WEEK_DAYS = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "НД"];
 const LANGUAGE_ORDER = ["en", "de", "it", "es", "fr", "pl", "ja", "ko", "zh"];
 
@@ -617,6 +619,7 @@ function FullPanel({ title, subtitle, onClose, children }) {
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const stageRef = useRef(null);
   const trackRef = useRef(null);
   const dragRef = useRef({ active: false, startX: 0, startLeft: 0 });
@@ -628,13 +631,14 @@ export default function HomePage() {
   const isGuest = isSessionExpired || !authStorage.isAuthed();
   const [loading, setLoading] = useState(true);
   const [restoringHearts, setRestoringHearts] = useState(false);
-  const [activeNav, setActiveNav] = useState("learning");
-  const [bodyView, setBodyView] = useState("learning");
+  const initialTab = searchParams.get("tab") === "profile" ? "profile" : "learning";
+  const [activeNav, setActiveNav] = useState(initialTab === "profile" ? "profile" : "learning");
+  const [bodyView, setBodyView] = useState(initialTab);
   const [openDropdown, setOpenDropdown] = useState("");
   const [showFullCalendar, setShowFullCalendar] = useState(false);
   const [modal, setModal] = useState({ open: false, title: "", message: "", primaryText: "Добре", secondaryText: "", onPrimary: null, onSecondary: null, variant: "default", illustrationSrc: "" });
   const [user, setUser] = useState(GUEST_USER);
-  const [languageState, setLanguageState] = useState({ activeTargetLanguageCode: localStorage.getItem("targetLanguage") || "en", learningLanguages: [] });
+  const [languageState, setLanguageState] = useState({ activeTargetLanguageCode: "", learningLanguages: [] });
   const [supportedLanguages, setSupportedLanguages] = useState([]);
   const [courses, setCourses] = useState([]);
   const [course, setCourse] = useState(null);
@@ -668,13 +672,23 @@ export default function HomePage() {
   }, [path]);
 
   useEffect(() => {
-    if (!showFullCalendar) {
-      return;
-    }
-
     const handleEscClose = (e) => {
-      if (e.key === "Escape") {
+      if (e.key !== "Escape") {
+        return;
+      }
+
+      if (showFullCalendar) {
         setShowFullCalendar(false);
+      }
+
+      if (openDropdown) {
+        setOpenDropdown("");
+      }
+
+      const activeElement = document.activeElement;
+
+      if (activeElement && typeof activeElement.blur === "function") {
+        activeElement.blur();
       }
     };
 
@@ -683,9 +697,10 @@ export default function HomePage() {
     return () => {
       window.removeEventListener("keydown", handleEscClose);
     };
-  }, [showFullCalendar]);
+  }, [openDropdown, showFullCalendar]);
 
-  const activeLanguageCode = normalizeCode(languageState.activeTargetLanguageCode || course?.languageCode || localStorage.getItem("targetLanguage") || "en");
+  const guestTargetLanguageCode = normalizeCode(localStorage.getItem("targetLanguage") || "en");
+  const activeLanguageCode = normalizeCode(languageState.activeTargetLanguageCode || course?.languageCode || (isGuest ? guestTargetLanguageCode : ""));
   const monthCells = useMemo(() => buildMonth(calendarMonth.year, calendarMonth.month, calendarDates), [calendarDates, calendarMonth]);
   const streakProgress = useMemo(() => getWeekProgress(user.currentStreakDays), [user.currentStreakDays]);
   const energySteps = useMemo(() => Math.max(1, Number(user.heartsMax || 5)), [user.heartsMax]);
@@ -714,6 +729,8 @@ export default function HomePage() {
       return safeFirstIndex - safeSecondIndex;
     });
   }, [supportedLanguages]);
+
+  const isLanguageWarningModal = modal.open && modal.variant === "languageWarning";
 
   const courseItemsForView = useMemo(() => {
     const items = courses.length ? courses : [course].filter(Boolean);
@@ -757,7 +774,9 @@ export default function HomePage() {
     setLoading(true);
 
     try {
-      const preferred = normalizeCode(preferredLanguageCode || localStorage.getItem("targetLanguage") || languageState.activeTargetLanguageCode || "en");
+      const preferred = isGuest
+        ? normalizeCode(preferredLanguageCode || localStorage.getItem("targetLanguage") || guestTargetLanguageCode || "en")
+        : normalizeCode(preferredLanguageCode || languageState.activeTargetLanguageCode || "");
       const supportedRes = await onboardingService.getSupportedLanguages();
 
       if (supportedRes.ok) {
@@ -787,31 +806,14 @@ export default function HomePage() {
       const [userRes, languagesRes] = await Promise.all([userService.getMe(), onboardingService.getMyLanguages()]);
 
       if (isAuthExpiredResponse(userRes) || isAuthExpiredResponse(languagesRes)) {
-        const publicCoursesRes = await coursesService.getPublishedCourses(preferred);
-        const publicCourses = publicCoursesRes.items || [];
-        const nextCourse = publicCourses[0] || null;
-        const today = new Date();
-        const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
-        authStorage.clearTokens();
-        setIsSessionExpired(true);
-        setCourses(publicCourses);
-        setCourse(nextCourse);
-        setPath(null);
-        setUser(GUEST_USER);
-        setLanguageState({
-          activeTargetLanguageCode: preferred,
-          learningLanguages: [{ code: preferred, title: getLanguageLabel(preferred), isActive: true }],
-        });
-        setCalendarMonth({ year: today.getFullYear(), month: today.getMonth() + 1 });
-        setCalendarDates([todayIso]);
-        return { hasCourses: publicCourses.length > 0, activeTargetLanguageCode: preferred };
+        return { hasCourses: courses.length > 0, activeTargetLanguageCode: preferred };
       }
 
       const nextUser = normalizeUser(userRes.ok ? userRes.data : null) || GUEST_USER;
       const targetCode = normalizeCode(
         languagesRes?.activeTargetLanguageCode ||
           languagesRes?.data?.activeTargetLanguageCode ||
+          nextUser?.targetLanguageCode ||
           preferred ||
           "en"
       );
@@ -1007,11 +1009,24 @@ export default function HomePage() {
       return;
     }
 
+    if (key === "profile") {
+      setActiveNav("profile");
+      setBodyView("profile");
+      setOpenDropdown("");
+      setShowFullCalendar(false);
+      setSearchParams({ tab: "profile" });
+      return;
+    }
+
     setActiveNav(key);
     setBodyView(key === "learning" ? "learning" : key);
     setOpenDropdown("");
     setShowFullCalendar(false);
-  }, [guestPrompt, isGuest]);
+
+    if (searchParams.get("tab") === "profile") {
+      setSearchParams({});
+    }
+  }, [guestPrompt, isGuest, searchParams, setSearchParams]);
 
   const handleCourseSelect = useCallback(async (item) => {
     if (isGuest) {
@@ -1444,7 +1459,7 @@ export default function HomePage() {
     }
 
     if (bodyView === "profile") {
-      return renderStubView("Профіль", "Тут буде сторінка профілю користувача з аватаром та статистикою.");
+      return <ProfileContent />;
     }
 
     if (bodyView === "languages") {
@@ -1468,21 +1483,24 @@ export default function HomePage() {
 
   return (
     <div className={styles.viewport}>
-      <GlassLoading open={loading || restoringHearts} text={restoringHearts ? "Відновлюємо енергію..." : "Завантажуємо Home..."} />
-      <GlassModal
-        open={modal.open}
-        title={modal.title}
-        message={modal.message}
-        onClose={closeModal}
-        primaryText={modal.primaryText}
-        secondaryText={modal.secondaryText}
-        onPrimary={modal.onPrimary}
-        onSecondary={modal.onSecondary}
-        variant={modal.variant || (bodyView === "languages" ? "languageWarning" : "default")}
-        illustrationSrc={modal.illustrationSrc}
-      />
+      <GlassLoading open={loading || restoringHearts} text={restoringHearts ? "Відновлюємо енергію..." : "Завантажуємо Home..."} stageTargetId="lumino-home-stage" />
+      {!isLanguageWarningModal ? (
+        <GlassModal
+          open={modal.open}
+          title={modal.title}
+          message={modal.message}
+          onClose={closeModal}
+          primaryText={modal.primaryText}
+          secondaryText={modal.secondaryText}
+          onPrimary={modal.onPrimary}
+          onSecondary={modal.onSecondary}
+          variant={modal.variant || (bodyView === "languages" ? "languageWarning" : "default")}
+          illustrationSrc={modal.illustrationSrc}
+          stageTargetId="lumino-home-stage"
+        />
+      ) : null}
 
-      <div ref={stageRef} className={styles.stage}>
+      <div id="lumino-home-stage" ref={stageRef} className={styles.stage}>
         <img className={styles.bgLeft} src={HOME_BG_LEFT} alt="" aria-hidden="true" />
 
         <aside className={styles.sidebar}>
@@ -1506,6 +1524,32 @@ export default function HomePage() {
             })}
           </nav>
         </aside>
+
+        {isLanguageWarningModal && stageRef.current ? createPortal(
+          <div className={styles.homeWarningOverlay}>
+            <div className={styles.homeWarningBackdrop} onClick={closeModal} role="presentation" />
+            <div className={styles.homeWarningModal} role="dialog" aria-modal="true" aria-labelledby="home-warning-title" onClick={(e) => e.stopPropagation()}>
+              <button type="button" className={styles.homeWarningClose} onClick={closeModal} aria-label="Закрити" />
+
+              <div className={styles.homeWarningContentBox}>
+                <h2 id="home-warning-title" className={styles.homeWarningTitle}>{modal.title}</h2>
+              </div>
+
+              <div className={styles.homeWarningActions}>
+                <button type="button" className={`${styles.homeWarningButton} ${styles.homeWarningButtonLight}`} onClick={modal.onPrimary || closeModal}>
+                  {String(modal.primaryText || "").toUpperCase()}
+                </button>
+
+                {modal.secondaryText ? (
+                  <button type="button" className={`${styles.homeWarningButton} ${styles.homeWarningButtonDark}`} onClick={modal.onSecondary || closeModal}>
+                    {String(modal.secondaryText || "").toUpperCase()}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>,
+          stageRef.current
+        ) : null}
 
         <div className={styles.sidebarDivider} />
 
@@ -1705,7 +1749,9 @@ export default function HomePage() {
               <div className={styles.calendarSectionTitle}>Календар</div>
               <div className={styles.calendarMonthCard}>
                 <div className={styles.calendarHeader}>
-                  <span>{new Date(calendarMonth.year, calendarMonth.month - 1).toLocaleString("uk-UA", { month: "long", year: "numeric" })}</span>
+                  <span>
+                    {new Date(calendarMonth.year, calendarMonth.month - 1).toLocaleString("uk-UA", { month: "long" })} {calendarMonth.year} <span style={{ textTransform: "none" }}>р.</span>
+                  </span>
                   <div className={styles.calendarHeaderActions}>
                     <button type="button" onClick={() => handleChangeCalendarMonth(-1)}>‹</button>
                     <button type="button" onClick={() => handleChangeCalendarMonth(1)}>›</button>

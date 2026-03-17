@@ -59,11 +59,7 @@ export const apiClient = {
       (data && (data.detail || data.message || data.error || data.title)) ||
       `HTTP ${res.status}`;
 
-    if (shouldClearTokens(res, data, error)) {
-      authStorage.clearTokens();
-    }
-
-    return { ok: false, status: res.status, data, error };
+    return { ok: false, status: res.status, data, error, shouldClearTokens: shouldClearTokens(res, data, error) };
   },
 
   get(path, options = {}) {

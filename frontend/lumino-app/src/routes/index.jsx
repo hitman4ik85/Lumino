@@ -23,6 +23,7 @@ import OnboardingDemoLessonStubPage from "../pages/public/Onboarding/OnboardingD
 import OnboardingPreCreateProfPage from "../pages/public/Onboarding/OnboardingPreCreateProf/OnboardingPreCreateProfPage.jsx";
 import OnboardingCreateProfLaterPage from "../pages/public/Onboarding/OnboardingCreateProfLater/OnboardingCreateProfLaterPage.jsx";
 import HomePage from "../pages/user/Home/HomePage.jsx";
+import ProfilePage from "../pages/user/Profile/ProfilePage.jsx";
 
 export default function AppRoutes() {
   const isAuthed = authStorage.isAuthed();
@@ -54,6 +55,10 @@ export default function AppRoutes() {
         <Route
           path={PATHS.home}
           element={<HomePage />}
+        />
+        <Route
+          path={PATHS.profile}
+          element={<ProfilePage />}
         />
       </Route>
 

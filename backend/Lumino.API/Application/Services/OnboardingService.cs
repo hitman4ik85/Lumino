@@ -1,4 +1,4 @@
-﻿using Lumino.Api.Application.DTOs;
+using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
@@ -122,7 +122,7 @@ namespace Lumino.Api.Application.Services
             _dbContext.SaveChanges();
 
             EnsureActiveCourseForTargetLanguage(userId, target);
-}
+        }
 
         public void UpdateMyTargetLanguage(int userId, UpdateTargetLanguageRequest request)
         {
@@ -152,7 +152,119 @@ namespace Lumino.Api.Application.Services
             _dbContext.SaveChanges();
 
             EnsureActiveCourseForTargetLanguage(userId, target);
-}
+        }
+
+
+        public RemoveMyLanguageResult RemoveMyLanguage(int userId, string languageCode)
+        {
+            SupportedLanguages.ValidateLearnable(languageCode, "LanguageCode");
+
+            var code = SupportedLanguages.Normalize(languageCode);
+            var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+
+            if (user == null)
+            {
+                throw new KeyNotFoundException("User not found");
+            }
+
+            var courseIds = _dbContext.Courses
+                .Select(x => new { x.Id, x.LanguageCode })
+                .AsEnumerable()
+                .Where(x => SupportedLanguages.Normalize(x.LanguageCode) == code)
+                .Select(x => x.Id)
+                .ToList();
+
+            var userCourses = _dbContext.UserCourses
+                .Where(x => x.UserId == userId && courseIds.Contains(x.CourseId))
+                .ToList();
+
+            var currentLanguagesCount = _dbContext.UserCourses
+                .Where(x => x.UserId == userId)
+                .Join(_dbContext.Courses,
+                    uc => uc.CourseId,
+                    c => c.Id,
+                    (uc, c) => c.LanguageCode)
+                .AsEnumerable()
+                .Select(x => SupportedLanguages.Normalize(x))
+                .Distinct()
+                .Count();
+
+            if (currentLanguagesCount <= 1)
+            {
+                return new RemoveMyLanguageResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = "Не можна видалити останню мову навчання."
+                };
+            }
+
+            if (userCourses.Count > 0)
+            {
+                _dbContext.UserCourses.RemoveRange(userCourses);
+            }
+
+            var remainingLanguages = _dbContext.UserCourses
+                .Where(x => x.UserId == userId && courseIds.Contains(x.CourseId) == false)
+                .Join(_dbContext.Courses,
+                    uc => uc.CourseId,
+                    c => c.Id,
+                    (uc, c) => new { UserCourse = uc, c.LanguageCode })
+                .AsEnumerable()
+                .Select(x => new
+                {
+                    Code = SupportedLanguages.Normalize(x.LanguageCode),
+                    x.UserCourse.IsActive
+                })
+                .GroupBy(x => x.Code)
+                .Select(x => new
+                {
+                    Code = x.Key,
+                    IsActive = x.Any(z => z.IsActive)
+                })
+                .OrderByDescending(x => x.IsActive)
+                .ThenBy(x => x.Code)
+                .ToList();
+
+            if (string.Equals(user.TargetLanguageCode, code, StringComparison.OrdinalIgnoreCase))
+            {
+                user.TargetLanguageCode = remainingLanguages
+                    .Select(x => x.Code)
+                    .FirstOrDefault();
+            }
+
+            foreach (var activeCourse in _dbContext.UserCourses.Where(x => x.UserId == userId))
+            {
+                activeCourse.IsActive = false;
+            }
+
+            if (string.IsNullOrWhiteSpace(user.TargetLanguageCode) == false)
+            {
+                var nextActiveCourseId = _dbContext.Courses
+                    .Select(x => new { x.Id, x.Title, x.LanguageCode })
+                    .AsEnumerable()
+                    .Where(x => SupportedLanguages.Normalize(x.LanguageCode) == user.TargetLanguageCode)
+                    .OrderByDescending(x => x.Title.Contains("A1"))
+                    .ThenBy(x => x.Id)
+                    .Select(x => x.Id)
+                    .FirstOrDefault();
+
+                var nextActiveCourse = _dbContext.UserCourses
+                    .FirstOrDefault(x => x.UserId == userId && x.CourseId == nextActiveCourseId);
+
+                if (nextActiveCourse != null)
+                {
+                    nextActiveCourse.IsActive = true;
+                    nextActiveCourse.LastOpenedAt = DateTime.UtcNow;
+                }
+            }
+
+            _dbContext.SaveChanges();
+
+            return new RemoveMyLanguageResult
+            {
+                IsSuccess = true
+            };
+        }
 
         public LanguageAvailabilityResponse GetLanguageAvailability(string languageCode)
         {

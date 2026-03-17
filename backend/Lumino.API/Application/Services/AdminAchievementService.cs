@@ -1,4 +1,4 @@
-using Lumino.Api.Application.DTOs;
+﻿using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
@@ -26,7 +26,8 @@ namespace Lumino.Api.Application.Services
                     Code = x.Code,
                     Title = x.Title,
                     Description = x.Description,
-                    IsSystem = x.Code.StartsWith(SystemPrefix)
+                    IsSystem = x.Code.StartsWith(SystemPrefix),
+                    ImageUrl = x.ImageUrl
                 })
                 .ToList();
 
@@ -48,7 +49,8 @@ namespace Lumino.Api.Application.Services
                 Code = a.Code,
                 Title = a.Title,
                 Description = a.Description,
-                IsSystem = a.Code.StartsWith(SystemPrefix)
+                IsSystem = a.Code.StartsWith(SystemPrefix),
+                ImageUrl = a.ImageUrl
             };
         }
 
@@ -82,7 +84,8 @@ namespace Lumino.Api.Application.Services
             {
                 Code = code,
                 Title = request.Title.Trim(),
-                Description = request.Description.Trim()
+                Description = request.Description.Trim(),
+                ImageUrl = request.ImageUrl
             };
 
             _dbContext.Achievements.Add(a);
@@ -117,6 +120,7 @@ namespace Lumino.Api.Application.Services
 
             a.Title = request.Title.Trim();
             a.Description = request.Description.Trim();
+            a.ImageUrl = request.ImageUrl;
 
             _dbContext.SaveChanges();
         }
