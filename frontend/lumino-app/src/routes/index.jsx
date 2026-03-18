@@ -24,6 +24,7 @@ import OnboardingPreCreateProfPage from "../pages/public/Onboarding/OnboardingPr
 import OnboardingCreateProfLaterPage from "../pages/public/Onboarding/OnboardingCreateProfLater/OnboardingCreateProfLaterPage.jsx";
 import HomePage from "../pages/user/Home/HomePage.jsx";
 import ProfilePage from "../pages/user/Profile/ProfilePage.jsx";
+import AchievementsPage from "../pages/user/Achievements/AchievementsPage.jsx";
 
 export default function AppRoutes() {
   const isAuthed = authStorage.isAuthed();
@@ -59,6 +60,10 @@ export default function AppRoutes() {
         <Route
           path={PATHS.profile}
           element={<ProfilePage />}
+        />
+        <Route
+          path={PATHS.achievements}
+          element={<AchievementsPage />}
         />
       </Route>
 

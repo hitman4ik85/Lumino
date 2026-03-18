@@ -1,0 +1,152 @@
+:global(:root){
+  --achievements-blue-900:#26415E;
+  --achievements-blue-700:#83A6CE;
+  --achievements-blue-500:#97B2CE;
+  --achievements-pink-400:#E5C9D7;
+  --achievements-placeholder:#D9D9D9;
+  --achievements-locked-text:#7E8EA3;
+}
+
+.viewport{
+  position:relative;
+  width:1550px;
+  min-height:995px;
+  padding-bottom:61px;
+}
+
+.topDivider,
+.bottomDivider{
+  position:absolute;
+  left:145px;
+  width:1070px;
+  height:4px;
+}
+
+.topDivider{
+  top:52px;
+  background:var(--achievements-blue-700);
+}
+
+.bottomDivider{
+  top:934px;
+  background:var(--achievements-pink-400);
+}
+
+.achievementsBody{
+  position:absolute;
+  left:145px;
+  top:106px;
+  width:1070px;
+  height:800px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  box-sizing:border-box;
+  scrollbar-width:none;
+}
+
+.achievementsBody::-webkit-scrollbar{
+  display:none;
+}
+
+.grid{
+  width:1070px;
+  display:grid;
+  grid-template-columns:repeat(4, 170px);
+  column-gap:130px;
+  row-gap:52px;
+  align-content:start;
+  padding-bottom:8px;
+}
+
+.card,
+.cardLocked{
+  width:170px;
+}
+
+.cardVisual{
+  position:relative;
+  width:170px;
+  height:202px;
+  border-radius:20px;
+  overflow:hidden;
+  background:#071B3A;
+}
+
+.cardImage,
+.cardImagePlaceholder{
+  display:block;
+  width:170px;
+  height:202px;
+  border-radius:20px;
+  overflow:hidden;
+}
+
+.cardImage{
+  object-fit:cover;
+  background:#071B3A;
+}
+
+.cardImagePlaceholder{
+  background:var(--achievements-placeholder);
+}
+
+.cardLockedOverlay{
+  position:absolute;
+  inset:0;
+  border-radius:20px;
+  background:rgba(217,217,217,.72);
+}
+
+.cardTitle,
+.cardTitleLocked{
+  margin-top:11px;
+  min-height:44px;
+  font-family:var(--font-ui);
+  font-size:20px;
+  line-height:22px;
+  font-weight:700;
+  text-align:center;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+}
+
+.cardTitle{
+  color:#26415E;
+}
+
+.cardTitleLocked{
+  color:#26415E;
+}
+
+.cardDescription,
+.cardDescriptionLocked{
+  min-height:66px;
+  font-family:var(--font-ui);
+  font-size:13px;
+  line-height:22px;
+  font-weight:300;
+  text-align:center;
+}
+
+.cardDescription{
+  color:#26415E;
+}
+
+.cardDescriptionLocked{
+  color:#26415E;
+}
+
+.footerNote{
+  position:absolute;
+  top:949px;
+  left:984px;
+  width:231px;
+  height:22px;
+  font-family:var(--font-ui);
+  font-size:16px;
+  line-height:22px;
+  font-weight:600;
+  text-align:center;
+  color:var(--achievements-blue-500);
+}

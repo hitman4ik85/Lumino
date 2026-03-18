@@ -19,5 +19,6 @@ export const PATHS = {
   onboardingCreateProfLater: "/onboarding/create-profile-later",
   home: "/home",
   profile: "/profile",
+  achievements: "/achievements",
   admin: "/admin",
 };

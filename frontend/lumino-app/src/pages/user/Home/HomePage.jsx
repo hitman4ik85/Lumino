@@ -13,6 +13,7 @@ import { scenesService } from "../../../services/scenesService.js";
 import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
 import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import ProfileContent from "../Profile/ProfileContent.jsx";
+import AchievementsContent from "../Achievements/AchievementsContent.jsx";
 import styles from "./HomePage.module.css";
 
 import FlagEn from "../../../assets/flags/flag-en.svg";
@@ -69,8 +70,8 @@ const HEADER_COUNTERS = {
 
 const ORBIT_SEQUENCE = [1, 2, 3, 1, 2, 3, 1, 2, 3, 1];
 const SECTION_WIDTH = 879.47;
-const FULL_PANEL_VIEWS = ["languages", "courses", "scenes", "lesson"];
-const TOP_BAR_HIDDEN_VIEWS = ["languages", "lesson", "profile"];
+const FULL_PANEL_VIEWS = ["languages", "courses", "scenes", "lesson", "profile", "achievements"];
+const TOP_BAR_HIDDEN_VIEWS = ["languages", "lesson", "profile", "achievements"];
 const WEEK_DAYS = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "НД"];
 const LANGUAGE_ORDER = ["en", "de", "it", "es", "fr", "pl", "ja", "ko", "zh"];
 
@@ -631,8 +632,8 @@ export default function HomePage() {
   const isGuest = isSessionExpired || !authStorage.isAuthed();
   const [loading, setLoading] = useState(true);
   const [restoringHearts, setRestoringHearts] = useState(false);
-  const initialTab = searchParams.get("tab") === "profile" ? "profile" : "learning";
-  const [activeNav, setActiveNav] = useState(initialTab === "profile" ? "profile" : "learning");
+  const initialTab = ["profile", "achievements"].includes(searchParams.get("tab")) ? searchParams.get("tab") : "learning";
+  const [activeNav, setActiveNav] = useState(initialTab === "learning" ? "learning" : initialTab);
   const [bodyView, setBodyView] = useState(initialTab);
   const [openDropdown, setOpenDropdown] = useState("");
   const [showFullCalendar, setShowFullCalendar] = useState(false);
@@ -1009,12 +1010,12 @@ export default function HomePage() {
       return;
     }
 
-    if (key === "profile") {
-      setActiveNav("profile");
-      setBodyView("profile");
+    if (key === "profile" || key === "achievements") {
+      setActiveNav(key);
+      setBodyView(key);
       setOpenDropdown("");
       setShowFullCalendar(false);
-      setSearchParams({ tab: "profile" });
+      setSearchParams({ tab: key });
       return;
     }
 
@@ -1451,7 +1452,7 @@ export default function HomePage() {
 
   const renderBody = () => {
     if (bodyView === "achievements") {
-      return renderStubView("Нагороди", "Тут буде сторінка з усіма нагородами та досягненнями користувача.");
+      return <AchievementsContent />;
     }
 
     if (bodyView === "dictionary") {
