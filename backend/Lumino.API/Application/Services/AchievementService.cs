@@ -2,26 +2,27 @@ using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
 using Lumino.Api.Utils;
-using Microsoft.Extensions.Options;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Lumino.Api.Application.Services
 {
     public class AchievementService : IAchievementService
     {
+        private const string FirstDayLearningCode = "sys.first_day_learning";
         private const string FirstLessonCode = "sys.first_lesson";
         private const string FiveLessonsCode = "sys.five_lessons";
         private const string PerfectLessonCode = "sys.perfect_lesson";
+        private const string PerfectThreeInRowCode = "sys.perfect_three_in_row";
         private const string HundredXpCode = "sys.hundred_xp";
         private const string FirstSceneCode = "sys.first_scene";
         private const string FiveScenesCode = "sys.five_scenes";
+        private const string FirstTopicCompletedCode = "sys.first_topic_completed";
         private const string StreakStarterCode = "sys.streak_starter";
         private const string Streak7Code = "sys.streak_7";
         private const string Streak30Code = "sys.streak_30";
         private const string DailyGoalCode = "sys.daily_goal";
+        private const string ReturnAfterBreakCode = "sys.return_after_break";
 
         private readonly LuminoDbContext _dbContext;
         private readonly IDateTimeProvider _dateTimeProvider;
@@ -49,10 +50,14 @@ namespace Lumino.Api.Application.Services
                 throw new ArgumentException("Lesson result values are invalid");
             }
 
+            GrantFirstDayLearning(userId);
             GrantFirstLesson(userId);
             GrantFiveLessons(userId);
             GrantPerfectLesson(userId, lessonScore, totalQuestions);
+            GrantPerfectThreeInRow(userId);
             GrantHundredXp(userId);
+            GrantFirstTopicCompleted(userId);
+            GrantReturnAfterBreak(userId);
 
             // Streak achievements (study days)
             GrantStreakStarter(userId);
@@ -70,8 +75,11 @@ namespace Lumino.Api.Application.Services
                 throw new ArgumentException("UserId is invalid");
             }
 
+            GrantFirstDayLearning(userId);
             GrantFirstScene(userId);
             GrantFiveScenes(userId);
+            GrantFirstTopicCompleted(userId);
+            GrantReturnAfterBreak(userId);
 
             // Streak achievements (study days)
             GrantStreakStarter(userId);
@@ -80,6 +88,22 @@ namespace Lumino.Api.Application.Services
 
             // Daily goal
             GrantDailyGoal(userId);
+        }
+
+        private void GrantFirstDayLearning(int userId)
+        {
+            bool hasAnyActivity = _dbContext.LessonResults.Any(x => x.UserId == userId)
+                || _dbContext.SceneAttempts.Any(x => x.UserId == userId && x.IsCompleted);
+
+            if (!hasAnyActivity) return;
+
+            var achievement = GetOrCreateAchievement(
+                FirstDayLearningCode,
+                "First Study Day",
+                "Complete your first study day"
+            );
+
+            GrantToUserIfNotExists(userId, achievement.Id);
         }
 
         private void GrantFirstLesson(int userId)
@@ -145,9 +169,23 @@ namespace Lumino.Api.Application.Services
             GrantToUserIfNotExists(userId, achievement.Id);
         }
 
+        private void GrantPerfectThreeInRow(int userId)
+        {
+            int maxPerfectStreak = CalculateMaxPerfectLessonStreak(userId);
+
+            if (maxPerfectStreak < 3) return;
+
+            var achievement = GetOrCreateAchievement(
+                PerfectThreeInRowCode,
+                "No Mistakes Streak",
+                "Complete 3 lessons in a row without mistakes"
+            );
+
+            GrantToUserIfNotExists(userId, achievement.Id);
+        }
+
         private void GrantHundredXp(int userId)
         {
-            // "100 XP" має відповідати реальному TotalScore (уроки + сцени)
             int lessonsScore = _dbContext.LessonResults
                 .Where(x => x.UserId == userId)
                 .GroupBy(x => x.LessonId)
@@ -161,7 +199,6 @@ namespace Lumino.Api.Application.Services
                 .Count();
 
             int scenesScore = completedDistinctScenes * _learningSettings.SceneCompletionScore;
-
             int totalScore = lessonsScore + scenesScore;
 
             if (totalScore < 100) return;
@@ -213,6 +250,21 @@ namespace Lumino.Api.Application.Services
             GrantToUserIfNotExists(userId, achievement.Id);
         }
 
+        private void GrantFirstTopicCompleted(int userId)
+        {
+            int completedTopics = CalculateCompletedTopicsCount(userId);
+
+            if (completedTopics < 1) return;
+
+            var achievement = GetOrCreateAchievement(
+                FirstTopicCompletedCode,
+                "First Topic Completed",
+                "Complete your first topic"
+            );
+
+            GrantToUserIfNotExists(userId, achievement.Id);
+        }
+
         private void GrantDailyGoal(int userId)
         {
             var nowUtc = _dateTimeProvider.UtcNow;
@@ -241,7 +293,6 @@ namespace Lumino.Api.Application.Services
                 .ToList();
 
             int todayScore = todayPassedLessons.Sum(x => x.Score) + todayCompletedScenes.Sum(x => x.Score);
-
             int targetScore = _learningSettings.DailyGoalScoreTarget;
 
             if (targetScore < 1)
@@ -255,6 +306,21 @@ namespace Lumino.Api.Application.Services
                 DailyGoalCode,
                 "Daily Goal",
                 "Reach your daily goal"
+            );
+
+            GrantToUserIfNotExists(userId, achievement.Id);
+        }
+
+        private void GrantReturnAfterBreak(int userId)
+        {
+            bool returnedAfterBreak = HasReturnedAfterBreak(userId);
+
+            if (!returnedAfterBreak) return;
+
+            var achievement = GetOrCreateAchievement(
+                ReturnAfterBreakCode,
+                "Welcome Back",
+                "Return to learning after a break"
             );
 
             GrantToUserIfNotExists(userId, achievement.Id);
@@ -305,7 +371,80 @@ namespace Lumino.Api.Application.Services
             GrantToUserIfNotExists(userId, achievement.Id);
         }
 
-        private int CalculateUserMaxStreak(int userId)
+        private int CalculateCompletedTopicsCount(int userId)
+        {
+            var completedLessonIds = _dbContext.UserLessonProgresses
+                .Where(x => x.UserId == userId && x.IsCompleted)
+                .Select(x => x.LessonId)
+                .ToHashSet();
+
+            if (completedLessonIds.Count == 0)
+            {
+                return 0;
+            }
+
+            var topicLessonData = _dbContext.Lessons
+                .Select(x => new { x.TopicId, x.Id })
+                .ToList();
+
+            return topicLessonData
+                .GroupBy(x => x.TopicId)
+                .Count(g => g.All(x => completedLessonIds.Contains(x.Id)));
+        }
+
+        private int CalculateMaxPerfectLessonStreak(int userId)
+        {
+            var orderedResults = _dbContext.LessonResults
+                .Where(x => x.UserId == userId && x.TotalQuestions > 0)
+                .OrderBy(x => x.CompletedAt)
+                .Select(x => new { x.Score, x.TotalQuestions })
+                .ToList();
+
+            int max = 0;
+            int current = 0;
+
+            foreach (var item in orderedResults)
+            {
+                if (item.Score == item.TotalQuestions)
+                {
+                    current++;
+                    if (current > max)
+                    {
+                        max = current;
+                    }
+
+                    continue;
+                }
+
+                current = 0;
+            }
+
+            return max;
+        }
+
+        private bool HasReturnedAfterBreak(int userId)
+        {
+            var activityDates = GetDistinctActivityDates(userId);
+
+            if (activityDates.Count < 2)
+            {
+                return false;
+            }
+
+            for (int i = 1; i < activityDates.Count; i++)
+            {
+                double daysBetween = (activityDates[i] - activityDates[i - 1]).TotalDays;
+
+                if (daysBetween >= 3)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private List<DateTime> GetDistinctActivityDates(int userId)
         {
             int passingScorePercent = LessonPassingRules.NormalizePassingPercent(_learningSettings.PassingScorePercent);
 
@@ -323,11 +462,16 @@ namespace Lumino.Api.Application.Services
                 .Select(x => x.CompletedAt.Date)
                 .ToList();
 
-            var dates = passedLessonDates
+            return passedLessonDates
                 .Concat(sceneDates)
                 .Distinct()
                 .OrderBy(x => x)
                 .ToList();
+        }
+
+        private int CalculateUserMaxStreak(int userId)
+        {
+            var dates = GetDistinctActivityDates(userId);
 
             return CalculateMaxStreak(dates);
         }
@@ -404,8 +548,6 @@ namespace Lumino.Api.Application.Services
             }
             catch (DbUpdateException)
             {
-                // Якщо паралельний запит встиг додати цей самий (UserId, AchievementId),
-                // то в БД вже є запис і ми просто не падаємо.
                 bool exists = _dbContext.UserAchievements
                     .Any(x => x.UserId == userId && x.AchievementId == achievementId);
 

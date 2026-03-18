@@ -1,4 +1,4 @@
-﻿using Lumino.Api.Application.DTOs;
+using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
@@ -26,7 +26,8 @@ namespace Lumino.Api.Application.Services
                     Code = x.Code,
                     Title = x.Title,
                     Description = x.Description,
-                    IsSystem = x.Code.StartsWith(SystemPrefix),
+                    IsSystem = IsSystemAchievement(x.Code),
+                    CanEditDescription = !IsSystemAchievement(x.Code),
                     ImageUrl = x.ImageUrl
                 })
                 .ToList();
@@ -49,7 +50,8 @@ namespace Lumino.Api.Application.Services
                 Code = a.Code,
                 Title = a.Title,
                 Description = a.Description,
-                IsSystem = a.Code.StartsWith(SystemPrefix),
+                IsSystem = IsSystemAchievement(a.Code),
+                CanEditDescription = !IsSystemAchievement(a.Code),
                 ImageUrl = a.ImageUrl
             };
         }
@@ -85,7 +87,7 @@ namespace Lumino.Api.Application.Services
                 Code = code,
                 Title = request.Title.Trim(),
                 Description = request.Description.Trim(),
-                ImageUrl = request.ImageUrl
+                ImageUrl = NormalizeImageUrl(request.ImageUrl)
             };
 
             _dbContext.Achievements.Add(a);
@@ -113,14 +115,21 @@ namespace Lumino.Api.Application.Services
                 throw new ArgumentException("Title is required");
             }
 
-            if (string.IsNullOrWhiteSpace(request.Description))
+            bool isSystem = IsSystemAchievement(a.Code);
+
+            if (!isSystem && string.IsNullOrWhiteSpace(request.Description))
             {
                 throw new ArgumentException("Description is required");
             }
 
             a.Title = request.Title.Trim();
-            a.Description = request.Description.Trim();
-            a.ImageUrl = request.ImageUrl;
+
+            if (!isSystem)
+            {
+                a.Description = request.Description!.Trim();
+            }
+
+            a.ImageUrl = NormalizeImageUrl(request.ImageUrl);
 
             _dbContext.SaveChanges();
         }
@@ -134,13 +143,29 @@ namespace Lumino.Api.Application.Services
                 throw new KeyNotFoundException("Achievement not found");
             }
 
-            if (a.Code.StartsWith(SystemPrefix))
+            if (IsSystemAchievement(a.Code))
             {
                 throw new ArgumentException("System achievement cannot be deleted");
             }
 
             _dbContext.Achievements.Remove(a);
             _dbContext.SaveChanges();
+        }
+
+        private static bool IsSystemAchievement(string code)
+        {
+            return !string.IsNullOrWhiteSpace(code)
+                && code.StartsWith(SystemPrefix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string? NormalizeImageUrl(string? imageUrl)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                return null;
+            }
+
+            return imageUrl.Trim();
         }
 
         private static string BuildCode(string? input)

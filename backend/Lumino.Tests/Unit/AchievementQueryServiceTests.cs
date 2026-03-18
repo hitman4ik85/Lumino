@@ -1,4 +1,4 @@
-﻿using Lumino.Api.Application.Services;
+using Lumino.Api.Application.Services;
 using Lumino.Api.Domain.Entities;
 using Xunit;
 
@@ -22,7 +22,7 @@ public class AchievementQueryServiceTests
     }
 
     [Fact]
-    public void GetUserAchievements_ReturnsOnlyUserAchievements_AndIncludesEarnedAt()
+    public void GetUserAchievements_ReturnsAllAchievements_AndMarksEarnedState()
     {
         var dbContext = TestDbContextFactory.Create();
 
@@ -37,8 +37,6 @@ public class AchievementQueryServiceTests
         dbContext.UserAchievements.AddRange(
             new UserAchievement { Id = 1, UserId = 5, AchievementId = 1, EarnedAt = earned1 },
             new UserAchievement { Id = 2, UserId = 6, AchievementId = 2, EarnedAt = earned2 },
-
-            // Broken reference -> must be excluded by Join
             new UserAchievement { Id = 3, UserId = 5, AchievementId = 999, EarnedAt = earned2 }
         );
 
@@ -48,12 +46,22 @@ public class AchievementQueryServiceTests
 
         var result = service.GetUserAchievements(5);
 
-        Assert.Single(result);
+        Assert.Equal(2, result.Count);
 
         Assert.Equal(1, result[0].Id);
+        Assert.Equal("test.a1", result[0].Code);
         Assert.Equal("A1", result[0].Title);
         Assert.Equal("D1", result[0].Description);
+        Assert.True(result[0].IsEarned);
         Assert.Equal(earned1, result[0].EarnedAt);
         Assert.Equal("/uploads/a1.png", result[0].ImageUrl);
+
+        Assert.Equal(2, result[1].Id);
+        Assert.Equal("test.a2", result[1].Code);
+        Assert.Equal("A2", result[1].Title);
+        Assert.Equal("D2", result[1].Description);
+        Assert.False(result[1].IsEarned);
+        Assert.Null(result[1].EarnedAt);
+        Assert.Null(result[1].ImageUrl);
     }
 }

@@ -23,7 +23,7 @@ namespace Lumino.Api.Controllers
         {
             var baseUrl = $"{Request.Scheme}://{Request.Host}";
 
-            var result = _mediaService.Upload(request.File, baseUrl);
+            var result = _mediaService.Upload(request.File, baseUrl, request.Folder);
 
             return Ok(result);
         }

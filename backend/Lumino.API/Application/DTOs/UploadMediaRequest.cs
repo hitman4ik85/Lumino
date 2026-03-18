@@ -5,5 +5,7 @@ namespace Lumino.Api.Application.DTOs
     public class UploadMediaRequest
     {
         public IFormFile File { get; set; } = null!;
+
+        public string? Folder { get; set; }
     }
 }

@@ -46,6 +46,7 @@ namespace Lumino.Api.Data
                 Email = adminEmail,
                 PasswordHash = hasher.Hash("Admin123!"),
                 Role = Role.Admin,
+                IsEmailVerified = true,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -71,6 +72,7 @@ namespace Lumino.Api.Data
                 Email = userEmail,
                 PasswordHash = hasher.Hash("User123!"),
                 Role = Role.User,
+                IsEmailVerified = true,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -82,6 +84,12 @@ namespace Lumino.Api.Data
         {
             var achievements = new List<Achievement>
             {
+                new Achievement
+                {
+                    Code = "sys.first_day_learning",
+                    Title = "First Study Day",
+                    Description = "Complete your first study day"
+                },
                 new Achievement
                 {
                     Code = "sys.first_lesson",
@@ -102,6 +110,12 @@ namespace Lumino.Api.Data
                 },
                 new Achievement
                 {
+                    Code = "sys.perfect_three_in_row",
+                    Title = "No Mistakes Streak",
+                    Description = "Complete 3 lessons in a row without mistakes"
+                },
+                new Achievement
+                {
                     Code = "sys.hundred_xp",
                     Title = "100 XP",
                     Description = "Earn 100 total score"
@@ -111,6 +125,12 @@ namespace Lumino.Api.Data
                     Code = "sys.first_scene",
                     Title = "First Scene",
                     Description = "Complete your first scene"
+                },
+                new Achievement
+                {
+                    Code = "sys.first_topic_completed",
+                    Title = "First Topic Completed",
+                    Description = "Complete your first topic"
                 },
                 new Achievement
                 {
@@ -141,6 +161,12 @@ namespace Lumino.Api.Data
                     Code = "sys.daily_goal",
                     Title = "Daily Goal",
                     Description = "Reach your daily goal"
+                },
+                new Achievement
+                {
+                    Code = "sys.return_after_break",
+                    Title = "Welcome Back",
+                    Description = "Return to learning after a break"
                 }
             };
 
@@ -910,14 +936,14 @@ namespace Lumino.Api.Data
             {
                 new ExerciseSeed(ExerciseType.MultipleChoice, "Hello = ?", ToJsonStringArray("Привіт","До побачення","Дякую"), "Привіт", 1),
                 new ExerciseSeed(ExerciseType.Input, "Write Ukrainian for: Goodbye", "{}", "До побачення", 2),
+                new ExerciseSeed(ExerciseType.MultipleChoice, "Please = ?", ToJsonStringArray("Будь ласка","Пробач","Нема за що"), "Будь ласка", 3),
+                new ExerciseSeed(ExerciseType.Input, "Write Ukrainian for: Thank you", "{}", "Дякую", 4),
                 new ExerciseSeed(ExerciseType.Match, "Match the pairs", ToJsonMatchPairs(
                     ("Hello", "Привіт"),
                     ("Goodbye", "До побачення"),
                     ("Please", "Будь ласка"),
                     ("Thank you", "Дякую")
-                ), "{}", 3),
-                new ExerciseSeed(ExerciseType.Input, "Write Ukrainian for: Thank you", "{}", "Дякую", 4),
-                new ExerciseSeed(ExerciseType.MultipleChoice, "Please = ?", ToJsonStringArray("Будь ласка","Пробач","Нема за що"), "Будь ласка", 5)
+                ), "{}", 5)
             });
 
             UpsertExercises(dbContext, lessonMap[LessonKey(topicMap["Greetings"].Id, "How are you?")].Id, new List<ExerciseSeed>

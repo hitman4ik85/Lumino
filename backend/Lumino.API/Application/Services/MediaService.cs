@@ -20,7 +20,7 @@ namespace Lumino.Api.Application.Services
             ".json"
         };
 
-        public UploadMediaResponse Upload(IFormFile file, string baseUrl)
+        public UploadMediaResponse Upload(IFormFile file, string baseUrl, string? folder = null)
         {
             if (file == null)
             {
@@ -45,7 +45,7 @@ namespace Lumino.Api.Application.Services
             }
 
             var root = Directory.GetCurrentDirectory();
-            var uploadsPath = Path.Combine(root, "wwwroot", "uploads");
+            var uploadsPath = BuildUploadsPath(root, folder);
 
             if (!Directory.Exists(uploadsPath))
             {
@@ -60,9 +60,14 @@ namespace Lumino.Api.Application.Services
                 file.CopyTo(stream);
             }
 
+            var relativeFolder = BuildRelativeFolder(folder);
+            var relativePath = string.IsNullOrWhiteSpace(relativeFolder)
+                ? $"/uploads/{storedFileName}"
+                : $"/uploads/{relativeFolder}/{storedFileName}";
+
             return new UploadMediaResponse
             {
-                Url = $"{baseUrl}/uploads/{storedFileName}",
+                Url = $"{baseUrl}{relativePath}",
                 ContentType = file.ContentType,
                 FileName = storedFileName
             };
@@ -78,7 +83,7 @@ namespace Lumino.Api.Application.Services
                 return new List<MediaFileResponse>();
             }
 
-			IEnumerable<FileInfo> filesQuery = Directory.GetFiles(uploadsPath)
+            IEnumerable<FileInfo> filesQuery = Directory.GetFiles(uploadsPath)
                 .Select(path => new FileInfo(path))
                 .OrderByDescending(x => x.LastWriteTimeUtc);
 
@@ -114,6 +119,46 @@ namespace Lumino.Api.Application.Services
                 .ToList();
 
             return files;
+        }
+
+        private static string BuildUploadsPath(string root, string? folder)
+        {
+            var uploadsRoot = Path.Combine(root, "wwwroot", "uploads");
+            var relativeFolder = BuildRelativeFolder(folder);
+
+            if (string.IsNullOrWhiteSpace(relativeFolder))
+            {
+                return uploadsRoot;
+            }
+
+            var parts = relativeFolder
+                .Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+            return parts.Aggregate(uploadsRoot, Path.Combine);
+        }
+
+        private static string BuildRelativeFolder(string? folder)
+        {
+            if (string.IsNullOrWhiteSpace(folder))
+            {
+                return string.Empty;
+            }
+
+            var normalized = folder
+                .Replace('\\', '/')
+                .Trim('/');
+
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                return string.Empty;
+            }
+
+            var segments = normalized
+                .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .Where(x => x != "." && x != "..")
+                .ToArray();
+
+            return string.Join('/', segments);
         }
     }
 }

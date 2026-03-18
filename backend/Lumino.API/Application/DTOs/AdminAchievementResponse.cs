@@ -1,4 +1,4 @@
-﻿namespace Lumino.Api.Application.DTOs
+namespace Lumino.Api.Application.DTOs
 {
     public class AdminAchievementResponse
     {
@@ -11,6 +11,8 @@
         public string Description { get; set; } = null!;
 
         public bool IsSystem { get; set; }
+
+        public bool CanEditDescription { get; set; }
 
         public string? ImageUrl { get; set; }
     }
