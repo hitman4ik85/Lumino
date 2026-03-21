@@ -18,7 +18,7 @@ public class CourseServiceTests
 
         dbContext.SaveChanges();
 
-        var service = new CourseService(dbContext, new FakeCourseCompletionService());
+        var service = new CourseService(dbContext, new FakeCourseCompletionService(), TestLearningSettingsFactory.Create());
 
         var result = service.GetPublishedCourses();
 
@@ -36,7 +36,7 @@ public class CourseServiceTests
         dbContext.Courses.Add(new Course { Id = 1, Title = "Hidden", Description = "D", IsPublished = false });
         dbContext.SaveChanges();
 
-        var service = new CourseService(dbContext, new FakeCourseCompletionService());
+        var service = new CourseService(dbContext, new FakeCourseCompletionService(), TestLearningSettingsFactory.Create());
 
         var result = service.GetPublishedCourses();
 

@@ -1758,7 +1758,7 @@
 .sectionDivider{
   position:absolute;
   left:789px;
-  top:92px;
+  top:134px;
   width:26px;
   height:658px;
   display:flex;
@@ -1775,7 +1775,7 @@
 }
 
 .dividerTop{ height:300px; }
-.dividerBottom{ height:242px; background:#26415e; }
+.dividerBottom{ height:300px; background:#26415e; }
 
 .dividerIcon{
   width:26px;
@@ -1902,10 +1902,18 @@
   flex-shrink:0;
   border-radius:20px;
   display:block;
-  background-position:center;
-  background-size:cover;
-  background-repeat:no-repeat;
+  position:relative;
+  overflow:hidden;
   transition:transform .16s ease, box-shadow .16s ease, filter .16s ease;
+}
+
+.scenesCardPreviewImage{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+  pointer-events:none;
+  user-select:none;
 }
 
 .scenesCardPreviewOpen{

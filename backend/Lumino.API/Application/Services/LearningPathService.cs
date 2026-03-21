@@ -3,6 +3,7 @@ using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
 using Lumino.Api.Utils;
+using Microsoft.EntityFrameworkCore;
 
 namespace Lumino.Api.Application.Services
 {
@@ -21,7 +22,9 @@ namespace Lumino.Api.Application.Services
 
         public LearningPathResponse GetMyCoursePath(int userId, int courseId)
         {
-            var course = _dbContext.Courses.FirstOrDefault(x => x.Id == courseId && x.IsPublished);
+            var course = _dbContext.Courses
+                .AsNoTracking()
+                .FirstOrDefault(x => x.Id == courseId && x.IsPublished);
 
             if (course == null)
             {
@@ -30,20 +33,9 @@ namespace Lumino.Api.Application.Services
 
             int passingScorePercent = LessonPassingRules.NormalizePassingPercent(_learningSettings.PassingScorePercent);
 
-            var bestResults = _dbContext.LessonResults
-                .Where(x => x.UserId == userId)
-                .GroupBy(x => x.LessonId)
-                .Select(g => new BestLessonResult
-                {
-                    LessonId = g.Key,
-                    BestScore = g.Max(x => x.Score),
-                    TotalQuestions = g.Max(x => x.TotalQuestions)
-                })
-                .ToDictionary(x => x.LessonId, x => x);
-
             var orderedLessons =
-                (from t in _dbContext.Topics
-                 join l in _dbContext.Lessons on t.Id equals l.TopicId
+                (from t in _dbContext.Topics.AsNoTracking()
+                 join l in _dbContext.Lessons.AsNoTracking() on t.Id equals l.TopicId
                  where t.CourseId == course.Id
                  orderby (t.Order <= 0 ? int.MaxValue : t.Order), t.Id, (l.Order <= 0 ? int.MaxValue : l.Order), l.Id
                  select new OrderedLessonInfo
@@ -57,11 +49,56 @@ namespace Lumino.Api.Application.Services
                  })
                 .ToList();
 
-            EnsureUserLessonProgressIsInSync(userId, orderedLessons, bestResults, passingScorePercent);
+            var lessonIds = orderedLessons.Select(x => x.LessonId).Distinct().ToList();
+            var topicIds = orderedLessons.Select(x => x.TopicId).Distinct().ToList();
+
+            var bestResults = _dbContext.LessonResults
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && lessonIds.Contains(x.LessonId))
+                .GroupBy(x => x.LessonId)
+                .Select(g => new BestLessonResult
+                {
+                    LessonId = g.Key,
+                    BestScore = g.Max(x => x.Score),
+                    TotalQuestions = g.Max(x => x.TotalQuestions)
+                })
+                .ToDictionary(x => x.LessonId, x => x);
+
+            var completedSceneTopicIds = _dbContext.SceneAttempts
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.IsCompleted)
+                .Join(_dbContext.Scenes.AsNoTracking(),
+                    attempt => attempt.SceneId,
+                    scene => scene.Id,
+                    (attempt, scene) => scene.TopicId)
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)
+                .Distinct()
+                .ToHashSet();
+
+            var topicIdsWithScenes = _dbContext.Scenes
+                .AsNoTracking()
+                .Where(x => x.TopicId.HasValue && topicIds.Contains(x.TopicId.Value))
+                .Select(x => x.TopicId!.Value)
+                .Distinct()
+                .ToHashSet();
+
+            EnsureUserLessonProgressIsInSync(userId, orderedLessons, bestResults, passingScorePercent, completedSceneTopicIds, topicIdsWithScenes);
 
             var progressDict = _dbContext.UserLessonProgresses
-                .Where(x => x.UserId == userId)
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && lessonIds.Contains(x.LessonId))
                 .ToDictionary(x => x.LessonId, x => x);
+
+            var passedTopicStats = orderedLessons
+                .GroupBy(x => new { x.TopicId, x.TopicTitle, x.TopicOrder })
+                .ToDictionary(
+                    g => g.Key.TopicId,
+                    g => new TopicLessonStats
+                    {
+                        TotalLessons = g.Select(x => x.LessonId).Distinct().Count(),
+                        PassedLessons = g.Count(x => progressDict.TryGetValue(x.LessonId, out var p) && p.IsCompleted)
+                    });
 
             var topics = orderedLessons
                 .GroupBy(x => new { x.TopicId, x.TopicTitle, x.TopicOrder })
@@ -109,10 +146,6 @@ namespace Lumino.Api.Application.Services
                 })
                 .ToList();
 
-
-            var lessonIds = orderedLessons.Select(x => x.LessonId).ToList();
-
-            // scenes (learning map)
             var passedLessons = progressDict
                 .Where(x => lessonIds.Contains(x.Key))
                 .Count(x => x.Value.IsCompleted);
@@ -120,26 +153,19 @@ namespace Lumino.Api.Application.Services
             var unlockEvery = SceneUnlockRules.NormalizeUnlockEveryLessons(_learningSettings.SceneUnlockEveryLessons);
 
             var completedSceneIds = _dbContext.SceneAttempts
+                .AsNoTracking()
                 .Where(x => x.UserId == userId && x.IsCompleted)
                 .Select(x => x.SceneId)
                 .Distinct()
-                .ToList();
+                .ToHashSet();
 
-            bool hasCourseScenes = _dbContext.Scenes.Any(x => x.CourseId == course.Id);
+            bool hasCourseScenes = _dbContext.Scenes
+                .AsNoTracking()
+                .Any(x => x.CourseId == course.Id);
 
-            var scenesQuery = _dbContext.Scenes.AsQueryable();
-
-            if (hasCourseScenes)
-            {
-                scenesQuery = scenesQuery.Where(x => x.CourseId == course.Id);
-            }
-            else
-            {
-                scenesQuery = scenesQuery.Where(x => x.CourseId == null);
-            }
-
-            var orderedScenes = scenesQuery
-                .AsEnumerable()
+            var orderedScenes = _dbContext.Scenes
+                .AsNoTracking()
+                .Where(x => hasCourseScenes ? x.CourseId == course.Id : x.CourseId == null)
                 .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
                 .ThenBy(x => x.Id)
                 .ToList();
@@ -157,24 +183,25 @@ namespace Lumino.Api.Application.Services
                 bool isUnlocked;
                 string? unlockReason;
 
-                if (s.TopicId.HasValue)
+                if (s.TopicId.HasValue && passedTopicStats.TryGetValue(s.TopicId.Value, out var stats))
                 {
-                    var stats = GetTopicLessonStats(userId, s.TopicId.Value, passingScorePercent);
-
                     required = stats.TotalLessons;
                     passed = stats.PassedLessons;
-
                     isUnlocked = passed >= required;
-
                     unlockReason = isUnlocked ? null : "Complete the topic lessons to unlock the scene";
+                }
+                else if (s.TopicId.HasValue)
+                {
+                    required = 0;
+                    passed = 0;
+                    isUnlocked = true;
+                    unlockReason = null;
                 }
                 else
                 {
                     required = SceneUnlockRules.GetRequiredPassedLessons(scenePosition, unlockEvery);
                     passed = passedLessons;
-
                     isUnlocked = SceneUnlockRules.IsUnlocked(scenePosition, passedLessons, unlockEvery);
-
                     unlockReason = isUnlocked ? null : $"Pass {required} lessons to unlock";
                 }
 
@@ -195,7 +222,6 @@ namespace Lumino.Api.Application.Services
                 });
             }
 
-            // next pointers for UI
             int? nextLessonId = null;
 
             for (int i = 0; i < orderedLessons.Count; i++)
@@ -240,38 +266,6 @@ namespace Lumino.Api.Application.Services
             };
         }
 
-
-        private TopicLessonStats GetTopicLessonStats(int userId, int topicId, int passingScorePercent)
-        {
-            var lessonIds = _dbContext.Lessons
-                .Where(x => x.TopicId == topicId)
-                .Select(x => x.Id)
-                .ToList();
-
-            if (lessonIds.Count == 0)
-            {
-                return new TopicLessonStats
-                {
-                    TotalLessons = 0,
-                    PassedLessons = 0
-                };
-            }
-
-            var passedLessonIds = _dbContext.LessonResults
-                .Where(x => x.UserId == userId && lessonIds.Contains(x.LessonId) && x.TotalQuestions > 0)
-                .AsEnumerable()
-                .Where(x => x.Score * 100 >= x.TotalQuestions * passingScorePercent)
-                .Select(x => x.LessonId)
-                .Distinct()
-                .ToHashSet();
-
-            return new TopicLessonStats
-            {
-                TotalLessons = lessonIds.Count,
-                PassedLessons = passedLessonIds.Count
-            };
-        }
-
         private class TopicLessonStats
         {
             public int TotalLessons { get; set; }
@@ -283,7 +277,9 @@ namespace Lumino.Api.Application.Services
             int userId,
             List<OrderedLessonInfo> orderedLessons,
             Dictionary<int, BestLessonResult> bestResults,
-            int passingScorePercent)
+            int passingScorePercent,
+            HashSet<int> completedSceneTopicIds,
+            HashSet<int> topicIdsWithScenes)
         {
             if (orderedLessons == null || orderedLessons.Count == 0)
             {
@@ -296,17 +292,13 @@ namespace Lumino.Api.Application.Services
                 .Where(x => x.UserId == userId && lessonIds.Contains(x.LessonId))
                 .ToDictionary(x => x.LessonId, x => x);
 
+            var lessonIdsByTopic = orderedLessons
+                .GroupBy(x => x.TopicId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(x => x.LessonId).Distinct().ToList());
+
             bool needSave = false;
-            var completedSceneTopicIds = _dbContext.SceneAttempts
-                .Where(x => x.UserId == userId && x.IsCompleted)
-                .Join(_dbContext.Scenes,
-                    attempt => attempt.SceneId,
-                    scene => scene.Id,
-                    (attempt, scene) => scene.TopicId)
-                .Where(x => x.HasValue)
-                .Select(x => x!.Value)
-                .Distinct()
-                .ToHashSet();
 
             for (int i = 0; i < orderedLessons.Count; i++)
             {
@@ -331,7 +323,9 @@ namespace Lumino.Api.Application.Services
                     orderedLessons,
                     i,
                     existing,
-                    completedSceneTopicIds);
+                    lessonIdsByTopic,
+                    completedSceneTopicIds,
+                    topicIdsWithScenes);
 
                 if (!existing.TryGetValue(lessonId, out var p))
                 {
@@ -369,7 +363,6 @@ namespace Lumino.Api.Application.Services
                         needSave = true;
                     }
                 }
-
             }
 
             if (needSave)
@@ -378,12 +371,13 @@ namespace Lumino.Api.Application.Services
             }
         }
 
-
         private bool IsLessonUnlockedByCourseFlow(
             List<OrderedLessonInfo> orderedLessons,
             int currentIndex,
             Dictionary<int, UserLessonProgress> existing,
-            HashSet<int> completedSceneTopicIds)
+            Dictionary<int, List<int>> lessonIdsByTopic,
+            HashSet<int> completedSceneTopicIds,
+            HashSet<int> topicIdsWithScenes)
         {
             if (currentIndex <= 0)
             {
@@ -403,22 +397,17 @@ namespace Lumino.Api.Application.Services
                 return true;
             }
 
-            return IsTopicGatewayCompleted(orderedLessons, previous.TopicId, existing, completedSceneTopicIds);
+            return IsTopicGatewayCompleted(previous.TopicId, existing, lessonIdsByTopic, completedSceneTopicIds, topicIdsWithScenes);
         }
 
         private bool IsTopicGatewayCompleted(
-            List<OrderedLessonInfo> orderedLessons,
             int topicId,
             Dictionary<int, UserLessonProgress> existing,
-            HashSet<int> completedSceneTopicIds)
+            Dictionary<int, List<int>> lessonIdsByTopic,
+            HashSet<int> completedSceneTopicIds,
+            HashSet<int> topicIdsWithScenes)
         {
-            var topicLessonIds = orderedLessons
-                .Where(x => x.TopicId == topicId)
-                .Select(x => x.LessonId)
-                .Distinct()
-                .ToList();
-
-            if (topicLessonIds.Count == 0)
+            if (!lessonIdsByTopic.TryGetValue(topicId, out var topicLessonIds) || topicLessonIds.Count == 0)
             {
                 return true;
             }
@@ -430,9 +419,7 @@ namespace Lumino.Api.Application.Services
                 return false;
             }
 
-            bool hasTopicScene = _dbContext.Scenes.Any(x => x.TopicId == topicId);
-
-            if (!hasTopicScene)
+            if (!topicIdsWithScenes.Contains(topicId))
             {
                 return true;
             }

@@ -1,6 +1,6 @@
 namespace Lumino.Api.Application.DTOs
 {
-    public class AddVocabularyRequest
+    public class UpdateUserVocabularyRequest
     {
         public string Word { get; set; } = null!;
 

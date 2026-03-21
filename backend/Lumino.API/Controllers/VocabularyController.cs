@@ -25,14 +25,28 @@ namespace Lumino.Api.Controllers
             return Ok(_vocabularyService.GetMyVocabulary(userId));
         }
 
-                [HttpGet("items/{id:int}")]
+        [HttpGet("items/{id:int}")]
         public IActionResult GetItemDetails([FromRoute] int id)
         {
             var userId = ClaimsUtils.GetUserIdOrThrow(User);
             return Ok(_vocabularyService.GetItemDetails(userId, id));
         }
 
-[HttpGet("due")]
+        [HttpGet("lookup")]
+        public IActionResult Lookup([FromQuery] string word)
+        {
+            var userId = ClaimsUtils.GetUserIdOrThrow(User);
+            var item = _vocabularyService.LookupWord(userId, word);
+
+            if (item == null)
+            {
+                return NoContent();
+            }
+
+            return Ok(item);
+        }
+
+        [HttpGet("due")]
         public IActionResult GetDue()
         {
             var userId = ClaimsUtils.GetUserIdOrThrow(User);
@@ -61,12 +75,29 @@ namespace Lumino.Api.Controllers
             return NoContent();
         }
 
+        [HttpPut("{id}")]
+        public IActionResult Update(int id, UpdateUserVocabularyRequest request)
+        {
+            var userId = ClaimsUtils.GetUserIdOrThrow(User);
+            _vocabularyService.UpdateWord(userId, id, request);
+            return NoContent();
+        }
+
         [HttpPost("{id}/review")]
         public IActionResult Review(int id, ReviewVocabularyRequest request)
         {
             var userId = ClaimsUtils.GetUserIdOrThrow(User);
             var result = _vocabularyService.ReviewWord(userId, id, request);
             return Ok(result);
+        }
+
+
+        [HttpPost("{id}/schedule")]
+        public IActionResult Schedule(int id, ScheduleVocabularyReviewRequest request)
+        {
+            var userId = ClaimsUtils.GetUserIdOrThrow(User);
+            _vocabularyService.ScheduleReview(userId, id, request);
+            return NoContent();
         }
 
         [HttpDelete("{id}")]

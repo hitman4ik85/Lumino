@@ -13,9 +13,15 @@ namespace Lumino.Api.Application.Interfaces
 
         VocabularyItemDetailsResponse GetItemDetails(int userId, int vocabularyItemId);
 
+        VocabularyItemDetailsResponse? LookupWord(int userId, string word);
+
         void AddWord(int userId, AddVocabularyRequest request);
 
+        void UpdateWord(int userId, int userVocabularyId, UpdateUserVocabularyRequest request);
+
         VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVocabularyRequest request);
+
+        void ScheduleReview(int userId, int userVocabularyId, ScheduleVocabularyReviewRequest request);
 
         void DeleteWord(int userId, int userVocabularyId);
     }

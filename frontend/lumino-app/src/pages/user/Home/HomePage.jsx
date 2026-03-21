@@ -14,6 +14,7 @@ import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
 import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import ProfileContent from "../Profile/ProfileContent.jsx";
 import AchievementsContent from "../Achievements/AchievementsContent.jsx";
+import VocabularyContent from "../Vocabulary/VocabularyContent.jsx";
 import styles from "./HomePage.module.css";
 
 import FlagEn from "../../../assets/flags/flag-en.svg";
@@ -70,8 +71,8 @@ const HEADER_COUNTERS = {
 
 const ORBIT_SEQUENCE = [1, 2, 3, 1, 2, 3, 1, 2, 3, 1];
 const SECTION_WIDTH = 879.47;
-const FULL_PANEL_VIEWS = ["languages", "courses", "scenes", "lesson", "profile", "achievements"];
-const TOP_BAR_HIDDEN_VIEWS = ["languages", "lesson", "profile", "achievements"];
+const FULL_PANEL_VIEWS = ["languages", "courses", "scenes", "lesson", "profile", "achievements", "dictionary"];
+const TOP_BAR_HIDDEN_VIEWS = ["languages", "lesson", "profile", "achievements", "dictionary"];
 const WEEK_DAYS = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "НД"];
 const LANGUAGE_ORDER = ["en", "de", "it", "es", "fr", "pl", "ja", "ko", "zh"];
 
@@ -394,6 +395,169 @@ function normalizeCoursePath(data) {
   };
 }
 
+function getCoursePathCacheKey(languageCode, courseId) {
+  const userKey = authStorage.getUserCacheKey();
+  const normalizedLanguageCode = normalizeCode(languageCode || "");
+  const normalizedCourseId = Number(courseId || 0);
+
+  if (!userKey || !normalizedLanguageCode || !normalizedCourseId) {
+    return "";
+  }
+
+  return `lumino-course-path:${userKey}:${normalizedLanguageCode}:${normalizedCourseId}`;
+}
+
+function getScenesOverviewCacheKey(languageCode, courses) {
+  const userKey = authStorage.getUserCacheKey();
+  const normalizedLanguageCode = normalizeCode(languageCode);
+  const courseIds = Array.isArray(courses)
+    ? courses.map((item) => Number(item?.id || 0)).filter(Boolean).sort((a, b) => a - b)
+    : [];
+
+  if (!userKey || !normalizedLanguageCode || courseIds.length === 0) {
+    return "";
+  }
+
+  return `lumino-scenes-overview:${userKey}:${normalizedLanguageCode}:${courseIds.join(",")}`;
+}
+
+function getCachedScenesOverview(languageCode, courses) {
+  const key = getScenesOverviewCacheKey(languageCode, courses);
+
+  if (!key || typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(key);
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedScenesOverview(languageCode, courses, value) {
+  const key = getScenesOverviewCacheKey(languageCode, courses);
+
+  if (!key || typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    if (Array.isArray(value) && value.length > 0) {
+      window.sessionStorage.setItem(key, JSON.stringify(value));
+      return;
+    }
+
+    window.sessionStorage.removeItem(key);
+  } catch {
+  }
+}
+
+function getCachedCoursePath(languageCode, courseId) {
+  const key = getCoursePathCacheKey(languageCode, courseId);
+
+  if (!key || typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(key);
+
+    if (!raw) {
+      return null;
+    }
+
+    return normalizeCoursePath(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+function setCachedCoursePath(languageCode, courseId, value) {
+  const key = getCoursePathCacheKey(languageCode, courseId);
+
+  if (!key || typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    if (value) {
+      window.sessionStorage.setItem(key, JSON.stringify(value));
+      return;
+    }
+
+    window.sessionStorage.removeItem(key);
+  } catch {
+  }
+}
+
+
+function getHomeCacheKey() {
+  const userKey = authStorage.getUserCacheKey();
+
+  if (!userKey) {
+    return "";
+  }
+
+  return `lumino-home-cache:${userKey}`;
+}
+
+function getCachedHomeSnapshot() {
+  const key = getHomeCacheKey();
+
+  if (!key || typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(key);
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+
+    return {
+      user: parsed?.user || null,
+      languageState: parsed?.languageState || { activeTargetLanguageCode: "", learningLanguages: [] },
+      courses: Array.isArray(parsed?.courses) ? parsed.courses : [],
+      course: parsed?.course || null,
+      path: normalizeCoursePath(parsed?.path),
+      calendarDates: Array.isArray(parsed?.calendarDates) ? parsed.calendarDates : [],
+      calendarMonth: parsed?.calendarMonth || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function setCachedHomeSnapshot(value) {
+  const key = getHomeCacheKey();
+
+  if (!key || typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    if (!value) {
+      window.sessionStorage.removeItem(key);
+      return;
+    }
+
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+  }
+}
+
 function resolveMediaUrl(value) {
   const src = String(value || "").trim();
 
@@ -625,30 +789,55 @@ export default function HomePage() {
   const trackRef = useRef(null);
   const dragRef = useRef({ active: false, startX: 0, startLeft: 0 });
   const dropdownRef = useRef(null);
+  const scenesRequestRef = useRef(0);
 
   useStageScale(stageRef, { mode: "absolute" });
 
   const [isSessionExpired, setIsSessionExpired] = useState(false);
   const isGuest = isSessionExpired || !authStorage.isAuthed();
-  const [loading, setLoading] = useState(true);
+  const initialHomeCacheRef = useRef(!isGuest ? getCachedHomeSnapshot() : null);
+  const [loading, setLoading] = useState(initialHomeCacheRef.current == null);
   const [restoringHearts, setRestoringHearts] = useState(false);
-  const initialTab = ["profile", "achievements"].includes(searchParams.get("tab")) ? searchParams.get("tab") : "learning";
+  const initialTab = ["profile", "achievements", "dictionary"].includes(searchParams.get("tab")) ? searchParams.get("tab") : "learning";
   const [activeNav, setActiveNav] = useState(initialTab === "learning" ? "learning" : initialTab);
   const [bodyView, setBodyView] = useState(initialTab);
+  const bodyViewRef = useRef(initialTab);
   const [openDropdown, setOpenDropdown] = useState("");
   const [showFullCalendar, setShowFullCalendar] = useState(false);
   const [modal, setModal] = useState({ open: false, title: "", message: "", primaryText: "Добре", secondaryText: "", onPrimary: null, onSecondary: null, variant: "default", illustrationSrc: "" });
-  const [user, setUser] = useState(GUEST_USER);
-  const [languageState, setLanguageState] = useState({ activeTargetLanguageCode: "", learningLanguages: [] });
+  const [user, setUser] = useState(initialHomeCacheRef.current?.user || GUEST_USER);
+  const [languageState, setLanguageState] = useState(initialHomeCacheRef.current?.languageState || { activeTargetLanguageCode: "", learningLanguages: [] });
   const [supportedLanguages, setSupportedLanguages] = useState([]);
-  const [courses, setCourses] = useState([]);
-  const [course, setCourse] = useState(null);
-  const [path, setPath] = useState(null);
+  const [courses, setCourses] = useState(initialHomeCacheRef.current?.courses || []);
+  const [course, setCourse] = useState(initialHomeCacheRef.current?.course || null);
+  const [path, setPath] = useState(initialHomeCacheRef.current?.path || null);
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [selectedLesson, setSelectedLesson] = useState(null);
   const [scenesOverview, setScenesOverview] = useState([]);
-  const [calendarDates, setCalendarDates] = useState([]);
-  const [calendarMonth, setCalendarMonth] = useState({ year: new Date().getFullYear(), month: new Date().getMonth() + 1 });
+  const [scenePreviewsEnabled, setScenePreviewsEnabled] = useState(false);
+  const [calendarDates, setCalendarDates] = useState(initialHomeCacheRef.current?.calendarDates || []);
+  const [calendarMonth, setCalendarMonth] = useState(initialHomeCacheRef.current?.calendarMonth || { year: new Date().getFullYear(), month: new Date().getMonth() + 1 });
+
+  useEffect(() => {
+    bodyViewRef.current = bodyView;
+  }, [bodyView]);
+
+  useEffect(() => {
+    if (bodyView !== "scenes") {
+      setScenePreviewsEnabled(false);
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      if (bodyViewRef.current === "scenes") {
+        setScenePreviewsEnabled(true);
+      }
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [bodyView]);
 
   const topics = useMemo(() => {
     if (path?.topics?.length) {
@@ -669,8 +858,12 @@ export default function HomePage() {
       });
     }
 
-    return buildGuestTopics();
-  }, [path]);
+    if (isGuest) {
+      return buildGuestTopics();
+    }
+
+    return [];
+  }, [isGuest, path]);
 
   useEffect(() => {
     const handleEscClose = (e) => {
@@ -707,6 +900,7 @@ export default function HomePage() {
   const energySteps = useMemo(() => Math.max(1, Number(user.heartsMax || 5)), [user.heartsMax]);
   const isFullPanelView = FULL_PANEL_VIEWS.includes(bodyView);
   const isTopBarHidden = TOP_BAR_HIDDEN_VIEWS.includes(bodyView);
+  const showBlockingHomeLoading = (loading || restoringHearts) && !["profile", "achievements", "dictionary"].includes(bodyView);
 
   const languageItems = useMemo(() => {
     if (Array.isArray(languageState.learningLanguages) && languageState.learningLanguages.length > 0) {
@@ -771,18 +965,20 @@ export default function HomePage() {
     });
   }, []);
 
-  const loadHome = useCallback(async (preferredLanguageCode = "") => {
-    setLoading(true);
+  const loadHome = useCallback(async (preferredLanguageCode = "", showBlocking = true) => {
+    if (showBlocking) {
+      setLoading(true);
+    }
 
     try {
       const preferred = isGuest
         ? normalizeCode(preferredLanguageCode || localStorage.getItem("targetLanguage") || guestTargetLanguageCode || "en")
         : normalizeCode(preferredLanguageCode || languageState.activeTargetLanguageCode || "");
-      const supportedRes = await onboardingService.getSupportedLanguages();
-
-      if (supportedRes.ok) {
-        setSupportedLanguages(supportedRes.items || []);
-      }
+      onboardingService.getSupportedLanguages().then((supportedRes) => {
+        if (supportedRes.ok) {
+          setSupportedLanguages(supportedRes.items || []);
+        }
+      });
 
       if (isGuest) {
         const publicCoursesRes = await coursesService.getPublishedCourses(preferred);
@@ -795,6 +991,7 @@ export default function HomePage() {
         setCourse(nextCourse);
         setPath(null);
         setUser(GUEST_USER);
+        setCachedHomeSnapshot(null);
         setLanguageState({
           activeTargetLanguageCode: preferred,
           learningLanguages: [{ code: preferred, title: getLanguageLabel(preferred), isActive: true }],
@@ -832,22 +1029,61 @@ export default function HomePage() {
       const myCoursesRes = await coursesService.getMyCourses(targetCode);
       const nextCourses = myCoursesRes.items || [];
       const activeCourse = nextCourses.find((item) => !item?.isLocked) || nextCourses[0] || null;
+      const cachedPath = activeCourse?.id ? getCachedCoursePath(targetCode, activeCourse.id) : null;
+
       setCourses(nextCourses);
       setCourse(activeCourse);
-      setPath(null);
+      setPath(cachedPath);
+      setCachedHomeSnapshot({
+        user: nextUser,
+        languageState: languagesRes?.ok ? {
+          activeTargetLanguageCode: targetCode,
+          learningLanguages: languagesRes.learningLanguages || [],
+        } : {
+          activeTargetLanguageCode: targetCode,
+          learningLanguages: [{ code: targetCode, title: getLanguageLabel(targetCode), isActive: true }],
+        },
+        courses: nextCourses,
+        course: activeCourse,
+        path: cachedPath,
+        calendarDates,
+        calendarMonth,
+      });
+      setLoading(false);
+
+      const backgroundRequests = [
+        streakService.getMyStreak(),
+        streakService.getMyCalendarMonth(calendarMonth.year, calendarMonth.month),
+      ];
 
       if (activeCourse?.id) {
-        const [pathRes, streakRes, calendarRes] = await Promise.all([
-          learningService.getMyCoursePath(activeCourse.id),
-          streakService.getMyStreak(),
-          streakService.getMyCalendarMonth(calendarMonth.year, calendarMonth.month),
-        ]);
+        backgroundRequests.unshift(learningService.getMyCoursePath(activeCourse.id));
+      }
 
-        if (pathRes.ok) {
-          setPath(normalizeCoursePath(pathRes.data));
+      Promise.all(backgroundRequests).then((responses) => {
+        const hasPathResponse = Boolean(activeCourse?.id);
+        const pathRes = hasPathResponse ? responses[0] : null;
+        const streakRes = responses[hasPathResponse ? 1 : 0];
+        const calendarRes = responses[hasPathResponse ? 2 : 1];
+
+        let nextPathForCache = cachedPath;
+        let nextUserForCache = nextUser;
+        let nextCalendarDatesForCache = calendarDates;
+
+        if (pathRes?.ok) {
+          const normalizedPath = normalizeCoursePath(pathRes.data);
+          setPath(normalizedPath);
+          setCachedCoursePath(targetCode, activeCourse.id, normalizedPath);
+          nextPathForCache = normalizedPath;
         }
 
-        if (streakRes.ok && streakRes.data) {
+        if (streakRes?.ok && streakRes.data) {
+          nextUserForCache = {
+            ...nextUserForCache,
+            currentStreakDays: streakRes.data.currentStreakDays ?? nextUserForCache.currentStreakDays,
+            bestStreakDays: streakRes.data.bestStreakDays ?? nextUserForCache.bestStreakDays,
+          };
+
           setUser((prev) => ({
             ...prev,
             currentStreakDays: streakRes.data.currentStreakDays ?? prev.currentStreakDays,
@@ -855,19 +1091,37 @@ export default function HomePage() {
           }));
         }
 
-        if (calendarRes.ok) {
-          setCalendarDates(extractCalendarDates(calendarRes.data));
+        if (calendarRes?.ok) {
+          nextCalendarDatesForCache = extractCalendarDates(calendarRes.data);
+          setCalendarDates(nextCalendarDatesForCache);
         }
-      }
+
+        setCachedHomeSnapshot({
+          user: nextUserForCache,
+          languageState: languagesRes?.ok ? {
+            activeTargetLanguageCode: targetCode,
+            learningLanguages: languagesRes.learningLanguages || [],
+          } : {
+            activeTargetLanguageCode: targetCode,
+            learningLanguages: [{ code: targetCode, title: getLanguageLabel(targetCode), isActive: true }],
+          },
+          courses: nextCourses,
+          course: activeCourse,
+          path: nextPathForCache,
+          calendarDates: nextCalendarDatesForCache,
+          calendarMonth,
+        });
+      });
 
       return { hasCourses: nextCourses.length > 0, activeTargetLanguageCode: targetCode };
     } finally {
       setLoading(false);
     }
-  }, [calendarMonth.month, calendarMonth.year, isGuest, languageState.activeTargetLanguageCode]);
+  }, [calendarMonth.month, calendarMonth.year, courses.length, guestTargetLanguageCode, isGuest, languageState.activeTargetLanguageCode]);
 
   useEffect(() => {
-    loadHome();
+    const hasCache = initialHomeCacheRef.current != null;
+    loadHome("", !hasCache);
   }, [loadHome]);
 
   useEffect(() => {
@@ -1029,7 +1283,7 @@ export default function HomePage() {
     }
   }, [guestPrompt, isGuest, searchParams, setSearchParams]);
 
-  const handleCourseSelect = useCallback(async (item) => {
+  const handleCourseSelect = useCallback((item) => {
     if (isGuest) {
       guestPrompt();
       return;
@@ -1040,31 +1294,35 @@ export default function HomePage() {
       return;
     }
 
-    setLoading(true);
+    setCourse(item || null);
+    setSelectedTopic(null);
+    setSelectedLesson(null);
+    setOpenDropdown("");
+    setBodyView("learning");
 
-    try {
-      setCourse(item || null);
-      setSelectedTopic(null);
-      setSelectedLesson(null);
-      setOpenDropdown("");
+    if (!item?.id) {
+      setPath(null);
+      return;
+    }
 
-      if (item?.id) {
-        const pathRes = await learningService.getMyCoursePath(item.id);
+    const targetCode = normalizeCode(item?.languageCode || activeLanguageCode || languageState.activeTargetLanguageCode || "");
+    const cachedPath = getCachedCoursePath(targetCode, item.id);
 
-        if (pathRes.ok) {
-          setPath(normalizeCoursePath(pathRes.data));
-        } else {
-          setPath(null);
-        }
-      } else {
-        setPath(null);
+    setPath(cachedPath);
+
+    learningService.getMyCoursePath(item.id).then((pathRes) => {
+      if (pathRes.ok) {
+        const normalizedPath = normalizeCoursePath(pathRes.data);
+        setPath(normalizedPath);
+        setCachedCoursePath(targetCode, item.id, normalizedPath);
+        return;
       }
 
-      setBodyView("learning");
-    } finally {
-      setLoading(false);
-    }
-  }, [guestPrompt, isGuest, showInfo]);
+      if (!cachedPath) {
+        setPath(null);
+      }
+    });
+  }, [activeLanguageCode, guestPrompt, isGuest, languageState.activeTargetLanguageCode, showInfo]);
 
   const loadScenesOverview = useCallback(async () => {
     if (isGuest) {
@@ -1072,9 +1330,21 @@ export default function HomePage() {
       return;
     }
 
-    const sourceCourses = [...courseItemsForView].sort((a, b) => Number(a?.order || 0) - Number(b?.order || 0));
+    const requestId = scenesRequestRef.current + 1;
+    scenesRequestRef.current = requestId;
 
-    setLoading(true);
+    const sourceCourses = [...courseItemsForView].sort((a, b) => Number(a?.order || 0) - Number(b?.order || 0));
+    const cachedScenes = getCachedScenesOverview(activeLanguageCode, sourceCourses);
+
+    setSelectedTopic(null);
+    setOpenDropdown("");
+    setBodyView("scenes");
+
+    if (cachedScenes && cachedScenes.length > 0) {
+      setScenesOverview(cachedScenes);
+    } else {
+      setLoading(true);
+    }
 
     try {
       const responses = await Promise.all(sourceCourses.map((item) => scenesService.getForMe(item?.id)));
@@ -1100,14 +1370,22 @@ export default function HomePage() {
           });
       });
 
+      if (scenesRequestRef.current !== requestId) {
+        return;
+      }
+
       setScenesOverview(nextScenes);
-      setSelectedTopic(null);
-      setBodyView("scenes");
-      setOpenDropdown("");
+      setCachedScenesOverview(activeLanguageCode, sourceCourses, nextScenes);
+
+      if (bodyViewRef.current !== "scenes") {
+        return;
+      }
     } finally {
-      setLoading(false);
+      if (scenesRequestRef.current === requestId) {
+        setLoading(false);
+      }
     }
-  }, [courseItemsForView, guestPrompt, isGuest]);
+  }, [activeLanguageCode, courseItemsForView, guestPrompt, isGuest]);
 
   const handleTitleClick = useCallback((topic, disabled = false, index = 0) => {
     if (isGuest) {
@@ -1384,9 +1662,7 @@ export default function HomePage() {
         <div className={styles.scenesGrid}>
           {scenesOverview.map((scene, index) => {
             const locked = !scene?.isUnlocked;
-            const previewStyle = !locked && scene?.previewUrl
-              ? { backgroundImage: `url(${scene.previewUrl})` }
-              : undefined;
+            const shouldRenderPreviewImage = scenePreviewsEnabled && !locked && scene?.previewUrl;
 
             return (
               <button
@@ -1412,10 +1688,18 @@ export default function HomePage() {
                   showInfo("Сцена відкрита", "Цю сцену вже можна проходити або перепроходити. Окрему сторінку сцени підв’яжемо наступним кроком, не ламаючи цю логіку.");
                 }}
               >
-                <span
-                  className={`${styles.scenesCardPreview} ${locked ? styles.scenesCardPreviewLocked : styles.scenesCardPreviewOpen}`}
-                  style={previewStyle}
-                />
+                <span className={`${styles.scenesCardPreview} ${locked ? styles.scenesCardPreviewLocked : styles.scenesCardPreviewOpen}`}>
+                  {shouldRenderPreviewImage ? (
+                    <img
+                      className={styles.scenesCardPreviewImage}
+                      src={scene.previewUrl}
+                      alt=""
+                      aria-hidden="true"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : null}
+                </span>
                 <span className={styles.scenesCardLabel}>{getSceneCardLabel(scene, index)}</span>
               </button>
             );
@@ -1456,7 +1740,7 @@ export default function HomePage() {
     }
 
     if (bodyView === "dictionary") {
-      return renderStubView("Словник", "Тут буде персональний словник користувача з вивченими словами.");
+      return <VocabularyContent />;
     }
 
     if (bodyView === "profile") {
@@ -1484,7 +1768,7 @@ export default function HomePage() {
 
   return (
     <div className={styles.viewport}>
-      <GlassLoading open={loading || restoringHearts} text={restoringHearts ? "Відновлюємо енергію..." : "Завантажуємо Home..."} stageTargetId="lumino-home-stage" />
+      <GlassLoading open={showBlockingHomeLoading} text={restoringHearts ? "Відновлюємо енергію..." : "Завантажуємо Home..."} stageTargetId="lumino-home-stage" />
       {!isLanguageWarningModal ? (
         <GlassModal
           open={modal.open}

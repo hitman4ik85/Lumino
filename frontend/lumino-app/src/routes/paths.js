@@ -20,5 +20,6 @@ export const PATHS = {
   home: "/home",
   profile: "/profile",
   achievements: "/achievements",
+  vocabulary: "/vocabulary",
   admin: "/admin",
 };

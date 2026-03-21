@@ -1,4 +1,4 @@
-using Lumino.Api.Application.DTOs;
+﻿using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Application.Services;
 using Lumino.Api.Domain.Entities;
@@ -19,6 +19,18 @@ public class CourseServiceMyCoursesTests
             new Course { Id = 3, Title = "English B1", Description = "D3", IsPublished = true, Level = "B1", Order = 3, PrerequisiteCourseId = 2 }
         );
 
+
+        dbContext.UserCourses.Add(new UserCourse
+        {
+            UserId = 1,
+            CourseId = 1,
+            IsActive = true,
+            IsCompleted = true,
+            CompletedAt = DateTime.UtcNow,
+            StartedAt = DateTime.UtcNow,
+            LastOpenedAt = DateTime.UtcNow
+        });
+
         dbContext.SaveChanges();
 
         var completionService = new DictCourseCompletionService(new Dictionary<int, bool>
@@ -28,7 +40,7 @@ public class CourseServiceMyCoursesTests
             [3] = false
         });
 
-        var service = new CourseService(dbContext, completionService);
+        var service = new CourseService(dbContext, completionService, TestLearningSettingsFactory.Create());
 
         var result = service.GetMyCourses(userId: 1);
 

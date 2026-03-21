@@ -28,8 +28,8 @@ namespace Lumino.Api.Application.Services
         public List<VocabularyResponse> GetMyVocabulary(int userId)
         {
             var query =
-                from uv in _dbContext.UserVocabularies
-                join vi in _dbContext.VocabularyItems on uv.VocabularyItemId equals vi.Id
+                from uv in _dbContext.UserVocabularies.AsNoTracking()
+                join vi in _dbContext.VocabularyItems.AsNoTracking() on uv.VocabularyItemId equals vi.Id
                 where uv.UserId == userId
                 orderby uv.AddedAt descending
                 select new VocabularyResponse
@@ -57,8 +57,8 @@ namespace Lumino.Api.Application.Services
             var now = _dateTimeProvider.UtcNow;
 
             var query =
-                from uv in _dbContext.UserVocabularies
-                join vi in _dbContext.VocabularyItems on uv.VocabularyItemId equals vi.Id
+                from uv in _dbContext.UserVocabularies.AsNoTracking()
+                join vi in _dbContext.VocabularyItems.AsNoTracking() on uv.VocabularyItemId equals vi.Id
                 where uv.UserId == userId && uv.NextReviewAt <= now
                 orderby uv.NextReviewAt, uv.AddedAt
                 select new VocabularyResponse
@@ -87,6 +87,7 @@ namespace Lumino.Api.Application.Services
 
             var entity =
                 _dbContext.UserVocabularies
+                    .AsNoTracking()
                     .Where(x => x.UserId == userId && x.NextReviewAt <= now)
                     .OrderBy(x => x.NextReviewAt)
                     .ThenBy(x => x.AddedAt)
@@ -97,7 +98,7 @@ namespace Lumino.Api.Application.Services
                 return null;
             }
 
-            var item = _dbContext.VocabularyItems.First(x => x.Id == entity.VocabularyItemId);
+            var item = _dbContext.VocabularyItems.AsNoTracking().First(x => x.Id == entity.VocabularyItemId);
 
             var response = new VocabularyResponse
             {
@@ -130,72 +131,69 @@ namespace Lumino.Api.Application.Services
             }
 
             var word = request.Word.Trim();
-
-            var candidates = _dbContext.VocabularyItems
-                .Where(x => x.Word.ToLower() == word.ToLower())
-                .OrderBy(x => x.Id)
-                .ToList();
-
+            var normalizedWord = word.ToLower();
             var hasProvidedTranslation = string.IsNullOrWhiteSpace(request.Translation) == false;
 
-            if (candidates.Count == 0 && hasProvidedTranslation == false)
+            var templateCandidates = GetTemplateCandidates(word);
+            var templateItem = SelectCandidate(templateCandidates, hasProvidedTranslation ? request.Translation!.Trim() : string.Empty);
+
+            if (templateItem == null && hasProvidedTranslation == false)
             {
                 throw new ArgumentException("Translation is required");
             }
 
-            var translations = new List<string>();
-            var primaryTranslation = string.Empty;
+            var translations = hasProvidedTranslation
+                ? NormalizeTranslations(request.Translation!, request.Translations)
+                : GetTranslationsForItem(templateItem!);
 
-            if (hasProvidedTranslation)
+            if (translations.Count == 0)
             {
-                translations = NormalizeTranslations(request.Translation!, request.Translations);
-                primaryTranslation = translations[0];
+                throw new ArgumentException("Translation is required");
             }
 
-            var item = candidates.Count == 0
-                ? FindOrCreateVocabularyItem(word, primaryTranslation, request.Example, request.Transcription, request.Gender, request.Examples)
-                : SelectCandidate(candidates, primaryTranslation);
+            var primaryTranslation = translations[0];
 
-            if (hasProvidedTranslation == false)
-            {
-                var existingTranslations = _dbContext.VocabularyItemTranslations
-                    .Where(x => x.VocabularyItemId == item.Id)
-                    .OrderBy(x => x.Order)
-                    .Select(x => x.Translation)
-                    .ToList();
+            var existingUserItem = (
+                from uv in _dbContext.UserVocabularies
+                join vi in _dbContext.VocabularyItems on uv.VocabularyItemId equals vi.Id
+                where uv.UserId == userId && vi.Word.ToLower() == normalizedWord
+                orderby uv.Id
+                select vi
+            ).ToList();
 
-                if (existingTranslations.Count > 0)
-                {
-                    translations = existingTranslations;
-                    primaryTranslation = existingTranslations[0];
-                }
-                else if (string.IsNullOrWhiteSpace(item.Translation) == false)
-                {
-                    translations = new List<string> { item.Translation };
-                    primaryTranslation = item.Translation;
-                }
-                else
-                {
-                    throw new ArgumentException("Translation is required");
-                }
-            }
+            var alreadyAddedItem = SelectCandidate(existingUserItem, primaryTranslation);
 
-            EnsureTranslations(item.Id, primaryTranslation, translations);
-
-            var alreadyAdded = _dbContext.UserVocabularies
-                .Any(x => x.UserId == userId && x.VocabularyItemId == item.Id);
-
-            if (alreadyAdded)
+            if (alreadyAddedItem != null)
             {
                 return;
             }
+
+            var normalizedExamples = NormalizeStringList(request.Examples);
+            var created = new VocabularyItem
+            {
+                Word = word,
+                Translation = primaryTranslation,
+                Example = FirstNotEmpty(request.Example, normalizedExamples.FirstOrDefault(), templateItem?.Example),
+                PartOfSpeech = FirstNotEmpty(request.PartOfSpeech, templateItem?.PartOfSpeech),
+                Definition = FirstNotEmpty(request.Definition, templateItem?.Definition),
+                Transcription = FirstNotEmpty(request.Transcription, templateItem?.Transcription),
+                Gender = FirstNotEmpty(request.Gender, templateItem?.Gender),
+                ExamplesJson = SerializeStringList(normalizedExamples.Count > 0 ? normalizedExamples : DeserializeOrEmpty<List<string>>(templateItem?.ExamplesJson)),
+                SynonymsJson = SerializeRelationList(NormalizeRelationWords(request.Synonyms, DeserializeOrEmpty<List<VocabularyRelationDto>>(templateItem?.SynonymsJson))),
+                IdiomsJson = SerializeRelationList(NormalizeRelationWords(request.Idioms, DeserializeOrEmpty<List<VocabularyRelationDto>>(templateItem?.IdiomsJson)))
+            };
+
+            _dbContext.VocabularyItems.Add(created);
+            _dbContext.SaveChanges();
+
+            EnsureTranslations(created.Id, primaryTranslation, translations);
 
             var now = _dateTimeProvider.UtcNow;
 
             var userWord = new UserVocabulary
             {
                 UserId = userId,
-                VocabularyItemId = item.Id,
+                VocabularyItemId = created.Id,
                 AddedAt = now,
                 LastReviewedAt = null,
                 NextReviewAt = now,
@@ -206,8 +204,13 @@ namespace Lumino.Api.Application.Services
             _dbContext.SaveChanges();
         }
 
-        private static VocabularyItem SelectCandidate(List<VocabularyItem> candidates, string primaryTranslation)
+        private static VocabularyItem? SelectCandidate(List<VocabularyItem> candidates, string primaryTranslation)
         {
+            if (candidates.Count == 0)
+            {
+                return null;
+            }
+
             if (candidates.Count == 1)
             {
                 return candidates[0];
@@ -223,8 +226,234 @@ namespace Lumino.Api.Application.Services
             return exact ?? candidates[0];
         }
 
+        private List<VocabularyItem> GetTemplateCandidates(string word)
+        {
+            var normalizedWord = word.Trim().ToLower();
 
-public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVocabularyRequest request)
+            var linkedIds = _dbContext.LessonVocabularies
+                .Select(x => x.VocabularyItemId)
+                .Union(_dbContext.ExerciseVocabularies.Select(x => x.VocabularyItemId))
+                .Distinct()
+                .ToList();
+
+            return _dbContext.VocabularyItems
+                .Where(x => x.Word.ToLower() == normalizedWord)
+                .OrderByDescending(x => linkedIds.Contains(x.Id))
+                .ThenBy(x => x.Id)
+                .ToList();
+        }
+
+        private List<string> GetTranslationsForItem(VocabularyItem item)
+        {
+            var translations = _dbContext.VocabularyItemTranslations
+                .Where(x => x.VocabularyItemId == item.Id)
+                .OrderBy(x => x.Order)
+                .Select(x => x.Translation)
+                .ToList();
+
+            if (translations.Count == 0 && string.IsNullOrWhiteSpace(item.Translation) == false)
+            {
+                translations.Add(item.Translation);
+            }
+
+            return translations;
+        }
+
+        private bool CanUpdateVocabularyItemInPlace(int vocabularyItemId, int userId)
+        {
+            var hasLessonLinks = _dbContext.LessonVocabularies.Any(x => x.VocabularyItemId == vocabularyItemId);
+            var hasExerciseLinks = _dbContext.ExerciseVocabularies.Any(x => x.VocabularyItemId == vocabularyItemId);
+            var hasOtherUsers = _dbContext.UserVocabularies.Any(x => x.VocabularyItemId == vocabularyItemId && x.UserId != userId);
+
+            return hasLessonLinks == false && hasExerciseLinks == false && hasOtherUsers == false;
+        }
+
+        private void CleanupVocabularyItemIfUnused(int vocabularyItemId)
+        {
+            var hasUserLinks = _dbContext.UserVocabularies.Any(x => x.VocabularyItemId == vocabularyItemId);
+            var hasLessonLinks = _dbContext.LessonVocabularies.Any(x => x.VocabularyItemId == vocabularyItemId);
+            var hasExerciseLinks = _dbContext.ExerciseVocabularies.Any(x => x.VocabularyItemId == vocabularyItemId);
+
+            if (hasUserLinks || hasLessonLinks || hasExerciseLinks)
+            {
+                return;
+            }
+
+            var item = _dbContext.VocabularyItems.FirstOrDefault(x => x.Id == vocabularyItemId);
+
+            if (item == null)
+            {
+                return;
+            }
+
+            _dbContext.VocabularyItems.Remove(item);
+            _dbContext.SaveChanges();
+        }
+
+        private static List<string> NormalizeStringList(List<string>? values)
+        {
+            return values
+                ?.Where(x => string.IsNullOrWhiteSpace(x) == false)
+                .Select(x => x.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList()
+                ?? new List<string>();
+        }
+
+        private static List<string> NormalizeRelationWords(List<string>? values, List<VocabularyRelationDto>? fallback)
+        {
+            var list = values
+                ?.Where(x => string.IsNullOrWhiteSpace(x) == false)
+                .Select(x => x.Trim())
+                .ToList();
+
+            if (list == null || list.Count == 0)
+            {
+                list = fallback
+                    ?.Where(x => string.IsNullOrWhiteSpace(x.Word) == false)
+                    .Select(x => x.Word.Trim())
+                    .ToList()
+                    ?? new List<string>();
+            }
+
+            return list
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static string? FirstNotEmpty(params string?[] values)
+        {
+            foreach (var value in values)
+            {
+                if (string.IsNullOrWhiteSpace(value) == false)
+                {
+                    return value.Trim();
+                }
+            }
+
+            return null;
+        }
+
+
+
+        public VocabularyItemDetailsResponse? LookupWord(int userId, string word)
+        {
+            if (string.IsNullOrWhiteSpace(word))
+            {
+                return null;
+            }
+
+            var normalizedWord = word.Trim().ToLower();
+
+            var item = GetTemplateCandidates(normalizedWord)
+                .FirstOrDefault();
+
+            if (item == null)
+            {
+                return null;
+            }
+
+            return GetItemDetails(userId, item.Id);
+        }
+
+        public void UpdateWord(int userId, int userVocabularyId, UpdateUserVocabularyRequest request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentException("Request is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Word))
+            {
+                throw new ArgumentException("Word is required");
+            }
+
+            var userVocabulary = _dbContext.UserVocabularies
+                .FirstOrDefault(x => x.Id == userVocabularyId && x.UserId == userId);
+
+            if (userVocabulary == null)
+            {
+                throw new KeyNotFoundException("Vocabulary word not found");
+            }
+
+            var item = _dbContext.VocabularyItems
+                .FirstOrDefault(x => x.Id == userVocabulary.VocabularyItemId);
+
+            if (item == null)
+            {
+                throw new KeyNotFoundException("Vocabulary item not found");
+            }
+
+            var translations = NormalizeTranslations(request.Translation ?? string.Empty, request.Translations);
+            var primaryTranslation = translations[0];
+            var examples = NormalizeStringList(request.Examples);
+            var synonyms = NormalizeRelationWords(request.Synonyms, null);
+            var idioms = NormalizeRelationWords(request.Idioms, null);
+
+            if (CanUpdateVocabularyItemInPlace(item.Id, userId) == false)
+            {
+                var clonedItem = new VocabularyItem
+                {
+                    Word = request.Word.Trim(),
+                    Translation = primaryTranslation,
+                    Example = FirstNotEmpty(request.Example, examples.FirstOrDefault()),
+                    PartOfSpeech = FirstNotEmpty(request.PartOfSpeech),
+                    Definition = FirstNotEmpty(request.Definition),
+                    Transcription = FirstNotEmpty(request.Transcription),
+                    Gender = FirstNotEmpty(request.Gender),
+                    ExamplesJson = SerializeStringList(examples),
+                    SynonymsJson = SerializeRelationList(synonyms),
+                    IdiomsJson = SerializeRelationList(idioms)
+                };
+
+                _dbContext.VocabularyItems.Add(clonedItem);
+                _dbContext.SaveChanges();
+
+                EnsureTranslations(clonedItem.Id, primaryTranslation, translations);
+
+                userVocabulary.VocabularyItemId = clonedItem.Id;
+                _dbContext.SaveChanges();
+
+                CleanupVocabularyItemIfUnused(item.Id);
+                return;
+            }
+
+            item.Word = request.Word.Trim();
+            item.Translation = primaryTranslation;
+            item.Example = FirstNotEmpty(request.Example, examples.FirstOrDefault());
+            item.PartOfSpeech = FirstNotEmpty(request.PartOfSpeech);
+            item.Definition = FirstNotEmpty(request.Definition);
+            item.Transcription = FirstNotEmpty(request.Transcription);
+            item.Gender = FirstNotEmpty(request.Gender);
+            item.ExamplesJson = SerializeStringList(examples);
+            item.SynonymsJson = SerializeRelationList(synonyms);
+            item.IdiomsJson = SerializeRelationList(idioms);
+
+            var existingTranslations = _dbContext.VocabularyItemTranslations
+                .Where(x => x.VocabularyItemId == item.Id)
+                .ToList();
+
+            if (existingTranslations.Count > 0)
+            {
+                _dbContext.VocabularyItemTranslations.RemoveRange(existingTranslations);
+                _dbContext.SaveChanges();
+            }
+
+            for (var i = 0; i < translations.Count; i++)
+            {
+                _dbContext.VocabularyItemTranslations.Add(new VocabularyItemTranslation
+                {
+                    VocabularyItemId = item.Id,
+                    Translation = translations[i],
+                    Order = i
+                });
+            }
+
+            _dbContext.SaveChanges();
+            EnsurePrimaryTranslation(item.Id, primaryTranslation);
+        }
+
+        public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVocabularyRequest request)
         {
             if (request == null)
             {
@@ -246,7 +475,7 @@ public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVoc
             {
                 if (entity.ReviewIdempotencyKey == idempotencyKey)
                 {
-                    var existingItem = _dbContext.VocabularyItems.First(x => x.Id == entity.VocabularyItemId);
+                    var existingItem = _dbContext.VocabularyItems.AsNoTracking().First(x => x.Id == entity.VocabularyItemId);
 
                     var existingResponse = new VocabularyResponse
                     {
@@ -303,7 +532,7 @@ public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVoc
 
             _dbContext.SaveChanges();
 
-            var item = _dbContext.VocabularyItems.First(x => x.Id == entity.VocabularyItemId);
+            var item = _dbContext.VocabularyItems.AsNoTracking().First(x => x.Id == entity.VocabularyItemId);
 
             var response = new VocabularyResponse
             {
@@ -323,6 +552,52 @@ public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVoc
             return response;
         }
 
+        public void ScheduleReview(int userId, int userVocabularyId, ScheduleVocabularyReviewRequest request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentException("Request is required");
+            }
+
+            var entity = _dbContext.UserVocabularies
+                .FirstOrDefault(x => x.Id == userVocabularyId && x.UserId == userId);
+
+            if (entity == null)
+            {
+                throw new KeyNotFoundException("Vocabulary word not found");
+            }
+
+            var period = string.IsNullOrWhiteSpace(request.Period)
+                ? string.Empty
+                : request.Period.Trim().ToLowerInvariant();
+
+            var now = _dateTimeProvider.UtcNow;
+
+            if (period == "today")
+            {
+                entity.NextReviewAt = now;
+            }
+            else if (period == "tomorrow")
+            {
+                entity.NextReviewAt = now.AddDays(1);
+            }
+            else if (period == "days")
+            {
+                if (request.Days == null || request.Days.Value < 2)
+                {
+                    throw new ArgumentException("Days must be greater than or equal to 2");
+                }
+
+                entity.NextReviewAt = now.AddDays(request.Days.Value);
+            }
+            else
+            {
+                throw new ArgumentException("Unknown review period");
+            }
+
+            _dbContext.SaveChanges();
+        }
+
         public void DeleteWord(int userId, int userVocabularyId)
         {
             var entity = _dbContext.UserVocabularies
@@ -333,8 +608,12 @@ public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVoc
                 throw new KeyNotFoundException("Vocabulary word not found");
             }
 
+            var vocabularyItemId = entity.VocabularyItemId;
+
             _dbContext.UserVocabularies.Remove(entity);
             _dbContext.SaveChanges();
+
+            CleanupVocabularyItemIfUnused(vocabularyItemId);
         }
 
 
@@ -348,6 +627,7 @@ public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVoc
             var ids = list.Select(x => x.VocabularyItemId).Distinct().ToList();
 
             var translations = _dbContext.VocabularyItemTranslations
+                .AsNoTracking()
                 .Where(x => ids.Contains(x.VocabularyItemId))
                 .OrderBy(x => x.VocabularyItemId)
                 .ThenBy(x => x.Order)
@@ -379,6 +659,7 @@ public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVoc
             }
 
             var list = _dbContext.VocabularyItemTranslations
+                .AsNoTracking()
                 .Where(x => x.VocabularyItemId == item.VocabularyItemId)
                 .OrderBy(x => x.Order)
                 .Select(x => x.Translation)
@@ -439,6 +720,7 @@ public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVoc
             }
 
             var existing = _dbContext.VocabularyItemTranslations
+                .AsNoTracking()
                 .Where(x => x.VocabularyItemId == vocabularyItemId)
                 .OrderBy(x => x.Order)
                 .ToList();
@@ -487,7 +769,7 @@ public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVoc
             EnsurePrimaryTranslation(vocabularyItemId, primaryTranslation);
         }
 
-        private VocabularyItem FindOrCreateVocabularyItem(string word, string primaryTranslation, string? example, string? transcription, string? gender, List<string>? examples)
+        private VocabularyItem FindOrCreateVocabularyItem(string word, string primaryTranslation, string? example, string? partOfSpeech, string? definition, string? transcription, string? gender, List<string>? examples, List<string>? synonyms, List<string>? idioms)
         {
             // We identify a vocabulary item by Word.
             // If the same word is added later with another primary translation,
@@ -495,6 +777,7 @@ public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVoc
             var normalizedWord = word.ToLower();
 
             var candidates = _dbContext.VocabularyItems
+                .AsNoTracking()
                 .Where(x => x.Word.ToLower() == normalizedWord)
                 .OrderBy(x => x.Id)
                 .ToList();
@@ -513,9 +796,13 @@ public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVoc
                     Word = word,
                     Translation = primaryTranslation,
                     Example = string.IsNullOrWhiteSpace(example) ? normalizedExamples.FirstOrDefault() : example,
-                    Transcription = transcription,
-                    Gender = gender,
-                    ExamplesJson = normalizedExamples.Count > 0 ? JsonSerializer.Serialize(normalizedExamples) : null
+                    PartOfSpeech = string.IsNullOrWhiteSpace(partOfSpeech) ? null : partOfSpeech.Trim(),
+                    Definition = string.IsNullOrWhiteSpace(definition) ? null : definition.Trim(),
+                    Transcription = string.IsNullOrWhiteSpace(transcription) ? null : transcription.Trim(),
+                    Gender = string.IsNullOrWhiteSpace(gender) ? null : gender.Trim(),
+                    ExamplesJson = SerializeStringList(normalizedExamples),
+                    SynonymsJson = SerializeRelationList(synonyms),
+                    IdiomsJson = SerializeRelationList(idioms)
                 };
 
                 _dbContext.VocabularyItems.Add(created);
@@ -535,7 +822,7 @@ public VocabularyResponse ReviewWord(int userId, int userVocabularyId, ReviewVoc
             return exact ?? candidates[0];
         }
 
-private void EnsurePrimaryTranslation(int vocabularyItemId, string primaryTranslation)
+        private void EnsurePrimaryTranslation(int vocabularyItemId, string primaryTranslation)
         {
             if (string.IsNullOrWhiteSpace(primaryTranslation))
             {
@@ -678,14 +965,35 @@ private void EnsurePrimaryTranslation(int vocabularyItemId, string primaryTransl
         }
 
 
+
+        private static string? SerializeStringList(List<string>? values)
+        {
+            var list = values
+                ?.Where(x => string.IsNullOrWhiteSpace(x) == false)
+                .Select(x => x.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList()
+                ?? new List<string>();
+
+            return list.Count > 0 ? JsonSerializer.Serialize(list) : null;
+        }
+
+        private static string? SerializeRelationList(List<string>? values)
+        {
+            var list = values
+                ?.Where(x => string.IsNullOrWhiteSpace(x) == false)
+                .Select(x => x.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(x => new VocabularyRelationDto { Word = x, Translation = string.Empty })
+                .ToList()
+                ?? new List<VocabularyRelationDto>();
+
+            return list.Count > 0 ? JsonSerializer.Serialize(list) : null;
+        }
+
         private DateTime CalculateNextReviewAt(DateTime now, int reviewCount)
         {
-            var intervals = _learningSettings.VocabularyReviewIntervalsDays;
-
-            if (intervals == null || intervals.Count == 0)
-            {
-                intervals = new List<int> { 1, 2, 4, 7, 14, 30, 60 };
-            }
+            var intervals = GetFixedVocabularyReviewIntervalsDays();
 
             if (reviewCount <= 0)
             {
@@ -701,10 +1009,17 @@ private void EnsurePrimaryTranslation(int vocabularyItemId, string primaryTransl
             return now.AddDays(days);
         }
 
+        private static List<int> GetFixedVocabularyReviewIntervalsDays()
+        {
+            return new List<int> { 1, 2, 4, 7, 14, 30, 60 };
+        }
+
 
         public VocabularyItemDetailsResponse GetItemDetails(int userId, int vocabularyItemId)
         {
-            var item = _dbContext.VocabularyItems.FirstOrDefault(x => x.Id == vocabularyItemId);
+            var item = _dbContext.VocabularyItems
+                .AsNoTracking()
+                .FirstOrDefault(x => x.Id == vocabularyItemId);
 
             if (item == null)
             {
@@ -712,6 +1027,7 @@ private void EnsurePrimaryTranslation(int vocabularyItemId, string primaryTransl
             }
 
             var translations = _dbContext.VocabularyItemTranslations
+                .AsNoTracking()
                 .Where(x => x.VocabularyItemId == item.Id)
                 .OrderBy(x => x.Order)
                 .Select(x => x.Translation)

@@ -249,6 +249,120 @@ public class LessonResultServiceTests
         Assert.All(userWords, x => Assert.Equal(now.AddDays(1), x.NextReviewAt));
     }
 
+
+    [Fact]
+    public void SubmitLesson_WhenPassedWithLinkedGlobalVocabulary_ShouldCreatePrivateCopiesForUser()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 1,
+            Title = "Course",
+            Description = "Desc",
+            LanguageCode = "en",
+            Order = 1
+        });
+
+        dbContext.Topics.Add(new Topic
+        {
+            Id = 1,
+            CourseId = 1,
+            Title = "Topic",
+            Order = 1
+        });
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 1,
+            Title = "Linked vocab lesson",
+            Theory = "Theory",
+            TopicId = 1,
+            Order = 1
+        });
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 1,
+            LessonId = 1,
+            Type = ExerciseType.Input,
+            Question = "Write hello",
+            Data = "{}",
+            CorrectAnswer = "привіт",
+            Order = 1
+        });
+
+        dbContext.VocabularyItems.Add(new VocabularyItem
+        {
+            Id = 100,
+            Word = "hello",
+            Translation = "привіт",
+            Definition = "Global definition"
+        });
+
+        dbContext.VocabularyItemTranslations.Add(new VocabularyItemTranslation
+        {
+            VocabularyItemId = 100,
+            Translation = "привіт",
+            Order = 0
+        });
+
+        dbContext.LessonVocabularies.Add(new LessonVocabulary
+        {
+            LessonId = 1,
+            VocabularyItemId = 100
+        });
+
+        dbContext.UserLessonProgresses.Add(new UserLessonProgress
+        {
+            UserId = 10,
+            LessonId = 1,
+            IsUnlocked = true,
+            IsCompleted = false,
+            BestScore = 0,
+            LastAttemptAt = DateTime.UtcNow
+        });
+
+        dbContext.SaveChanges();
+
+        var now = new DateTime(2026, 2, 11, 12, 0, 0, DateTimeKind.Utc);
+
+        var service = new LessonResultService(
+            dbContext,
+            new FakeAchievementService(),
+            new FixedDateTimeProvider(now),
+            new FakeUserEconomyService(),
+            new FakeStreakService(),
+            new FakeSubmitLessonValidator(),
+            Options.Create(new LearningSettings { PassingScorePercent = 80 })
+        );
+
+        var response = service.SubmitLesson(10, new SubmitLessonRequest
+        {
+            LessonId = 1,
+            Answers = new List<SubmitExerciseAnswerRequest>
+            {
+                new SubmitExerciseAnswerRequest { ExerciseId = 1, Answer = "привіт" }
+            }
+        });
+
+        Assert.True(response.IsPassed);
+
+        var userWord = dbContext.UserVocabularies.Single(x => x.UserId == 10);
+        Assert.NotEqual(100, userWord.VocabularyItemId);
+        Assert.Equal(now.AddDays(1), userWord.NextReviewAt);
+
+        var privateItem = dbContext.VocabularyItems.Single(x => x.Id == userWord.VocabularyItemId);
+        Assert.Equal("hello", privateItem.Word);
+        Assert.Equal("привіт", privateItem.Translation);
+        Assert.Equal("Global definition", privateItem.Definition);
+
+        var globalItem = dbContext.VocabularyItems.Single(x => x.Id == 100);
+        Assert.Equal("hello", globalItem.Word);
+        Assert.Equal("привіт", globalItem.Translation);
+        Assert.Equal("Global definition", globalItem.Definition);
+    }
+
     [Fact]
     public void SubmitLesson_WhenPassed_ShouldUnlockNextLesson_AndMoveActiveCourseLastLessonId()
     {
@@ -649,11 +763,15 @@ public class LessonResultServiceTests
         Assert.Contains(1, response.MistakeExerciseIds);
 
         var userWord = dbContext.UserVocabularies
-            .FirstOrDefault(x => x.UserId == 10 && x.VocabularyItemId == 1);
+            .FirstOrDefault(x => x.UserId == 10);
 
         Assert.NotNull(userWord);
 
-        Assert.Equal(now, userWord!.NextReviewAt);
+        var item = dbContext.VocabularyItems.First(x => x.Id == userWord!.VocabularyItemId);
+
+        Assert.Equal("coffee", item.Word);
+        Assert.Equal("кава", item.Translation);
+        Assert.Equal(now, userWord.NextReviewAt);
     }
 
     [Fact]

@@ -592,48 +592,20 @@ namespace Lumino.Api.Application.Services
                     continue;
                 }
 
-                var item = _dbContext.VocabularyItems
+                var templateItem = _dbContext.VocabularyItems
                     .FirstOrDefault(x => x.Word == word && x.Translation == translation);
-
-                if (item == null)
-                {
-                    item = new VocabularyItem
-                    {
-                        Word = word,
-                        Translation = translation,
-                        Example = null
-                    };
-
-                    _dbContext.VocabularyItems.Add(item);
-                    _dbContext.SaveChanges();
-                }
-
-                var userWord = _dbContext.UserVocabularies
-                    .FirstOrDefault(x => x.UserId == userId && x.VocabularyItemId == item.Id);
 
                 var isMistake = mistakeSet.Contains(pair);
 
-                if (userWord == null)
-                {
-                    userWord = new UserVocabulary
-                    {
-                        UserId = userId,
-                        VocabularyItemId = item.Id,
-                        AddedAt = now,
-                        LastReviewedAt = null,
-                        NextReviewAt = isMistake ? now : now.AddDays(1),
-                        ReviewCount = 0
-                    };
-
-                    _dbContext.UserVocabularies.Add(userWord);
-                    continue;
-                }
-
-                // якщо слово вже є — і воно було в помилках, робимо його due зараз
-                if (isMistake && userWord.NextReviewAt > now)
-                {
-                    userWord.NextReviewAt = now;
-                }
+                UserVocabularyIsolationHelper.EnsureUserWord(
+                    _dbContext,
+                    userId,
+                    word,
+                    translation,
+                    templateItem,
+                    now,
+                    isMistake,
+                    isMistake ? now : now.AddDays(1));
             }
 
             _dbContext.SaveChanges();

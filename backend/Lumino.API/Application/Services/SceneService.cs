@@ -85,7 +85,6 @@ namespace Lumino.Api.Application.Services
             }
 
             var scenes = scenesQuery
-                .AsEnumerable()
                 .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
                 .ThenBy(x => x.Id)
                 .ToList();
@@ -104,11 +103,30 @@ namespace Lumino.Api.Application.Services
             // passed lessons count per course
             int passingScorePercent = LessonPassingRules.NormalizePassingPercent(_learningSettings.PassingScorePercent);
 
-            var passedLessonsByCourse = new Dictionary<int, int>();
-            foreach (var cid in courseIds)
-            {
-                passedLessonsByCourse[cid] = GetPassedDistinctLessonsCount(userId, cid);
-            }
+            var passedLessonsByCourse = courseIds.Count == 0
+                ? new Dictionary<int, int>()
+                : (from lr in _dbContext.LessonResults.AsNoTracking()
+                   join l in _dbContext.Lessons.AsNoTracking() on lr.LessonId equals l.Id
+                   join t in _dbContext.Topics.AsNoTracking() on l.TopicId equals t.Id
+                   where lr.UserId == userId
+                       && lr.TotalQuestions > 0
+                       && lr.Score * 100 >= lr.TotalQuestions * passingScorePercent
+                       && courseIds.Contains(t.CourseId)
+                   group lr by t.CourseId into g
+                   select new
+                   {
+                       CourseId = g.Key,
+                       Count = g.Select(x => x.LessonId).Distinct().Count()
+                   })
+                  .ToDictionary(x => x.CourseId, x => x.Count);
+
+            var passedLessonsTotal = _dbContext.LessonResults
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.TotalQuestions > 0)
+                .Where(x => x.Score * 100 >= x.TotalQuestions * passingScorePercent)
+                .Select(x => x.LessonId)
+                .Distinct()
+                .Count();
 
             // completed scenes
             var completedSceneIds = _dbContext.SceneAttempts
@@ -177,7 +195,7 @@ namespace Lumino.Api.Application.Services
             {
                 var passedLessons = scene.CourseId != null && passedLessonsByCourse.ContainsKey(scene.CourseId.Value)
                     ? passedLessonsByCourse[scene.CourseId.Value]
-                    : GetPassedDistinctLessonsCount(userId);
+                    : passedLessonsTotal;
 
                 var scenePosition = positionBySceneId.ContainsKey(scene.Id)
                     ? positionBySceneId[scene.Id]
@@ -1486,42 +1504,19 @@ namespace Lumino.Api.Application.Services
                 return;
             }
 
-            var existing = _dbContext.UserVocabularies
-                .Where(x => x.UserId == userId)
-                .Select(x => x.VocabularyItemId)
-                .ToHashSet();
-
             foreach (var item in vocabItems)
             {
                 bool isMistake = mistakeKeys.Contains(item.Word.Trim().ToLowerInvariant());
 
-                if (!existing.Contains(item.Id))
-                {
-                    _dbContext.UserVocabularies.Add(new UserVocabulary
-                    {
-                        UserId = userId,
-                        VocabularyItemId = item.Id,
-                        AddedAt = now,
-                        LastReviewedAt = null,
-                        NextReviewAt = isMistake ? now : now.AddDays(1),
-                        ReviewCount = 0
-                    });
-
-                    continue;
-                }
-
-                if (!isMistake)
-                {
-                    continue;
-                }
-
-                var userWord = _dbContext.UserVocabularies
-                    .FirstOrDefault(x => x.UserId == userId && x.VocabularyItemId == item.Id);
-
-                if (userWord != null && userWord.NextReviewAt > now)
-                {
-                    userWord.NextReviewAt = now;
-                }
+                UserVocabularyIsolationHelper.EnsureUserWord(
+                    _dbContext,
+                    userId,
+                    item.Word,
+                    item.Translation,
+                    item,
+                    now,
+                    isMistake,
+                    isMistake ? now : now.AddDays(1));
             }
 
             _dbContext.SaveChanges();

@@ -493,13 +493,19 @@ public class LessonMistakesServiceTests
 
         var now = new DateTime(2026, 02, 16, 12, 0, 0, DateTimeKind.Utc);
 
-        var theoryUserWord = dbContext.UserVocabularies.FirstOrDefault(x => x.UserId == 1 && x.VocabularyItemId == 100);
+        var theoryUserWord = dbContext.UserVocabularies
+            .Join(dbContext.VocabularyItems, x => x.VocabularyItemId, x => x.Id, (uv, vi) => new { UserWord = uv, Item = vi })
+            .FirstOrDefault(x => x.UserWord.UserId == 1 && x.Item.Word == "theory" && x.Item.Translation == "t");
         Assert.NotNull(theoryUserWord);
-        Assert.Equal(now.AddDays(1), theoryUserWord!.NextReviewAt);
+        Assert.NotEqual(100, theoryUserWord!.UserWord.VocabularyItemId);
+        Assert.Equal(now.AddDays(1), theoryUserWord.UserWord.NextReviewAt);
 
-        var mistakeUserWord = dbContext.UserVocabularies.FirstOrDefault(x => x.UserId == 1 && x.VocabularyItemId == 101);
+        var mistakeUserWord = dbContext.UserVocabularies
+            .Join(dbContext.VocabularyItems, x => x.VocabularyItemId, x => x.Id, (uv, vi) => new { UserWord = uv, Item = vi })
+            .FirstOrDefault(x => x.UserWord.UserId == 1 && x.Item.Word == "mistake" && x.Item.Translation == "m");
         Assert.NotNull(mistakeUserWord);
-        Assert.Equal(now, mistakeUserWord!.NextReviewAt);
+        Assert.NotEqual(101, mistakeUserWord!.UserWord.VocabularyItemId);
+        Assert.Equal(now, mistakeUserWord.UserWord.NextReviewAt);
 
         Assert.Equal(1, achievementService.CallsCount);
         Assert.Equal(1, achievementService.LastUserId);

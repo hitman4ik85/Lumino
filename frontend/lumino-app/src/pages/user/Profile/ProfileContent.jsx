@@ -327,12 +327,9 @@ export default function ProfileContent() {
     setLoading(true);
 
     try {
-      const [meRes, languagesRes, weeklyRes, externalLoginsRes, avatarsRes] = await Promise.all([
+      const [meRes, languagesRes] = await Promise.all([
         userService.getMe(),
         onboardingService.getMyLanguages(),
-        profileService.getWeeklyProgress(),
-        userService.getExternalLogins(),
-        avatarsService.getAll(),
       ]);
 
       if (!meRes.ok) {
@@ -352,25 +349,37 @@ export default function ProfileContent() {
         setActiveTargetLanguageCode(nextProfile?.targetLanguageCode || "");
       }
 
-      if (weeklyRes.ok) {
-        setWeeklyProgress(weeklyRes.data || { currentWeek: [], previousWeek: [], totalPoints: 0 });
-      }
+      setLoading(false);
 
-      if (externalLoginsRes.ok) {
-        setExternalLogins(Array.isArray(externalLoginsRes.data) ? externalLoginsRes.data : []);
-      } else {
-        setExternalLogins([]);
-      }
+      Promise.allSettled([
+        profileService.getWeeklyProgress(),
+        userService.getExternalLogins(),
+        avatarsService.getAll(),
+      ]).then((responses) => {
+        const weeklyRes = responses[0].status === "fulfilled" ? responses[0].value : null;
+        const externalLoginsRes = responses[1].status === "fulfilled" ? responses[1].value : null;
+        const avatarsRes = responses[2].status === "fulfilled" ? responses[2].value : null;
 
-      if (avatarsRes.ok) {
-        setAvatars(Array.isArray(avatarsRes.items) ? avatarsRes.items : []);
-      } else {
-        setAvatars([]);
-      }
+        if (weeklyRes?.ok) {
+          setWeeklyProgress(weeklyRes.data || { currentWeek: [], previousWeek: [], totalPoints: 0 });
+        }
+
+        if (externalLoginsRes?.ok) {
+          setExternalLogins(Array.isArray(externalLoginsRes.data) ? externalLoginsRes.data : []);
+        } else {
+          setExternalLogins([]);
+        }
+
+        if (avatarsRes?.ok) {
+          setAvatars(Array.isArray(avatarsRes.items) ? avatarsRes.items : []);
+        } else {
+          setAvatars([]);
+        }
+      });
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [showInfo]);
 
   useEffect(() => {
     loadProfile();

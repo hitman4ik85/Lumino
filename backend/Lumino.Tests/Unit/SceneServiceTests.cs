@@ -1387,11 +1387,17 @@ public class SceneServiceTests
 
         Assert.Equal(2, userWords.Count);
 
-        var coffee = userWords.First(x => x.VocabularyItemId == 1);
-        var thanks = userWords.First(x => x.VocabularyItemId == 2);
+        var coffee = userWords
+            .Join(dbContext.VocabularyItems, x => x.VocabularyItemId, x => x.Id, (uv, vi) => new { UserWord = uv, Item = vi })
+            .First(x => x.Item.Word == "coffee" && x.Item.Translation == "кава");
+        var thanks = userWords
+            .Join(dbContext.VocabularyItems, x => x.VocabularyItemId, x => x.Id, (uv, vi) => new { UserWord = uv, Item = vi })
+            .First(x => x.Item.Word == "thank you" && x.Item.Translation == "дякую");
 
-        Assert.Equal(now, coffee.NextReviewAt); // mistake => due now
-        Assert.Equal(now.AddDays(1), thanks.NextReviewAt); // ok => due tomorrow
+        Assert.NotEqual(1, coffee.UserWord.VocabularyItemId);
+        Assert.NotEqual(2, thanks.UserWord.VocabularyItemId);
+        Assert.Equal(now, coffee.UserWord.NextReviewAt); // mistake => due now
+        Assert.Equal(now.AddDays(1), thanks.UserWord.NextReviewAt); // ok => due tomorrow
     }
 
     [Fact]
@@ -1453,8 +1459,13 @@ public class SceneServiceTests
             .ToList();
 
         Assert.Equal(2, userWords.Count);
-        Assert.Contains(userWords, x => x.VocabularyItemId == 1);
-        Assert.Contains(userWords, x => x.VocabularyItemId == 2);
+
+        var items = userWords
+            .Join(dbContext.VocabularyItems, x => x.VocabularyItemId, x => x.Id, (uv, vi) => new { UserWord = uv, Item = vi })
+            .ToList();
+
+        Assert.Contains(items, x => x.Item.Word == "hello" && x.Item.Translation == "привіт" && x.UserWord.VocabularyItemId != 1);
+        Assert.Contains(items, x => x.Item.Word == "goodbye" && x.Item.Translation == "до побачення" && x.UserWord.VocabularyItemId != 2);
     }
     private class CountingAchievementService : IAchievementService
     {

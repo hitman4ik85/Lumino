@@ -25,6 +25,7 @@ import OnboardingCreateProfLaterPage from "../pages/public/Onboarding/Onboarding
 import HomePage from "../pages/user/Home/HomePage.jsx";
 import ProfilePage from "../pages/user/Profile/ProfilePage.jsx";
 import AchievementsPage from "../pages/user/Achievements/AchievementsPage.jsx";
+import VocabularyPage from "../pages/user/Vocabulary/VocabularyPage.jsx";
 
 export default function AppRoutes() {
   const isAuthed = authStorage.isAuthed();
@@ -64,6 +65,10 @@ export default function AppRoutes() {
         <Route
           path={PATHS.achievements}
           element={<AchievementsPage />}
+        />
+        <Route
+          path={PATHS.vocabulary}
+          element={<VocabularyPage />}
         />
       </Route>
 
