@@ -43,11 +43,56 @@ namespace Lumino.Api.Application.Services
                     EarnedAt = earnedByAchievementId.ContainsKey(a.Id)
                         ? earnedByAchievementId[a.Id]
                         : null,
-                    ImageUrl = a.ImageUrl
+                    ImageUrl = NormalizeAchievementImageUrl(a.Code, a.ImageUrl)
                 })
                 .ToList();
 
             return result;
+        }
+
+        private static string? NormalizeAchievementImageUrl(string? code, string? imageUrl)
+        {
+            string? value = string.IsNullOrWhiteSpace(imageUrl)
+                ? code switch
+                {
+                    "sys.first_day_learning" => "/uploads/achievements/first-day-learning.png",
+                    "sys.first_lesson" => "/uploads/achievements/first-lesson.png",
+                    "sys.five_lessons" => "/uploads/achievements/five-lessons.png",
+                    _ => imageUrl
+                }
+                : imageUrl.Trim();
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            value = value.Replace("\\", "/");
+
+            if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                || value.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
+                || value.StartsWith("blob:", StringComparison.OrdinalIgnoreCase))
+            {
+                return value;
+            }
+
+            if (value.StartsWith("/"))
+            {
+                return value;
+            }
+
+            if (value.StartsWith("uploads/achievements/", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"/{value}";
+            }
+
+            if (value.Contains("/"))
+            {
+                return $"/{value.TrimStart('/')}";
+            }
+
+            return $"/uploads/achievements/{value}";
         }
     }
 }

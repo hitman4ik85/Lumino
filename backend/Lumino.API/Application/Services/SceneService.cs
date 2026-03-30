@@ -855,6 +855,8 @@ namespace Lumino.Api.Application.Services
                 submitIdempotencyKey: submitIdempotencyKey
             );
 
+            _userEconomyService.ConsumeHeartsForMistakes(userId, details.MistakeStepIds.Count);
+
             return new SubmitSceneResponse
             {
                 SceneId = sceneId,
@@ -1506,6 +1508,11 @@ namespace Lumino.Api.Application.Services
 
             foreach (var item in vocabItems)
             {
+                if (AutoVocabularyFilter.ShouldAutoAdd(item.Word) == false)
+                {
+                    continue;
+                }
+
                 bool isMistake = mistakeKeys.Contains(item.Word.Trim().ToLowerInvariant());
 
                 UserVocabularyIsolationHelper.EnsureUserWord(
@@ -1759,10 +1766,14 @@ namespace Lumino.Api.Application.Services
                 .Where(x => x.UserId == userId)
                 .GroupBy(x => x.LessonId)
                 .Select(g => g.Max(x => x.Score))
-                .Sum();
+                .AsEnumerable()
+                .Sum(GetLessonPoints);
 
             int completedScenesCount = _dbContext.SceneAttempts
-                .Count(x => x.UserId == userId && x.IsCompleted);
+                .Where(x => x.UserId == userId && x.IsCompleted)
+                .Select(x => x.SceneId)
+                .Distinct()
+                .Count();
 
             int scenesScore = completedScenesCount * _learningSettings.SceneCompletionScore;
 
@@ -1826,5 +1837,22 @@ namespace Lumino.Api.Application.Services
             return $"Pass {required} lessons to unlock";
         }
 
+
+        private int GetLessonPoints(int correctAnswers)
+        {
+            var lessonCorrectAnswerScore = _learningSettings.LessonCorrectAnswerScore;
+
+            if (lessonCorrectAnswerScore < 1)
+            {
+                lessonCorrectAnswerScore = 1;
+            }
+
+            if (correctAnswers <= 0)
+            {
+                return 0;
+            }
+
+            return correctAnswers * lessonCorrectAnswerScore;
+        }
     }
 }

@@ -21,7 +21,11 @@ export const userService = {
     return apiClient.get("/user/external-logins");
   },
 
-  restoreHearts(heartsCount = 5) {
-    return apiClient.post("/user/restore-hearts", { heartsCount });
+  restoreHearts(heartsToRestore = 5) {
+    return apiClient.post("/user/restore-hearts", { heartsToRestore });
+  },
+
+  consumeMistakesHearts(mistakesCount = 0) {
+    return apiClient.post("/user/consume-mistakes-hearts", { mistakesCount });
   },
 };

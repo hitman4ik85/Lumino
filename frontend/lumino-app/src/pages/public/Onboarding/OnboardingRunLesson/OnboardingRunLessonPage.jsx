@@ -1,6 +1,7 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../../routes/paths.js";
+import { demoLessonService } from "../../../../services/demoLessonService.js";
 import { useStageScale } from "../../../../hooks/useStageScale.js";
 import styles from "./OnboardingRunLessonPage.module.css";
 
@@ -9,6 +10,7 @@ import BgRight from "../../../../assets/backgrounds/bg-right.webp";
 import ArrowPrev from "../../../../assets/icons/arrow-previous.svg";
 import Bubble from "../../../../assets/onboarding/bubble1.svg";
 import Mascot from "../../../../assets/mascot/mascot7.svg";
+import AnimatedMascotBubble from "../shared/AnimatedMascotBubble.jsx";
 
 const LEVEL_TITLES = {
   a1: "A1",
@@ -36,6 +38,8 @@ export default function OnboardingRunLessonPage() {
 
   useStageScale(stageRef);
 
+  const [loading, setLoading] = useState(false);
+
   const lessonText = useMemo(() => {
     const languageCode = localStorage.getItem("targetLanguage") || "en";
     const level = localStorage.getItem("lumino_course_level") || "a1";
@@ -50,8 +54,41 @@ export default function OnboardingRunLessonPage() {
     navigate(PATHS.onboardingTrial);
   };
 
-  const handleContinue = () => {
-    navigate(PATHS.onboardingDemoLessonStub);
+  const handleContinue = async () => {
+    if (loading) {
+      return;
+    }
+
+    setLoading(true);
+
+    const languageCode = localStorage.getItem("targetLanguage") || "en";
+    const level = localStorage.getItem("lumino_course_level") || "a1";
+    const res = await demoLessonService.getNextPack(0, languageCode, level);
+
+    setLoading(false);
+
+    if (!res.ok || !res.data?.lesson) {
+      navigate(PATHS.onboardingDemoLessonStub, {
+        replace: true,
+        state: {
+          error: res.error || "Не вдалося підготувати демо-урок.",
+        },
+      });
+      return;
+    }
+
+    navigate(PATHS.lesson(res.data.lesson.id), {
+      replace: true,
+      state: {
+        demoLesson: true,
+        lesson: res.data.lesson,
+        demoExercises: Array.isArray(res.data.exercises) ? res.data.exercises : [],
+        demoStep: Number(res.data.step || 0),
+        demoTotal: Number(res.data.total || 1),
+        demoLanguageCode: languageCode,
+        demoLevel: level,
+      },
+    });
   };
 
   return (
@@ -64,13 +101,19 @@ export default function OnboardingRunLessonPage() {
           <img className={styles.backIcon} src={ArrowPrev} alt="back" />
         </button>
 
-        <img className={styles.bubble} src={Bubble} alt="" />
-        <p className={styles.bubbleText}>{lessonText}</p>
+        <AnimatedMascotBubble
+          mascotSrc={Mascot}
+          bubbleSrc={Bubble}
+          mascotClassName={styles.mascot}
+          bubbleClassName={styles.bubble}
+          textClassName={styles.bubbleText}
+          bubbleFirst
+        >
+          {lessonText}
+        </AnimatedMascotBubble>
 
-        <img className={styles.mascot} src={Mascot} alt="" />
-
-        <button className={styles.continueBtn} type="button" onClick={handleContinue}>
-          ПРОДОВЖИТИ
+        <button className={styles.continueBtn} type="button" onClick={handleContinue} disabled={loading}>
+          {loading ? "ЗАВАНТАЖЕННЯ..." : "ПРОДОВЖИТИ"}
         </button>
       </div>
     </div>

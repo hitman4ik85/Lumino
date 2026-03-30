@@ -5,6 +5,8 @@ namespace Lumino.Tests;
 
 public class FakeStreakService : IStreakService
 {
+    public int RegisterLessonActivityCallsCount { get; private set; }
+
     public StreakResponse GetMyStreak(int userId)
     {
         return new StreakResponse
@@ -38,5 +40,6 @@ public class FakeStreakService : IStreakService
 
     public void RegisterLessonActivity(int userId)
     {
+        RegisterLessonActivityCallsCount++;
     }
 }

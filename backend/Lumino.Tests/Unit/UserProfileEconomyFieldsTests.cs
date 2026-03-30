@@ -5,6 +5,7 @@ using Lumino.Api.Domain.Entities;
 using Lumino.Api.Utils;
 using Microsoft.Extensions.Options;
 using Xunit;
+using Lumino.Tests;
 
 namespace Lumino.Tests.Unit
 {
@@ -37,7 +38,7 @@ namespace Lumino.Tests.Unit
                 CrystalCostPerHeart = 10
             });
 
-            var service = new UserService(dbContext, new FakeUpdateProfileRequestValidator(), settings);
+            var service = new UserService(dbContext, new FakeUpdateProfileRequestValidator(), settings, new FakeDateTimeProvider());
 
             // act
             var result = service.GetCurrentUser(1);
@@ -77,7 +78,7 @@ namespace Lumino.Tests.Unit
                 CrystalCostPerHeart = 10
             });
 
-            var service = new UserService(dbContext, new FakeUpdateProfileRequestValidator(), settings);
+            var service = new UserService(dbContext, new FakeUpdateProfileRequestValidator(), settings, new FakeDateTimeProvider());
 
             // act
             var result = service.GetCurrentUser(2);

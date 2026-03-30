@@ -117,7 +117,7 @@ public class HeartsAndCrystalsHttpIntegrationTests : IClassFixture<ApiWebApplica
                 PasswordHash = "hash",
                 CreatedAt = DateTime.UtcNow,
                 Hearts = 0,
-                Crystals = 20,
+                Crystals = 40,
                 Theme = "light"
             });
 
@@ -137,7 +137,7 @@ public class HeartsAndCrystalsHttpIntegrationTests : IClassFixture<ApiWebApplica
         var root = doc.RootElement;
         Assert.Equal(2, root.GetProperty("hearts").GetInt32());
         Assert.Equal(0, root.GetProperty("crystals").GetInt32());
-        Assert.Equal(20, root.GetProperty("spentCrystals").GetInt32());
+        Assert.Equal(40, root.GetProperty("spentCrystals").GetInt32());
         Assert.Equal(2, root.GetProperty("restoredHearts").GetInt32());
     }
 }

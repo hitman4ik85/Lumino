@@ -1,8 +1,9 @@
-﻿using Lumino.Api.Application.DTOs;
+using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
 using Lumino.Api.Domain.Enums;
+using Lumino.Api.Utils;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
@@ -56,7 +57,7 @@ namespace Lumino.Api.Application.Services
                     Data = x.Data,
                     CorrectAnswer = x.CorrectAnswer,
                     Order = x.Order,
-                    ImageUrl = x.ImageUrl
+                    ImageUrl = NormalizeImageUrl(x.ImageUrl)
                 })
                 .ToList();
 
@@ -174,7 +175,7 @@ namespace Lumino.Api.Application.Services
                         Data = ex.Data,
                         CorrectAnswer = ex.CorrectAnswer,
                         Order = ex.Order,
-                        ImageUrl = ex.ImageUrl
+                        ImageUrl = NormalizeImageUrl(ex.ImageUrl)
                     });
                 }
 
@@ -224,7 +225,7 @@ namespace Lumino.Api.Application.Services
                     Data = x.Data,
                     CorrectAnswer = x.CorrectAnswer,
                     Order = x.Order,
-                    ImageUrl = x.ImageUrl
+                    ImageUrl = NormalizeImageUrl(x.ImageUrl)
                 })
                 .ToList();
         }
@@ -309,7 +310,7 @@ namespace Lumino.Api.Application.Services
                         Data = ex.Data,
                         CorrectAnswer = ex.CorrectAnswer,
                         Order = order,
-                        ImageUrl = ex.ImageUrl
+                        ImageUrl = NormalizeImageUrl(ex.ImageUrl)
                     });
                 }
 
@@ -394,6 +395,11 @@ namespace Lumino.Api.Application.Services
 
             _dbContext.Lessons.Remove(lesson);
             _dbContext.SaveChanges();
+        }
+
+        private static string? NormalizeImageUrl(string? imageUrl)
+        {
+            return MediaUrlResolver.NormalizeLessonImageUrl(imageUrl);
         }
 
         private int NormalizeOrder(int order)

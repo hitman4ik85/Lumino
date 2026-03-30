@@ -28,10 +28,10 @@ namespace Lumino.Api.Utils
         {
             if (learningSettings == null)
             {
-                return 10;
+                return 20;
             }
 
-            return learningSettings.CrystalCostPerHeart <= 0 ? 10 : learningSettings.CrystalCostPerHeart;
+            return learningSettings.CrystalCostPerHeart <= 0 ? 20 : learningSettings.CrystalCostPerHeart;
         }
 
         public static DateTime? GetNextHeartAtUtc(int hearts, DateTime? heartsUpdatedAtUtc, LearningSettings learningSettings)

@@ -1,4 +1,4 @@
-﻿using Lumino.Api.Application.DTOs;
+using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Utils;
@@ -16,8 +16,6 @@ namespace Lumino.Api.Application.Services
             _dbContext = dbContext;
             _learningSettings = learningSettings.Value;
         }
-
-
 
         public void RefreshHearts(int userId)
         {
@@ -92,6 +90,16 @@ namespace Lumino.Api.Application.Services
             _dbContext.SaveChanges();
         }
 
+        public void AwardCrystals(int userId, int amount)
+        {
+            if (amount <= 0)
+            {
+                return;
+            }
+
+            ApplyCrystals(userId, amount);
+        }
+
         public void AwardCrystalsForPassedLessonIfNeeded(int userId)
         {
             var amount = _learningSettings.CrystalsRewardPerPassedLesson;
@@ -101,7 +109,7 @@ namespace Lumino.Api.Application.Services
                 return;
             }
 
-            AwardCrystals(userId, amount);
+            ApplyCrystals(userId, amount);
         }
 
         public void AwardCrystalsForCompletedSceneIfNeeded(int userId)
@@ -315,7 +323,7 @@ namespace Lumino.Api.Application.Services
             _dbContext.SaveChanges();
         }
 
-        private void AwardCrystals(int userId, int amount)
+        private void ApplyCrystals(int userId, int amount)
         {
             if (amount <= 0)
             {

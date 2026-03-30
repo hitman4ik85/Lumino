@@ -1,4 +1,4 @@
-using Lumino.Api.Application.Interfaces;
+﻿using Lumino.Api.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Lumino.Api.Utils;
@@ -82,6 +82,18 @@ namespace Lumino.Api.Controllers
             var userId = ClaimsUtils.GetUserIdOrThrow(User);
             _userExternalLoginService.LinkGoogleExternalLogin(userId, request);
             return NoContent();
+        }
+
+
+        [HttpPost("consume-mistakes-hearts")]
+        public IActionResult ConsumeMistakesHearts(ConsumeHeartsForMistakesRequest request)
+        {
+            var userId = ClaimsUtils.GetUserIdOrThrow(User);
+
+            _userEconomyService.ConsumeHeartsForMistakes(userId, request?.MistakesCount ?? 0);
+            var result = _userService.GetCurrentUser(userId);
+
+            return Ok(result);
         }
 
         [HttpPost("restore-hearts")]

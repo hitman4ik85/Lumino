@@ -342,3 +342,9 @@
   text-transform:uppercase;
   color:#26415E;
 }
+
+:global(body[data-lumino-theme="dark"]) .backdrop,
+:global(body[data-lumino-theme="dark"]) .languageWarningBackdrop,
+:global(body[data-lumino-theme="dark"]) .sceneLockedBackdrop{
+  background:rgba(2, 11, 23, .52);
+}

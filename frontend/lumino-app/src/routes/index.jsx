@@ -26,6 +26,10 @@ import HomePage from "../pages/user/Home/HomePage.jsx";
 import ProfilePage from "../pages/user/Profile/ProfilePage.jsx";
 import AchievementsPage from "../pages/user/Achievements/AchievementsPage.jsx";
 import VocabularyPage from "../pages/user/Vocabulary/VocabularyPage.jsx";
+import LessonPage from "../pages/user/Lesson/LessonPage.jsx";
+import LessonResultPage from "../pages/user/Result/LessonResultPage.jsx";
+import ScenePage from "../pages/user/Scenes/ScenePage.jsx";
+import SceneResultPage from "../pages/user/Scenes/Result/SceneResultPage.jsx";
 
 export default function AppRoutes() {
   const isAuthed = authStorage.isAuthed();
@@ -70,6 +74,10 @@ export default function AppRoutes() {
           path={PATHS.vocabulary}
           element={<VocabularyPage />}
         />
+        <Route path={PATHS.lesson()} element={<LessonPage />} />
+        <Route path={PATHS.lessonResult()} element={<LessonResultPage />} />
+        <Route path={PATHS.scene()} element={<ScenePage />} />
+        <Route path={PATHS.sceneResult()} element={<SceneResultPage />} />
       </Route>
 
       <Route element={<AdminLayout />}>

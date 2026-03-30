@@ -64,22 +64,34 @@ namespace Lumino.Api.Application.Services
                 })
                 .ToDictionary(x => x.LessonId, x => x);
 
+            var topicOrderIds = orderedLessons
+                .GroupBy(x => new { x.TopicId, x.TopicOrder })
+                .OrderBy(x => x.Key.TopicOrder <= 0 ? int.MaxValue : x.Key.TopicOrder)
+                .ThenBy(x => x.Key.TopicId)
+                .Select(x => x.Key.TopicId)
+                .ToList();
+
+            var orderedScenes = _dbContext.Scenes
+                .AsNoTracking()
+                .Where(x => x.CourseId == course.Id || x.CourseId == null)
+                .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
+                .ThenBy(x => x.Id)
+                .ToList();
+
+            var effectiveTopicIdBySceneId = BuildEffectiveTopicIdBySceneId(orderedScenes, topicOrderIds);
+
             var completedSceneTopicIds = _dbContext.SceneAttempts
                 .AsNoTracking()
                 .Where(x => x.UserId == userId && x.IsCompleted)
-                .Join(_dbContext.Scenes.AsNoTracking(),
-                    attempt => attempt.SceneId,
-                    scene => scene.Id,
-                    (attempt, scene) => scene.TopicId)
-                .Where(x => x.HasValue)
-                .Select(x => x!.Value)
+                .Select(x => x.SceneId)
+                .ToList()
+                .Where(x => effectiveTopicIdBySceneId.ContainsKey(x))
+                .Select(x => effectiveTopicIdBySceneId[x])
                 .Distinct()
                 .ToHashSet();
 
-            var topicIdsWithScenes = _dbContext.Scenes
-                .AsNoTracking()
-                .Where(x => x.TopicId.HasValue && topicIds.Contains(x.TopicId.Value))
-                .Select(x => x.TopicId!.Value)
+            var topicIdsWithScenes = effectiveTopicIdBySceneId
+                .Values
                 .Distinct()
                 .ToHashSet();
 
@@ -88,7 +100,9 @@ namespace Lumino.Api.Application.Services
             var progressDict = _dbContext.UserLessonProgresses
                 .AsNoTracking()
                 .Where(x => x.UserId == userId && lessonIds.Contains(x.LessonId))
-                .ToDictionary(x => x.LessonId, x => x);
+                .ToList()
+                .GroupBy(x => x.LessonId)
+                .ToDictionary(x => x.Key, x => SelectPrimaryProgress(x));
 
             var passedTopicStats = orderedLessons
                 .GroupBy(x => new { x.TopicId, x.TopicTitle, x.TopicOrder })
@@ -159,22 +173,20 @@ namespace Lumino.Api.Application.Services
                 .Distinct()
                 .ToHashSet();
 
-            bool hasCourseScenes = _dbContext.Scenes
-                .AsNoTracking()
-                .Any(x => x.CourseId == course.Id);
-
-            var orderedScenes = _dbContext.Scenes
-                .AsNoTracking()
-                .Where(x => hasCourseScenes ? x.CourseId == course.Id : x.CourseId == null)
-                .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
-                .ThenBy(x => x.Id)
-                .ToList();
+            var courseScopedScenes = orderedScenes.Where(x => x.CourseId == course.Id).ToList();
+            var scenesForPath = courseScopedScenes.Count > 0
+                ? courseScopedScenes
+                : orderedScenes.Where(x => x.CourseId == null).ToList();
 
             var scenes = new List<LearningPathSceneResponse>();
 
-            for (int i = 0; i < orderedScenes.Count; i++)
+            for (int i = 0; i < scenesForPath.Count; i++)
             {
-                var s = orderedScenes[i];
+                var s = scenesForPath[i];
+
+                var effectiveTopicId = effectiveTopicIdBySceneId.ContainsKey(s.Id)
+                    ? (int?)effectiveTopicIdBySceneId[s.Id]
+                    : s.TopicId;
 
                 int scenePosition = i + 1;
 
@@ -183,14 +195,14 @@ namespace Lumino.Api.Application.Services
                 bool isUnlocked;
                 string? unlockReason;
 
-                if (s.TopicId.HasValue && passedTopicStats.TryGetValue(s.TopicId.Value, out var stats))
+                if (effectiveTopicId.HasValue && passedTopicStats.TryGetValue(effectiveTopicId.Value, out var stats))
                 {
                     required = stats.TotalLessons;
                     passed = stats.PassedLessons;
                     isUnlocked = passed >= required;
                     unlockReason = isUnlocked ? null : "Complete the topic lessons to unlock the scene";
                 }
-                else if (s.TopicId.HasValue)
+                else if (effectiveTopicId.HasValue)
                 {
                     required = 0;
                     passed = 0;
@@ -209,7 +221,7 @@ namespace Lumino.Api.Application.Services
                 {
                     Id = s.Id,
                     CourseId = s.CourseId,
-                    TopicId = s.TopicId,
+                    TopicId = effectiveTopicId,
                     Order = s.Order,
                     Title = s.Title,
                     Description = s.Description,
@@ -286,11 +298,75 @@ namespace Lumino.Api.Application.Services
                 return;
             }
 
-            var lessonIds = orderedLessons.Select(x => x.LessonId).ToList();
+            var lessonIds = orderedLessons.Select(x => x.LessonId).Distinct().ToList();
 
-            var existing = _dbContext.UserLessonProgresses
+            bool needSave = false;
+            var existing = new Dictionary<int, UserLessonProgress>();
+
+            var existingProgressGroups = _dbContext.UserLessonProgresses
                 .Where(x => x.UserId == userId && lessonIds.Contains(x.LessonId))
-                .ToDictionary(x => x.LessonId, x => x);
+                .ToList()
+                .GroupBy(x => x.LessonId)
+                .ToList();
+
+            foreach (var existingGroup in existingProgressGroups)
+            {
+                var primaryProgress = SelectPrimaryProgress(existingGroup);
+
+                foreach (var duplicateProgress in existingGroup)
+                {
+                    if (ReferenceEquals(primaryProgress, duplicateProgress))
+                    {
+                        continue;
+                    }
+
+                    if (MergeProgress(primaryProgress, duplicateProgress))
+                    {
+                        needSave = true;
+                    }
+
+                    _dbContext.UserLessonProgresses.Remove(duplicateProgress);
+                    needSave = true;
+                }
+
+                existing[existingGroup.Key] = primaryProgress;
+            }
+
+            var trackedProgressGroups = _dbContext.UserLessonProgresses.Local
+                .Where(x => _dbContext.Entry(x).State != EntityState.Deleted && x.UserId == userId && lessonIds.Contains(x.LessonId))
+                .GroupBy(x => x.LessonId)
+                .ToList();
+
+            foreach (var trackedGroup in trackedProgressGroups)
+            {
+                UserLessonProgress trackedProgress;
+
+                if (existing.TryGetValue(trackedGroup.Key, out var existingProgress))
+                {
+                    trackedProgress = existingProgress;
+                }
+                else
+                {
+                    trackedProgress = SelectPrimaryProgress(
+                        trackedGroup.OrderBy(x => _dbContext.Entry(x).State == EntityState.Added ? 1 : 0));
+                    existing[trackedGroup.Key] = trackedProgress;
+                }
+
+                foreach (var duplicateTrackedProgress in trackedGroup.ToList())
+                {
+                    if (ReferenceEquals(trackedProgress, duplicateTrackedProgress))
+                    {
+                        continue;
+                    }
+
+                    if (MergeProgress(trackedProgress, duplicateTrackedProgress))
+                    {
+                        needSave = true;
+                    }
+
+                    _dbContext.Entry(duplicateTrackedProgress).State = EntityState.Detached;
+                }
+            }
 
             var lessonIdsByTopic = orderedLessons
                 .GroupBy(x => x.TopicId)
@@ -298,11 +374,16 @@ namespace Lumino.Api.Application.Services
                     g => g.Key,
                     g => g.Select(x => x.LessonId).Distinct().ToList());
 
-            bool needSave = false;
+            var processedLessonIds = new HashSet<int>();
 
             for (int i = 0; i < orderedLessons.Count; i++)
             {
                 int lessonId = orderedLessons[i].LessonId;
+
+                if (!processedLessonIds.Add(lessonId))
+                {
+                    continue;
+                }
 
                 int bestScore = 0;
                 int? totalQuestions = null;
@@ -328,6 +409,23 @@ namespace Lumino.Api.Application.Services
                     topicIdsWithScenes);
 
                 if (!existing.TryGetValue(lessonId, out var p))
+                {
+                    p = _dbContext.UserLessonProgresses.Local
+                        .FirstOrDefault(x => _dbContext.Entry(x).State != EntityState.Deleted && x.UserId == userId && x.LessonId == lessonId);
+
+                    if (p == null)
+                    {
+                        p = _dbContext.UserLessonProgresses
+                            .FirstOrDefault(x => x.UserId == userId && x.LessonId == lessonId);
+                    }
+
+                    if (p != null)
+                    {
+                        existing[lessonId] = p;
+                    }
+                }
+
+                if (p == null)
                 {
                     p = new UserLessonProgress
                     {
@@ -367,8 +465,200 @@ namespace Lumino.Api.Application.Services
 
             if (needSave)
             {
-                _dbContext.SaveChanges();
+                PrepareTrackedUserLessonProgressesForSave(userId, lessonIds);
+
+                try
+                {
+                    _dbContext.SaveChanges();
+                }
+                catch (DbUpdateException ex) when (IsUserLessonProgressDuplicateKey(ex))
+                {
+                    if (!ResolveConcurrentUserLessonProgressInsert(userId, lessonIds))
+                    {
+                        throw;
+                    }
+
+                    PrepareTrackedUserLessonProgressesForSave(userId, lessonIds);
+                    _dbContext.SaveChanges();
+                }
             }
+        }
+
+        private void PrepareTrackedUserLessonProgressesForSave(int userId, List<int> lessonIds)
+        {
+            var trackedGroups = _dbContext.ChangeTracker.Entries<UserLessonProgress>()
+                .Where(x => x.State != EntityState.Deleted && x.Entity.UserId == userId && lessonIds.Contains(x.Entity.LessonId))
+                .GroupBy(x => x.Entity.LessonId)
+                .ToList();
+
+            foreach (var trackedGroup in trackedGroups)
+            {
+                var primaryEntry = trackedGroup
+                    .OrderBy(x => x.State == EntityState.Added ? 1 : 0)
+                    .ThenByDescending(x => x.Entity.IsCompleted)
+                    .ThenByDescending(x => x.Entity.BestScore)
+                    .ThenByDescending(x => x.Entity.LastAttemptAt)
+                    .ThenBy(x => x.Entity.Id)
+                    .First();
+
+                foreach (var duplicateEntry in trackedGroup)
+                {
+                    if (ReferenceEquals(primaryEntry, duplicateEntry))
+                    {
+                        continue;
+                    }
+
+                    if (MergeProgress(primaryEntry.Entity, duplicateEntry.Entity))
+                    {
+                        if (primaryEntry.State == EntityState.Unchanged)
+                        {
+                            primaryEntry.State = EntityState.Modified;
+                        }
+                    }
+
+                    if (duplicateEntry.State == EntityState.Added)
+                    {
+                        duplicateEntry.State = EntityState.Detached;
+                        continue;
+                    }
+
+                    duplicateEntry.State = EntityState.Deleted;
+                }
+            }
+        }
+
+        private bool ResolveConcurrentUserLessonProgressInsert(int userId, List<int> lessonIds)
+        {
+            var pendingEntries = _dbContext.ChangeTracker.Entries<UserLessonProgress>()
+                .Where(x => x.State == EntityState.Added && x.Entity.UserId == userId && lessonIds.Contains(x.Entity.LessonId))
+                .ToList();
+
+            if (pendingEntries.Count == 0)
+            {
+                return false;
+            }
+
+            var dbProgressByLesson = _dbContext.UserLessonProgresses
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && lessonIds.Contains(x.LessonId))
+                .ToList()
+                .GroupBy(x => x.LessonId)
+                .ToDictionary(x => x.Key, x => SelectPrimaryProgress(x));
+
+            bool resolved = false;
+
+            foreach (var pendingEntry in pendingEntries)
+            {
+                if (!dbProgressByLesson.TryGetValue(pendingEntry.Entity.LessonId, out var fromDb))
+                {
+                    continue;
+                }
+
+                var trackedExistingEntry = _dbContext.ChangeTracker.Entries<UserLessonProgress>()
+                    .FirstOrDefault(x =>
+                        x.State != EntityState.Added &&
+                        x.State != EntityState.Deleted &&
+                        x.Entity.UserId == userId &&
+                        x.Entity.LessonId == pendingEntry.Entity.LessonId);
+
+                if (trackedExistingEntry == null)
+                {
+                    trackedExistingEntry = _dbContext.Attach(new UserLessonProgress
+                    {
+                        Id = fromDb.Id,
+                        UserId = fromDb.UserId,
+                        LessonId = fromDb.LessonId,
+                        IsUnlocked = fromDb.IsUnlocked,
+                        IsCompleted = fromDb.IsCompleted,
+                        BestScore = fromDb.BestScore,
+                        LastAttemptAt = fromDb.LastAttemptAt
+                    });
+                }
+                else
+                {
+                    var trackedExisting = trackedExistingEntry.Entity;
+
+                    if (!trackedExisting.IsUnlocked && fromDb.IsUnlocked)
+                    {
+                        trackedExisting.IsUnlocked = true;
+                    }
+
+                    if (!trackedExisting.IsCompleted && fromDb.IsCompleted)
+                    {
+                        trackedExisting.IsCompleted = true;
+                    }
+
+                    if (fromDb.BestScore > trackedExisting.BestScore)
+                    {
+                        trackedExisting.BestScore = fromDb.BestScore;
+                    }
+
+                    if (trackedExisting.LastAttemptAt == null ||
+                        (fromDb.LastAttemptAt.HasValue && fromDb.LastAttemptAt > trackedExisting.LastAttemptAt))
+                    {
+                        trackedExisting.LastAttemptAt = fromDb.LastAttemptAt;
+                    }
+                }
+
+                if (MergeProgress(trackedExistingEntry.Entity, pendingEntry.Entity) && trackedExistingEntry.State == EntityState.Unchanged)
+                {
+                    trackedExistingEntry.State = EntityState.Modified;
+                }
+
+                pendingEntry.State = EntityState.Detached;
+                resolved = true;
+            }
+
+            return resolved;
+        }
+
+        private static bool IsUserLessonProgressDuplicateKey(DbUpdateException ex)
+        {
+            var message = ex.InnerException?.Message ?? ex.Message;
+
+            return message.Contains("UserLessonProgresses", StringComparison.OrdinalIgnoreCase)
+                && message.Contains("IX_UserLessonProgresses_UserId_LessonId", StringComparison.OrdinalIgnoreCase);
+        }
+
+
+        private static Dictionary<int, int> BuildEffectiveTopicIdBySceneId(List<Scene> scenes, List<int> topicOrderIds)
+        {
+            var result = new Dictionary<int, int>();
+
+            if (scenes == null || scenes.Count == 0 || topicOrderIds == null || topicOrderIds.Count == 0)
+            {
+                return result;
+            }
+
+            var sceneGroups = scenes
+                .GroupBy(x => x.CourseId)
+                .ToList();
+
+            foreach (var sceneGroup in sceneGroups)
+            {
+                var orderedSceneGroup = sceneGroup
+                    .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
+                    .ThenBy(x => x.Id)
+                    .ToList();
+
+                for (int i = 0; i < orderedSceneGroup.Count; i++)
+                {
+                    var scene = orderedSceneGroup[i];
+
+                    if (scene.TopicId.HasValue)
+                    {
+                        result[scene.Id] = scene.TopicId.Value;
+                        continue;
+                    }
+
+                    if (i < topicOrderIds.Count)
+                    {
+                        result[scene.Id] = topicOrderIds[i];
+                    }
+                }
+            }
+
+            return result;
         }
 
         private bool IsLessonUnlockedByCourseFlow(
@@ -425,6 +715,51 @@ namespace Lumino.Api.Application.Services
             }
 
             return completedSceneTopicIds.Contains(topicId);
+        }
+
+        private static UserLessonProgress SelectPrimaryProgress(IEnumerable<UserLessonProgress> progresses)
+        {
+            return progresses
+                .OrderByDescending(x => x.IsCompleted)
+                .ThenByDescending(x => x.BestScore)
+                .ThenByDescending(x => x.LastAttemptAt)
+                .ThenBy(x => x.Id)
+                .First();
+        }
+
+        private static bool MergeProgress(UserLessonProgress target, UserLessonProgress source)
+        {
+            bool changed = false;
+
+            if (!target.IsUnlocked && source.IsUnlocked)
+            {
+                target.IsUnlocked = true;
+                changed = true;
+            }
+
+            if (!target.IsCompleted && source.IsCompleted)
+            {
+                target.IsCompleted = true;
+                changed = true;
+            }
+
+            if (source.BestScore > target.BestScore)
+            {
+                target.BestScore = source.BestScore;
+                changed = true;
+            }
+
+            if (target.LastAttemptAt == null ||
+                (source.LastAttemptAt.HasValue && source.LastAttemptAt > target.LastAttemptAt))
+            {
+                if (target.LastAttemptAt != source.LastAttemptAt)
+                {
+                    target.LastAttemptAt = source.LastAttemptAt;
+                    changed = true;
+                }
+            }
+
+            return changed;
         }
 
         private class OrderedLessonInfo

@@ -89,4 +89,28 @@ export const onboardingService = {
       error: res.error || "",
     };
   },
+
+  async getDemoExercises(languageCode, level) {
+    const params = new URLSearchParams();
+
+    if (languageCode) {
+      params.set("languageCode", String(languageCode).trim().toLowerCase());
+    }
+
+    if (level) {
+      params.set("level", String(level).trim().toLowerCase());
+    }
+
+    const query = params.toString();
+    const res = await apiClient.get(`/demo/next-pack${query ? `?${query}` : ""}`);
+
+    return {
+      ok: res.ok,
+      status: res.status,
+      items: res.ok ? (Array.isArray(res.data?.exercises) ? res.data.exercises : []) : [],
+      lesson: res.ok ? (res.data?.lesson || null) : null,
+      data: res.ok ? (res.data || null) : null,
+      error: res.error || "",
+    };
+  },
 };

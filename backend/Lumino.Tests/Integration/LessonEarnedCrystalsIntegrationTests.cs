@@ -11,7 +11,7 @@ namespace Lumino.Tests.Integration;
 public class LessonEarnedCrystalsIntegrationTests
 {
     [Fact]
-    public void SubmitLesson_FirstPassed_ShouldReturnEarnedCrystals_And_SecondPassed_ShouldReturnZero()
+    public void SubmitLesson_FirstPassed_ShouldReturnEarnedCrystalsEqualToLessonPoints_And_SecondPassed_ShouldReturnZero()
     {
         var dbContext = TestDbContextFactory.Create();
 
@@ -81,6 +81,7 @@ public class LessonEarnedCrystalsIntegrationTests
         var settings = TestLearningSettingsFactory.Create(new LearningSettings
         {
             PassingScorePercent = 80,
+            LessonCorrectAnswerScore = 5,
             CrystalsRewardPerPassedLesson = 3
         });
 
@@ -119,7 +120,7 @@ public class LessonEarnedCrystalsIntegrationTests
         var first = service.SubmitLesson(1, request);
 
         Assert.True(first.IsPassed);
-        Assert.Equal(3, first.EarnedCrystals);
+        Assert.Equal(45, first.EarnedCrystals);
 
         var second = service.SubmitLesson(1, request);
 
@@ -128,7 +129,7 @@ public class LessonEarnedCrystalsIntegrationTests
     }
 
     [Fact]
-    public void SubmitLesson_WithSameIdempotencyKey_ShouldReturnSameEarnedCrystals()
+    public void SubmitLesson_WithSameIdempotencyKey_ShouldReturnSameEarnedCrystalsEqualToLessonPoints()
     {
         var dbContext = TestDbContextFactory.Create();
 
@@ -198,6 +199,7 @@ public class LessonEarnedCrystalsIntegrationTests
         var settings = TestLearningSettingsFactory.Create(new LearningSettings
         {
             PassingScorePercent = 80,
+            LessonCorrectAnswerScore = 5,
             CrystalsRewardPerPassedLesson = 2
         });
 
@@ -238,9 +240,9 @@ public class LessonEarnedCrystalsIntegrationTests
         var second = service.SubmitLesson(1, request);
 
         Assert.True(first.IsPassed);
-        Assert.Equal(2, first.EarnedCrystals);
+        Assert.Equal(45, first.EarnedCrystals);
 
         Assert.True(second.IsPassed);
-        Assert.Equal(2, second.EarnedCrystals);
+        Assert.Equal(45, second.EarnedCrystals);
     }
 }

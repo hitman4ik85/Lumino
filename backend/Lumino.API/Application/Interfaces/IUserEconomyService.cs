@@ -10,6 +10,8 @@ namespace Lumino.Api.Application.Interfaces
 
         void ConsumeHeartsForMistakes(int userId, int mistakesCount);
 
+        void AwardCrystals(int userId, int amount);
+
         void AwardCrystalsForPassedLessonIfNeeded(int userId);
 
         void AwardCrystalsForCompletedSceneIfNeeded(int userId);

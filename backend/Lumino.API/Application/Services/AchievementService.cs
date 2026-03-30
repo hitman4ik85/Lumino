@@ -186,11 +186,18 @@ namespace Lumino.Api.Application.Services
 
         private void GrantHundredXp(int userId)
         {
+            var achievement = GetOrCreateAchievement(
+                HundredXpCode,
+                "500 XP",
+                "Earn 500 total score"
+            );
+
             int lessonsScore = _dbContext.LessonResults
                 .Where(x => x.UserId == userId)
                 .GroupBy(x => x.LessonId)
                 .Select(g => g.Max(x => x.Score))
-                .Sum();
+                .AsEnumerable()
+                .Sum(GetLessonPoints);
 
             int completedDistinctScenes = _dbContext.SceneAttempts
                 .Where(x => x.UserId == userId && x.IsCompleted)
@@ -201,13 +208,19 @@ namespace Lumino.Api.Application.Services
             int scenesScore = completedDistinctScenes * _learningSettings.SceneCompletionScore;
             int totalScore = lessonsScore + scenesScore;
 
-            if (totalScore < 100) return;
+            if (totalScore < 500)
+            {
+                var userAchievement = _dbContext.UserAchievements
+                    .FirstOrDefault(x => x.UserId == userId && x.AchievementId == achievement.Id);
 
-            var achievement = GetOrCreateAchievement(
-                HundredXpCode,
-                "100 XP",
-                "Earn 100 total score"
-            );
+                if (userAchievement != null)
+                {
+                    _dbContext.UserAchievements.Remove(userAchievement);
+                    _dbContext.SaveChanges();
+                }
+
+                return;
+            }
 
             GrantToUserIfNotExists(userId, achievement.Id);
         }
@@ -268,16 +281,16 @@ namespace Lumino.Api.Application.Services
         private void GrantDailyGoal(int userId)
         {
             var nowUtc = _dateTimeProvider.UtcNow;
-            var todayUtc = nowUtc.Date;
-            var tomorrowUtc = todayUtc.AddDays(1);
+            var todayKyiv = KyivDateTimeHelper.GetKyivDate(nowUtc);
+            var (todayStartUtc, tomorrowStartUtc) = KyivDateTimeHelper.GetUtcRangeForKyivDate(todayKyiv);
 
             int passingScorePercent = LessonPassingRules.NormalizePassingPercent(_learningSettings.PassingScorePercent);
 
             var todayPassedLessons = _dbContext.LessonResults
                 .Where(x =>
                     x.UserId == userId &&
-                    x.CompletedAt >= todayUtc &&
-                    x.CompletedAt < tomorrowUtc &&
+                    x.CompletedAt >= todayStartUtc &&
+                    x.CompletedAt < tomorrowStartUtc &&
                     x.TotalQuestions > 0 &&
                     x.Score * 100 >= x.TotalQuestions * passingScorePercent
                 )
@@ -287,12 +300,12 @@ namespace Lumino.Api.Application.Services
                 .Where(x =>
                     x.UserId == userId &&
                     x.IsCompleted &&
-                    x.CompletedAt >= todayUtc &&
-                    x.CompletedAt < tomorrowUtc
+                    x.CompletedAt >= todayStartUtc &&
+                    x.CompletedAt < tomorrowStartUtc
                 )
                 .ToList();
 
-            int todayScore = todayPassedLessons.Sum(x => x.Score) + todayCompletedScenes.Sum(x => x.Score);
+            int todayScore = todayPassedLessons.Sum(x => GetLessonPoints(x.Score)) + todayCompletedScenes.Select(x => x.SceneId).Distinct().Count() * _learningSettings.SceneCompletionScore;
             int targetScore = _learningSettings.DailyGoalScoreTarget;
 
             if (targetScore < 1)
@@ -454,12 +467,16 @@ namespace Lumino.Api.Application.Services
                     x.TotalQuestions > 0 &&
                     x.Score * 100 >= x.TotalQuestions * passingScorePercent
                 )
-                .Select(x => x.CompletedAt.Date)
+                .Select(x => x.CompletedAt)
+                .AsEnumerable()
+                .Select(KyivDateTimeHelper.GetKyivDate)
                 .ToList();
 
             var sceneDates = _dbContext.SceneAttempts
                 .Where(x => x.UserId == userId && x.IsCompleted)
-                .Select(x => x.CompletedAt.Date)
+                .Select(x => x.CompletedAt)
+                .AsEnumerable()
+                .Select(KyivDateTimeHelper.GetKyivDate)
                 .ToList();
 
             return passedLessonDates
@@ -525,7 +542,7 @@ namespace Lumino.Api.Application.Services
             _dbContext.Achievements.Add(achievement);
             _dbContext.SaveChanges();
 
-            return achievement;
+            return _dbContext.Achievements.First(x => x.Code == code);
         }
 
         private void GrantToUserIfNotExists(int userId, int achievementId)
@@ -553,6 +570,23 @@ namespace Lumino.Api.Application.Services
 
                 if (!exists) throw;
             }
+        }
+
+        private int GetLessonPoints(int correctAnswers)
+        {
+            var lessonCorrectAnswerScore = _learningSettings.LessonCorrectAnswerScore;
+
+            if (lessonCorrectAnswerScore < 1)
+            {
+                lessonCorrectAnswerScore = 1;
+            }
+
+            if (correctAnswers <= 0)
+            {
+                return 0;
+            }
+
+            return correctAnswers * lessonCorrectAnswerScore;
         }
     }
 }

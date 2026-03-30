@@ -1,4 +1,4 @@
-﻿using Lumino.Api.Application.DTOs;
+using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Utils;
@@ -14,6 +14,11 @@ namespace Lumino.Api.Application.Services
         {
             _dbContext = dbContext;
             _userEconomyService = userEconomyService;
+        }
+
+        private static string? NormalizeImageUrl(string? imageUrl)
+        {
+            return MediaUrlResolver.NormalizeLessonImageUrl(imageUrl);
         }
 
         public List<ExerciseResponse> GetExercisesByLesson(int userId, int lessonId)
@@ -60,7 +65,8 @@ namespace Lumino.Api.Application.Services
                                 Question = x.Question,
                                 Data = x.Data,
                                 Order = x.Order,
-                                ImageUrl = x.ImageUrl
+                                ImageUrl = NormalizeImageUrl(x.ImageUrl),
+                                CorrectAnswer = x.CorrectAnswer
                             })
                             .ToList();
         }

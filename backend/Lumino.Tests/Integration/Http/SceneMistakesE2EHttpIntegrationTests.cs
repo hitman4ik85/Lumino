@@ -1,4 +1,4 @@
-using Lumino.Api.Data;
+﻿using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
 using Lumino.Api.Domain.Enums;
 using Microsoft.Extensions.DependencyInjection;
@@ -234,6 +234,15 @@ public class SceneMistakesE2EHttpIntegrationTests : IClassFixture<ApiWebApplicat
             Assert.Equal(1, mistakes.GetArrayLength());
         }
 
+        var meAfterSubmitResponse = await client.GetAsync("/api/user/me");
+        Assert.Equal(HttpStatusCode.OK, meAfterSubmitResponse.StatusCode);
+
+        var meAfterSubmitJson = await meAfterSubmitResponse.Content.ReadAsStringAsync();
+        using (var meAfterSubmitDoc = JsonDocument.Parse(meAfterSubmitJson))
+        {
+            Assert.Equal(heartsBefore - 1, GetInt32PropertyIgnoreCase(meAfterSubmitDoc.RootElement, "hearts"));
+        }
+
         // 7) Get mistakes => must contain step 21
         var mistakesResponse = await client.GetAsync("/api/scenes/2/mistakes");
         Assert.Equal(HttpStatusCode.OK, mistakesResponse.StatusCode);
@@ -333,9 +342,7 @@ public class SceneMistakesE2EHttpIntegrationTests : IClassFixture<ApiWebApplicat
             heartsAfter = GetInt32PropertyIgnoreCase(meAfterDoc.RootElement, "hearts");
         }
 
-        // якщо max hearts = 5, то 4 -> 5
-        Assert.True(heartsAfter == heartsBefore + 1 || heartsAfter == heartsBefore,
-            $"Hearts should increase by 1 (or be capped). Before={heartsBefore}, After={heartsAfter}");
+        Assert.Equal(heartsBefore, heartsAfter);
     }
 
     private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)

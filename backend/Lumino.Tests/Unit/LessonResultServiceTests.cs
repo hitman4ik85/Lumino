@@ -157,7 +157,188 @@ public class LessonResultServiceTests
         Assert.True(response.IsPassed);
     }
 
-[Fact]
+
+    [Fact]
+    public void SubmitLesson_WhenExerciseHasLinkedVocabularyTranslations_ShouldAcceptAlternativeTranslation()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 1,
+            Title = "Lesson 1",
+            Theory = "Text",
+            TopicId = 1,
+            Order = 1
+        });
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 1,
+            LessonId = 1,
+            Type = ExerciseType.Input,
+            Question = "room",
+            Data = "",
+            CorrectAnswer = "кімната",
+            Order = 1
+        });
+
+        dbContext.VocabularyItems.Add(new VocabularyItem
+        {
+            Id = 100,
+            Word = "room",
+            Translation = "кімната"
+        });
+
+        dbContext.VocabularyItemTranslations.Add(new VocabularyItemTranslation
+        {
+            VocabularyItemId = 100,
+            Translation = "кімната",
+            Order = 0
+        });
+
+        dbContext.VocabularyItemTranslations.Add(new VocabularyItemTranslation
+        {
+            VocabularyItemId = 100,
+            Translation = "номер",
+            Order = 1
+        });
+
+        dbContext.ExerciseVocabularies.Add(new ExerciseVocabulary
+        {
+            ExerciseId = 1,
+            VocabularyItemId = 100
+        });
+
+        dbContext.UserLessonProgresses.Add(new UserLessonProgress
+        {
+            UserId = 10,
+            LessonId = 1,
+            IsUnlocked = true,
+            IsCompleted = false,
+            BestScore = 0,
+            LastAttemptAt = DateTime.UtcNow
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new LessonResultService(
+            dbContext,
+            new FakeAchievementService(),
+            new FakeDateTimeProvider(),
+            new FakeUserEconomyService(),
+            new FakeStreakService(),
+            new FakeSubmitLessonValidator(),
+            Options.Create(new LearningSettings { PassingScorePercent = 80 })
+        );
+
+        var response = service.SubmitLesson(10, new SubmitLessonRequest
+        {
+            LessonId = 1,
+            Answers = new List<SubmitExerciseAnswerRequest>
+            {
+                new SubmitExerciseAnswerRequest { ExerciseId = 1, Answer = "номер" }
+            }
+        });
+
+        Assert.Equal(1, response.TotalExercises);
+        Assert.Equal(1, response.CorrectAnswers);
+        Assert.True(response.IsPassed);
+    }
+
+    [Fact]
+    public void SubmitLesson_WhenPassedFirstTime_ShouldReturnCrystalsEqualToLessonPoints()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Users.Add(new User
+        {
+            Id = 10,
+            Email = "user@test.com",
+            PasswordHash = "hash",
+            IsEmailVerified = true,
+            Role = Role.User,
+            CreatedAt = DateTime.UtcNow,
+            NativeLanguageCode = "uk",
+            TargetLanguageCode = "en",
+            Crystals = 0
+        });
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 1,
+            Title = "Lesson 1",
+            Theory = "Text",
+            TopicId = 1,
+            Order = 1
+        });
+
+        for (int i = 1; i <= 9; i++)
+        {
+            dbContext.Exercises.Add(new Exercise
+            {
+                Id = i,
+                LessonId = 1,
+                Type = ExerciseType.Input,
+                Question = $"Q{i}",
+                Data = "",
+                CorrectAnswer = $"A{i}",
+                Order = i
+            });
+        }
+
+        dbContext.UserLessonProgresses.Add(new UserLessonProgress
+        {
+            UserId = 10,
+            LessonId = 1,
+            IsUnlocked = true,
+            IsCompleted = false,
+            BestScore = 0,
+            LastAttemptAt = DateTime.UtcNow
+        });
+
+        dbContext.SaveChanges();
+
+        var learningSettings = Options.Create(new LearningSettings
+        {
+            PassingScorePercent = 80,
+            LessonCorrectAnswerScore = 5,
+            CrystalsRewardPerPassedLesson = 5
+        });
+
+        var economyService = new UserEconomyService(dbContext, learningSettings);
+
+        var service = new LessonResultService(
+            dbContext,
+            new FakeAchievementService(),
+            new FakeDateTimeProvider(),
+            economyService,
+            new FakeStreakService(),
+            new FakeSubmitLessonValidator(),
+            learningSettings
+        );
+
+        var response = service.SubmitLesson(10, new SubmitLessonRequest
+        {
+            LessonId = 1,
+            Answers = Enumerable.Range(1, 9)
+                .Select(x => new SubmitExerciseAnswerRequest
+                {
+                    ExerciseId = x,
+                    Answer = $"A{x}"
+                })
+                .ToList()
+        });
+
+        var user = dbContext.Users.First(x => x.Id == 10);
+
+        Assert.True(response.IsPassed);
+        Assert.Equal(45, response.EarnedPoints);
+        Assert.Equal(45, response.EarnedCrystals);
+        Assert.Equal(45, user.Crystals);
+    }
+
+    [Fact]
     public void SubmitLesson_WhenPassed_ShouldAddLessonWordsToUserVocabulary()
     {
         var dbContext = TestDbContextFactory.Create();
@@ -775,6 +956,168 @@ public class LessonResultServiceTests
     }
 
     [Fact]
+    public void SubmitLesson_WhenSameWordHasAnotherTranslation_ShouldMergeIntoSingleUserVocabulary()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 1,
+            Title = "Lesson 1",
+            Theory = "",
+            TopicId = 1,
+            Order = 1
+        });
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 1,
+            LessonId = 1,
+            Type = ExerciseType.Input,
+            Question = "Q1",
+            Data = "{}",
+            CorrectAnswer = "right",
+            Order = 1
+        });
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 2,
+            LessonId = 1,
+            Type = ExerciseType.Input,
+            Question = "Q2",
+            Data = "{}",
+            CorrectAnswer = "a",
+            Order = 2
+        });
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 3,
+            LessonId = 1,
+            Type = ExerciseType.Input,
+            Question = "Q3",
+            Data = "{}",
+            CorrectAnswer = "b",
+            Order = 3
+        });
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 4,
+            LessonId = 1,
+            Type = ExerciseType.Input,
+            Question = "Q4",
+            Data = "{}",
+            CorrectAnswer = "c",
+            Order = 4
+        });
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 5,
+            LessonId = 1,
+            Type = ExerciseType.Input,
+            Question = "Q5",
+            Data = "{}",
+            CorrectAnswer = "d",
+            Order = 5
+        });
+
+        dbContext.VocabularyItems.Add(new VocabularyItem
+        {
+            Id = 1,
+            Word = "run",
+            Translation = "бігти"
+        });
+
+        dbContext.VocabularyItemTranslations.Add(new VocabularyItemTranslation
+        {
+            VocabularyItemId = 1,
+            Translation = "бігти",
+            Order = 0
+        });
+
+        dbContext.VocabularyItems.Add(new VocabularyItem
+        {
+            Id = 2,
+            Word = "run",
+            Translation = "запускати"
+        });
+
+        dbContext.VocabularyItemTranslations.Add(new VocabularyItemTranslation
+        {
+            VocabularyItemId = 2,
+            Translation = "запускати",
+            Order = 0
+        });
+
+        dbContext.LessonVocabularies.Add(new LessonVocabulary
+        {
+            LessonId = 1,
+            VocabularyItemId = 1
+        });
+
+        dbContext.ExerciseVocabularies.Add(new ExerciseVocabulary
+        {
+            ExerciseId = 1,
+            VocabularyItemId = 2
+        });
+
+        dbContext.UserLessonProgresses.Add(new UserLessonProgress
+        {
+            UserId = 10,
+            LessonId = 1,
+            IsUnlocked = true,
+            IsCompleted = false,
+            BestScore = 0,
+            LastAttemptAt = DateTime.UtcNow
+        });
+
+        dbContext.SaveChanges();
+
+        var now = new DateTime(2026, 2, 14, 9, 0, 0, DateTimeKind.Utc);
+
+        var service = new LessonResultService(
+            dbContext,
+            new FakeAchievementService(),
+            new FixedDateTimeProvider(now),
+            new FakeUserEconomyService(),
+            new FakeStreakService(),
+            new FakeSubmitLessonValidator(),
+            Options.Create(new LearningSettings { PassingScorePercent = 80 })
+        );
+
+        var response = service.SubmitLesson(10, new SubmitLessonRequest
+        {
+            LessonId = 1,
+            Answers = new List<SubmitExerciseAnswerRequest>
+            {
+                new SubmitExerciseAnswerRequest { ExerciseId = 1, Answer = "wrong" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 2, Answer = "a" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 3, Answer = "b" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 4, Answer = "c" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 5, Answer = "d" }
+            }
+        });
+
+        Assert.True(response.IsPassed);
+        Assert.Single(dbContext.UserVocabularies.Where(x => x.UserId == 10));
+
+        var userWord = dbContext.UserVocabularies.Single(x => x.UserId == 10);
+        var item = dbContext.VocabularyItems.Single(x => x.Id == userWord.VocabularyItemId);
+        var translations = dbContext.VocabularyItemTranslations
+            .Where(x => x.VocabularyItemId == item.Id)
+            .OrderBy(x => x.Order)
+            .Select(x => x.Translation)
+            .ToList();
+
+        Assert.Equal("run", item.Word);
+        Assert.Equal(new List<string> { "бігти", "запускати" }, translations);
+        Assert.Equal(now, userWord.NextReviewAt);
+    }
+
+    [Fact]
     public void SubmitLesson_WhenCompletesAllLessonsInCourse_ShouldMarkUserCourseCompleted()
     {
         var dbContext = TestDbContextFactory.Create();
@@ -978,6 +1321,108 @@ public class LessonResultServiceTests
         Assert.Equal(20, response.Answers[2].ExerciseId);
     }
 
+
+    [Fact]
+    public void SubmitLesson_WhenCrossingTopicWithFallbackScene_ShouldNotUnlockNextTopicLessonBeforeScene()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Users.Add(new User
+        {
+            Id = 10,
+            Email = "user@test.com",
+            PasswordHash = "hash",
+            IsEmailVerified = true,
+            Role = Role.User,
+            CreatedAt = DateTime.UtcNow,
+            NativeLanguageCode = "uk",
+            TargetLanguageCode = "en"
+        });
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 1,
+            Title = "English A1",
+            Description = "Demo",
+            IsPublished = true
+        });
+
+        dbContext.Topics.AddRange(
+            new Topic { Id = 1, CourseId = 1, Title = "Topic 1", Order = 1 },
+            new Topic { Id = 2, CourseId = 1, Title = "Topic 2", Order = 2 }
+        );
+
+        dbContext.Lessons.AddRange(
+            new Lesson { Id = 1, TopicId = 1, Title = "T1 L1", Theory = "T", Order = 1 },
+            new Lesson { Id = 2, TopicId = 2, Title = "T2 L1", Theory = "T", Order = 1 }
+        );
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 1,
+            LessonId = 1,
+            Type = ExerciseType.Input,
+            Question = "Q1",
+            Data = "{}",
+            CorrectAnswer = "ok",
+            Order = 1
+        });
+
+        dbContext.Scenes.Add(new Scene
+        {
+            Id = 100,
+            Title = "Scene 1",
+            Description = "D",
+            SceneType = "Dialogue",
+            Order = 1
+        });
+
+        dbContext.UserLessonProgresses.Add(new UserLessonProgress
+        {
+            UserId = 10,
+            LessonId = 1,
+            IsUnlocked = true,
+            IsCompleted = false,
+            BestScore = 0,
+            LastAttemptAt = DateTime.UtcNow
+        });
+
+        dbContext.UserCourses.Add(new UserCourse
+        {
+            UserId = 10,
+            CourseId = 1,
+            LastLessonId = 1,
+            IsCompleted = false,
+            LastOpenedAt = DateTime.UtcNow
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new LessonResultService(
+            dbContext,
+            new FakeAchievementService(),
+            new FakeDateTimeProvider(),
+            new FakeUserEconomyService(),
+            new FakeStreakService(),
+            new FakeSubmitLessonValidator(),
+            Options.Create(new LearningSettings { PassingScorePercent = 80 })
+        );
+
+        var response = service.SubmitLesson(10, new SubmitLessonRequest
+        {
+            LessonId = 1,
+            Answers = new List<SubmitExerciseAnswerRequest>
+            {
+                new SubmitExerciseAnswerRequest { ExerciseId = 1, Answer = "ok" }
+            }
+        });
+
+        var nextProgress = dbContext.UserLessonProgresses.FirstOrDefault(x => x.UserId == 10 && x.LessonId == 2);
+
+        Assert.True(response.IsPassed);
+        Assert.Null(nextProgress);
+    }
+
     [Fact]
     public void SubmitLesson_WhenCorrectAnswerIsJsonArray_ShouldAcceptAnyOfAnswers()
     {
@@ -1039,5 +1484,205 @@ public class LessonResultServiceTests
         Assert.True(response.IsPassed);
     }
 
-}
+    [Fact]
+    public void SubmitLesson_WhenNotPassed_ShouldStillAwardCrystalsForCorrectAnswers()
+    {
+        var dbContext = TestDbContextFactory.Create();
 
+        dbContext.Users.Add(new User
+        {
+            Id = 10,
+            Email = "user@test.com",
+            PasswordHash = "hash",
+            IsEmailVerified = true,
+            Role = Role.User,
+            CreatedAt = DateTime.UtcNow,
+            NativeLanguageCode = "uk",
+            TargetLanguageCode = "en",
+            Crystals = 0
+        });
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 1,
+            Title = "Lesson 1",
+            Theory = "Text",
+            TopicId = 1,
+            Order = 1
+        });
+
+        for (int i = 1; i <= 6; i++)
+        {
+            dbContext.Exercises.Add(new Exercise
+            {
+                Id = i,
+                LessonId = 1,
+                Type = ExerciseType.Input,
+                Question = $"Q{i}",
+                Data = "",
+                CorrectAnswer = $"A{i}",
+                Order = i
+            });
+        }
+
+        dbContext.UserLessonProgresses.Add(new UserLessonProgress
+        {
+            UserId = 10,
+            LessonId = 1,
+            IsUnlocked = true,
+            IsCompleted = false,
+            BestScore = 0,
+            LastAttemptAt = DateTime.UtcNow
+        });
+
+        dbContext.SaveChanges();
+
+        var learningSettings = Options.Create(new LearningSettings
+        {
+            PassingScorePercent = 80,
+            LessonCorrectAnswerScore = 5,
+            CrystalsRewardPerPassedLesson = 0
+        });
+
+        var economyService = new UserEconomyService(dbContext, learningSettings);
+        var streakService = new FakeStreakService();
+
+        var service = new LessonResultService(
+            dbContext,
+            new FakeAchievementService(),
+            new FakeDateTimeProvider(),
+            economyService,
+            streakService,
+            new FakeSubmitLessonValidator(),
+            learningSettings
+        );
+
+        var response = service.SubmitLesson(10, new SubmitLessonRequest
+        {
+            LessonId = 1,
+            Answers = new List<SubmitExerciseAnswerRequest>
+            {
+                new SubmitExerciseAnswerRequest { ExerciseId = 1, Answer = "A1" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 2, Answer = "A2" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 3, Answer = "A3" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 4, Answer = "A4" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 5, Answer = "wrong" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 6, Answer = "wrong" }
+            }
+        });
+
+        var user = dbContext.Users.First(x => x.Id == 10);
+
+        Assert.False(response.IsPassed);
+        Assert.Equal(20, response.EarnedCrystals);
+        Assert.Equal(20, user.Crystals);
+        Assert.Equal(1, streakService.RegisterLessonActivityCallsCount);
+    }
+
+    [Fact]
+    public void SubmitLesson_WhenImprovedAfterPreviousAttempt_ShouldAwardOnlyCrystalsForImprovement()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Users.Add(new User
+        {
+            Id = 10,
+            Email = "user@test.com",
+            PasswordHash = "hash",
+            IsEmailVerified = true,
+            Role = Role.User,
+            CreatedAt = DateTime.UtcNow,
+            NativeLanguageCode = "uk",
+            TargetLanguageCode = "en",
+            Crystals = 0
+        });
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 1,
+            Title = "Lesson 1",
+            Theory = "Text",
+            TopicId = 1,
+            Order = 1
+        });
+
+        for (int i = 1; i <= 6; i++)
+        {
+            dbContext.Exercises.Add(new Exercise
+            {
+                Id = i,
+                LessonId = 1,
+                Type = ExerciseType.Input,
+                Question = $"Q{i}",
+                Data = "",
+                CorrectAnswer = $"A{i}",
+                Order = i
+            });
+        }
+
+        dbContext.UserLessonProgresses.Add(new UserLessonProgress
+        {
+            UserId = 10,
+            LessonId = 1,
+            IsUnlocked = true,
+            IsCompleted = false,
+            BestScore = 0,
+            LastAttemptAt = DateTime.UtcNow
+        });
+
+        dbContext.SaveChanges();
+
+        var learningSettings = Options.Create(new LearningSettings
+        {
+            PassingScorePercent = 80,
+            LessonCorrectAnswerScore = 5,
+            CrystalsRewardPerPassedLesson = 0
+        });
+
+        var economyService = new UserEconomyService(dbContext, learningSettings);
+        var service = new LessonResultService(
+            dbContext,
+            new FakeAchievementService(),
+            new FakeDateTimeProvider(),
+            economyService,
+            new FakeStreakService(),
+            new FakeSubmitLessonValidator(),
+            learningSettings
+        );
+
+        var firstResponse = service.SubmitLesson(10, new SubmitLessonRequest
+        {
+            LessonId = 1,
+            Answers = new List<SubmitExerciseAnswerRequest>
+            {
+                new SubmitExerciseAnswerRequest { ExerciseId = 1, Answer = "A1" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 2, Answer = "A2" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 3, Answer = "A3" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 4, Answer = "A4" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 5, Answer = "wrong" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 6, Answer = "wrong" }
+            }
+        });
+
+        var secondResponse = service.SubmitLesson(10, new SubmitLessonRequest
+        {
+            LessonId = 1,
+            Answers = new List<SubmitExerciseAnswerRequest>
+            {
+                new SubmitExerciseAnswerRequest { ExerciseId = 1, Answer = "A1" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 2, Answer = "A2" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 3, Answer = "A3" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 4, Answer = "A4" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 5, Answer = "A5" },
+                new SubmitExerciseAnswerRequest { ExerciseId = 6, Answer = "A6" }
+            }
+        });
+
+        var user = dbContext.Users.First(x => x.Id == 10);
+
+        Assert.Equal(20, firstResponse.EarnedCrystals);
+        Assert.Equal(10, secondResponse.EarnedCrystals);
+        Assert.Equal(30, user.Crystals);
+    }
+
+}

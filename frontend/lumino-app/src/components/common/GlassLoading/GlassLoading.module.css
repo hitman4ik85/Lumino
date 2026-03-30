@@ -63,3 +63,7 @@
   line-height:1.25;
   color:var(--color-primary);
 }
+
+:global(body[data-lumino-theme="dark"]) .backdrop{
+  background:rgba(2, 11, 23, .52);
+}

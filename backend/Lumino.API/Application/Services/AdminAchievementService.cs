@@ -165,7 +165,32 @@ namespace Lumino.Api.Application.Services
                 return null;
             }
 
-            return imageUrl.Trim();
+            string value = imageUrl.Trim().Replace("\\", "/");
+
+            if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                || value.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
+                || value.StartsWith("blob:", StringComparison.OrdinalIgnoreCase))
+            {
+                return value;
+            }
+
+            if (value.StartsWith("/"))
+            {
+                return value;
+            }
+
+            if (value.StartsWith("uploads/achievements/", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"/{value}";
+            }
+
+            if (value.Contains("/") || value.Contains(".."))
+            {
+                return $"/{value.TrimStart('/')}";
+            }
+
+            return $"/uploads/achievements/{value}";
         }
 
         private static string BuildCode(string? input)

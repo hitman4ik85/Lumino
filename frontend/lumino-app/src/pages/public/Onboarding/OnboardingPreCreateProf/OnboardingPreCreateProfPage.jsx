@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { PATHS } from "../../../../routes/paths.js";
 import { useStageScale } from "../../../../hooks/useStageScale.js";
 import styles from "./OnboardingPreCreateProfPage.module.css";
@@ -9,14 +9,21 @@ import BgRight from "../../../../assets/backgrounds/bg-right.webp";
 import ArrowPrev from "../../../../assets/icons/arrow-previous.svg";
 import Bubble from "../../../../assets/onboarding/bubble.svg";
 import Mascot from "../../../../assets/mascot/mascot7.svg";
+import AnimatedMascotBubble from "../shared/AnimatedMascotBubble.jsx";
 
 export default function OnboardingPreCreateProfPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const stageRef = useRef(null);
 
   useStageScale(stageRef);
 
   const handleBack = () => {
+    if (location.state?.isDemoLesson) {
+      navigate(-1);
+      return;
+    }
+
     navigate(PATHS.onboardingDemoLessonStub);
   };
 
@@ -38,10 +45,16 @@ export default function OnboardingPreCreateProfPage() {
           <img className={styles.backIcon} src={ArrowPrev} alt="back" />
         </button>
 
-        <img className={styles.bubble} src={Bubble} alt="" />
-        <p className={styles.bubbleText}>Створімо профіль!</p>
-
-        <img className={styles.mascot} src={Mascot} alt="" />
+        <AnimatedMascotBubble
+          mascotSrc={Mascot}
+          bubbleSrc={Bubble}
+          mascotClassName={styles.mascot}
+          bubbleClassName={styles.bubble}
+          textClassName={styles.bubbleText}
+          bubbleFirst
+        >
+          Створімо профіль!
+        </AnimatedMascotBubble>
 
         <button className={styles.createBtn} type="button" onClick={handleCreateProfile}>
           СТВОРИТИ ПРОФІЛЬ

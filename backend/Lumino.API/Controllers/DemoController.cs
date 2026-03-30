@@ -1,6 +1,8 @@
 using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
+using Lumino.Api.Utils;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
@@ -13,11 +15,13 @@ namespace Lumino.Api.Controllers
     {
         private readonly IDemoLessonService _demoLessonService;
         private readonly ILogger<DemoController> _logger;
+        private readonly IWebHostEnvironment _environment;
 
-        public DemoController(IDemoLessonService demoLessonService, ILogger<DemoController> logger)
+        public DemoController(IDemoLessonService demoLessonService, ILogger<DemoController> logger, IWebHostEnvironment environment)
         {
             _demoLessonService = demoLessonService;
             _logger = logger;
+            _environment = environment;
         }
 
         [HttpGet("lessons")]
@@ -48,6 +52,12 @@ namespace Lumino.Api.Controllers
         public IActionResult GetDemoNextPack([FromQuery] int step = 0, [FromQuery] string? languageCode = null, [FromQuery] string? level = null)
         {
             var result = _demoLessonService.GetDemoNextLessonPack(step, languageCode, level);
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";
+
+            foreach (var item in result.Exercises)
+            {
+                item.ImageUrl = MediaUrlResolver.ResolveLessonImageForClient(_environment, baseUrl, item.ImageUrl);
+            }
 
             if (result.Step == 0)
             {
@@ -72,6 +82,13 @@ namespace Lumino.Api.Controllers
         public IActionResult GetDemoExercisesByLesson(int lessonId, [FromQuery] string? languageCode = null, [FromQuery] string? level = null)
         {
             var result = _demoLessonService.GetDemoExercisesByLesson(lessonId, languageCode, level);
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";
+
+            foreach (var item in result)
+            {
+                item.ImageUrl = MediaUrlResolver.ResolveLessonImageForClient(_environment, baseUrl, item.ImageUrl);
+            }
+
             return Ok(result);
         }
 

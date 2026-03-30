@@ -135,6 +135,7 @@ public class PracticeEarnHeartsHttpIntegrationTests : IClassFixture<ApiWebApplic
         using (var doc = JsonDocument.Parse(body1))
         {
             Assert.True(doc.RootElement.GetProperty("isCompleted").GetBoolean());
+            Assert.Equal(1, doc.RootElement.GetProperty("restoredHearts").GetInt32());
         }
 
         using (var scope = _factory.Services.CreateScope())
@@ -147,6 +148,13 @@ public class PracticeEarnHeartsHttpIntegrationTests : IClassFixture<ApiWebApplic
         // second submit (should not award extra heart)
         var response2 = await client.PostAsJsonAsync("/api/lessons/1/mistakes/submit", submit);
         Assert.Equal(HttpStatusCode.OK, response2.StatusCode);
+
+        var body2 = await response2.Content.ReadAsStringAsync();
+        using (var doc = JsonDocument.Parse(body2))
+        {
+            Assert.True(doc.RootElement.GetProperty("isCompleted").GetBoolean());
+            Assert.Equal(0, doc.RootElement.GetProperty("restoredHearts").GetInt32());
+        }
 
         using (var scope = _factory.Services.CreateScope())
         {

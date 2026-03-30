@@ -12,6 +12,8 @@ namespace Lumino.Api.Application.DTOs
 
         public bool IsCompleted { get; set; }
 
+        public int RestoredHearts { get; set; }
+
         public List<int> MistakeExerciseIds { get; set; } = new();
 
         public List<LessonAnswerResultDto> Answers { get; set; } = new();

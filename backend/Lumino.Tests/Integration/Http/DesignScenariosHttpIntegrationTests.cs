@@ -253,7 +253,7 @@ public class DesignScenariosHttpIntegrationTests : IClassFixture<ApiWebApplicati
         using var doc = JsonDocument.Parse(json);
 
         AssertJsonHasProperties(doc.RootElement, "totalPoints", "currentWeek", "previousWeek");
-        Assert.Equal(32, GetInt32PropertyIgnoreCase(doc.RootElement, "totalPoints"));
+        Assert.Equal(160, GetInt32PropertyIgnoreCase(doc.RootElement, "totalPoints"));
         Assert.Equal(7, GetPropertyIgnoreCase(doc.RootElement, "currentWeek").GetArrayLength());
         Assert.Equal(7, GetPropertyIgnoreCase(doc.RootElement, "previousWeek").GetArrayLength());
     }

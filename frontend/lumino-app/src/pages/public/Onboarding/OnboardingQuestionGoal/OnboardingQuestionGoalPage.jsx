@@ -9,6 +9,7 @@ import BgRight from "../../../../assets/backgrounds/bg1-right.webp";
 import ArrowPrev from "../../../../assets/icons/arrow-previous.svg";
 import Bubble from "../../../../assets/onboarding/bubble4.svg";
 import Mascot from "../../../../assets/mascot/mascot5.svg";
+import AnimatedMascotBubble from "../shared/AnimatedMascotBubble.jsx";
 
 import TravelIcon from "../../../../assets/icons/goal/travel.png";
 import TeachingIcon from "../../../../assets/icons/goal/teaching.png";
@@ -79,13 +80,16 @@ export default function OnboardingQuestionGoalPage() {
           <div className={styles.progressFill} />
         </div>
 
-        <img className={styles.mascot} src={Mascot} alt="" />
-        <img className={styles.bubble} src={Bubble} alt="" />
-
-        <p className={styles.bubbleText}>
+        <AnimatedMascotBubble
+          mascotSrc={Mascot}
+          bubbleSrc={Bubble}
+          mascotClassName={styles.mascot}
+          bubbleClassName={styles.bubble}
+          textClassName={styles.bubbleText}
+        >
           <span>Обери свою мету —</span>
           <span>і вперед!</span>
-        </p>
+        </AnimatedMascotBubble>
 
         <h1 className={styles.title}>З якою метою ви вивчаєте англійську?</h1>
 

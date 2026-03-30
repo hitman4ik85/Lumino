@@ -124,6 +124,41 @@ public class VocabularyServiceTests
 
 
     [Fact]
+    public void AddWord_WhenSameUserAddsSameWordWithAnotherTranslation_ShouldMergeTranslationsWithoutDuplicate()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var now = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc);
+        var service = new VocabularyService(dbContext, new FixedDateTimeProvider(now), Options.Create(new LearningSettings()));
+
+        service.AddWord(userId: 1, new AddVocabularyRequest
+        {
+            Word = "run",
+            Translation = "бігти"
+        });
+
+        service.AddWord(userId: 1, new AddVocabularyRequest
+        {
+            Word = "run",
+            Translation = "запускати"
+        });
+
+        Assert.Single(dbContext.UserVocabularies);
+        Assert.Single(dbContext.VocabularyItems);
+
+        var item = dbContext.VocabularyItems.Single();
+        var translations = dbContext.VocabularyItemTranslations
+            .Where(x => x.VocabularyItemId == item.Id)
+            .OrderBy(x => x.Order)
+            .Select(x => x.Translation)
+            .ToList();
+
+        Assert.Equal("run", item.Word);
+        Assert.Equal("бігти", item.Translation);
+        Assert.Equal(new List<string> { "бігти", "запускати" }, translations);
+    }
+
+    [Fact]
     public void AddWord_SameWordWithDifferentPrimaryTranslation_ShouldCreateSeparateUserItem()
     {
         var dbContext = TestDbContextFactory.Create();

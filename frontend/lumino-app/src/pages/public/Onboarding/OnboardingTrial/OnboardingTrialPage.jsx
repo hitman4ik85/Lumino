@@ -9,6 +9,7 @@ import BgRight from "../../../../assets/backgrounds/bg1-right.webp";
 import ArrowPrev from "../../../../assets/icons/arrow-previous.svg";
 import Bubble from "../../../../assets/onboarding/bubble6.svg";
 import Mascot from "../../../../assets/mascot/mascot5.svg";
+import AnimatedMascotBubble from "../shared/AnimatedMascotBubble.jsx";
 
 import BooksIcon from "../../../../assets/icons/goal/baselesson/books.png";
 import SaturnIcon from "../../../../assets/icons/goal/baselesson/saturn.png";
@@ -107,13 +108,16 @@ export default function OnboardingTrialPage() {
           <div className={styles.progressFill} />
         </div>
 
-        <img className={styles.mascot} src={Mascot} alt="" />
-        <img className={styles.bubble} src={Bubble} alt="" />
-
-        <p className={styles.bubbleText}>
+        <AnimatedMascotBubble
+          mascotSrc={Mascot}
+          bubbleSrc={Bubble}
+          mascotClassName={styles.mascot}
+          bubbleClassName={styles.bubble}
+          textClassName={styles.bubbleText}
+        >
           <span>Спробуй базовий урок</span>
           <span>— це лише хвилинка!</span>
-        </p>
+        </AnimatedMascotBubble>
 
         <div className={styles.cards}>
           <button

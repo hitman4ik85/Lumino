@@ -2,6 +2,7 @@ using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Application.Validators;
 using Lumino.Api.Data;
+using Lumino.Api.Domain.Entities;
 using Lumino.Api.Utils;
 using Microsoft.Extensions.Options;
 
@@ -12,16 +13,20 @@ namespace Lumino.Api.Application.Services
         private readonly LuminoDbContext _dbContext;
         private readonly IUpdateProfileRequestValidator _updateProfileRequestValidator;
         private readonly LearningSettings _learningSettings;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public UserService(LuminoDbContext dbContext, IUpdateProfileRequestValidator updateProfileRequestValidator, IOptions<LearningSettings> learningSettings)
+        public UserService(LuminoDbContext dbContext, IUpdateProfileRequestValidator updateProfileRequestValidator, IOptions<LearningSettings> learningSettings, IDateTimeProvider dateTimeProvider)
         {
             _dbContext = dbContext;
             _updateProfileRequestValidator = updateProfileRequestValidator;
             _learningSettings = learningSettings.Value;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         public UserProfileResponse GetCurrentUser(int userId)
         {
+            EnsureTodayCalendarActivity(userId);
+
             var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
 
             if (user == null)
@@ -99,9 +104,29 @@ namespace Lumino.Api.Application.Services
             return GetCurrentUser(userId);
         }
 
+        private void EnsureTodayCalendarActivity(int userId)
+        {
+            var todayKyiv = KyivDateTimeHelper.GetKyivDate(_dateTimeProvider.UtcNow);
+
+            var hasTodayActivity = _dbContext.UserDailyActivities.Any(x => x.UserId == userId && x.DateUtc == todayKyiv);
+
+            if (hasTodayActivity)
+            {
+                return;
+            }
+
+            _dbContext.UserDailyActivities.Add(new UserDailyActivity
+            {
+                UserId = userId,
+                DateUtc = todayKyiv
+            });
+
+            _dbContext.SaveChanges();
+        }
+
         private (int current, int best) GetStreakValues(int userId)
         {
-            var todayUtc = DateTime.UtcNow.Date;
+            var todayKyiv = KyivDateTimeHelper.GetKyivDate(_dateTimeProvider.UtcNow);
 
             var streak = _dbContext.UserStreaks.FirstOrDefault(x => x.UserId == userId);
 
@@ -112,7 +137,7 @@ namespace Lumino.Api.Application.Services
 
             var lastDate = streak.LastActivityDateUtc.Date;
 
-            if (lastDate < todayUtc.AddDays(-1) && streak.CurrentStreak != 0)
+            if (lastDate < todayKyiv.AddDays(-1) && streak.CurrentStreak != 0)
             {
                 streak.CurrentStreak = 0;
                 _dbContext.SaveChanges();

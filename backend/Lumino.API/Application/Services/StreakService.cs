@@ -1,3 +1,4 @@
+using System.Globalization;
 using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
@@ -22,7 +23,7 @@ namespace Lumino.Api.Application.Services
 
         public StreakResponse GetMyStreak(int userId)
         {
-            var todayUtc = _dateTimeProvider.UtcNow.Date;
+            var todayKyiv = KyivDateTimeHelper.GetKyivDate(_dateTimeProvider.UtcNow);
 
             var streak = _dbContext.UserStreaks.FirstOrDefault(x => x.UserId == userId);
 
@@ -38,7 +39,7 @@ namespace Lumino.Api.Application.Services
 
             var lastDate = streak.LastActivityDateUtc.Date;
 
-            if (lastDate < todayUtc.AddDays(-1) && streak.CurrentStreak != 0)
+            if (lastDate < todayKyiv.AddDays(-1) && streak.CurrentStreak != 0)
             {
                 streak.CurrentStreak = 0;
                 _dbContext.SaveChanges();
@@ -64,28 +65,39 @@ namespace Lumino.Api.Application.Services
                 days = 365;
             }
 
-            var nowUtc = _dateTimeProvider.UtcNow.Date;
-            var fromDate = nowUtc.AddDays(-(days - 1));
+            var todayKyiv = KyivDateTimeHelper.GetKyivDate(_dateTimeProvider.UtcNow);
+            var fromDate = todayKyiv.AddDays(-(days - 1));
 
             var activeDates = _dbContext.UserDailyActivities
-                .Where(x => x.UserId == userId && x.DateUtc >= fromDate && x.DateUtc <= nowUtc)
+                .Where(x => x.UserId == userId && x.DateUtc >= fromDate && x.DateUtc <= todayKyiv)
                 .Select(x => x.DateUtc.Date)
                 .ToHashSet();
 
+            var userCreatedAtUtc = _dbContext.Users
+                .Where(x => x.Id == userId)
+                .Select(x => (DateTime?)x.CreatedAt)
+                .FirstOrDefault();
+
+            DateTime? registrationDateKyiv = userCreatedAtUtc.HasValue ? KyivDateTimeHelper.GetKyivDate(userCreatedAtUtc.Value) : null;
+
             var result = new StreakCalendarResponse
             {
-                Year = nowUtc.Year,
-                Month = nowUtc.Month
+                Year = todayKyiv.Year,
+                Month = todayKyiv.Month,
+                RegisteredAtUtc = userCreatedAtUtc,
+                DaysSinceJoined = CalculateDaysSinceJoined(userCreatedAtUtc, todayKyiv),
+                CurrentKyivDateTimeText = GetCurrentKyivDateTimeText()
             };
 
             for (var i = days - 1; i >= 0; i--)
             {
-                var date = nowUtc.AddDays(-i);
+                var date = todayKyiv.AddDays(-i);
 
                 result.Days.Add(new StreakCalendarDayResponse
                 {
                     DateUtc = date,
-                    IsActive = activeDates.Contains(date)
+                    IsActive = activeDates.Contains(date),
+                    IsRegistrationDay = registrationDateKyiv.HasValue && registrationDateKyiv.Value == date
                 });
             }
 
@@ -112,11 +124,21 @@ namespace Lumino.Api.Application.Services
                 .Select(x => x.DateUtc.Date)
                 .ToHashSet();
 
+            var userCreatedAtUtc = _dbContext.Users
+                .Where(x => x.Id == userId)
+                .Select(x => (DateTime?)x.CreatedAt)
+                .FirstOrDefault();
+
+            DateTime? registrationDateKyiv = userCreatedAtUtc.HasValue ? KyivDateTimeHelper.GetKyivDate(userCreatedAtUtc.Value) : null;
+
             var daysInMonth = DateTime.DaysInMonth(year, month);
             var result = new StreakCalendarResponse
             {
                 Year = year,
-                Month = month
+                Month = month,
+                RegisteredAtUtc = userCreatedAtUtc,
+                DaysSinceJoined = CalculateDaysSinceJoined(userCreatedAtUtc, KyivDateTimeHelper.GetKyivDate(_dateTimeProvider.UtcNow)),
+                CurrentKyivDateTimeText = GetCurrentKyivDateTimeText()
             };
 
             for (var day = 1; day <= daysInMonth; day++)
@@ -126,7 +148,8 @@ namespace Lumino.Api.Application.Services
                 result.Days.Add(new StreakCalendarDayResponse
                 {
                     DateUtc = date,
-                    IsActive = activeDates.Contains(date)
+                    IsActive = activeDates.Contains(date),
+                    IsRegistrationDay = registrationDateKyiv.HasValue && registrationDateKyiv.Value == date
                 });
             }
 
@@ -135,16 +158,16 @@ namespace Lumino.Api.Application.Services
 
         public void RegisterLessonActivity(int userId)
         {
-            var todayUtc = _dateTimeProvider.UtcNow.Date;
+            var todayKyiv = KyivDateTimeHelper.GetKyivDate(_dateTimeProvider.UtcNow);
 
-            var activeRow = _dbContext.UserDailyActivities.FirstOrDefault(x => x.UserId == userId && x.DateUtc == todayUtc);
+            var activeRow = _dbContext.UserDailyActivities.FirstOrDefault(x => x.UserId == userId && x.DateUtc == todayKyiv);
 
             if (activeRow == null)
             {
                 _dbContext.UserDailyActivities.Add(new UserDailyActivity
                 {
                     UserId = userId,
-                    DateUtc = todayUtc
+                    DateUtc = todayKyiv
                 });
             }
 
@@ -157,7 +180,7 @@ namespace Lumino.Api.Application.Services
                     UserId = userId,
                     CurrentStreak = 1,
                     BestStreak = 1,
-                    LastActivityDateUtc = todayUtc
+                    LastActivityDateUtc = todayKyiv
                 };
 
                 _dbContext.UserStreaks.Add(streak);
@@ -167,13 +190,13 @@ namespace Lumino.Api.Application.Services
 
             var lastDate = streak.LastActivityDateUtc.Date;
 
-            if (lastDate == todayUtc)
+            if (lastDate == todayKyiv)
             {
                 _dbContext.SaveChanges();
                 return;
             }
 
-            if (lastDate == todayUtc.AddDays(-1))
+            if (lastDate == todayKyiv.AddDays(-1))
             {
                 streak.CurrentStreak += 1;
             }
@@ -187,9 +210,33 @@ namespace Lumino.Api.Application.Services
                 streak.BestStreak = streak.CurrentStreak;
             }
 
-            streak.LastActivityDateUtc = todayUtc;
+            streak.LastActivityDateUtc = todayKyiv;
 
             _dbContext.SaveChanges();
+        }
+
+
+        private string GetCurrentKyivDateTimeText()
+        {
+            var kyivNow = KyivDateTimeHelper.GetKyivNow(_dateTimeProvider.UtcNow);
+            return kyivNow.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        }
+
+        private static int CalculateDaysSinceJoined(DateTime? registeredAtUtc, DateTime todayUtc)
+        {
+            if (!registeredAtUtc.HasValue)
+            {
+                return 0;
+            }
+
+            var registeredDateKyiv = KyivDateTimeHelper.GetKyivDate(registeredAtUtc.Value);
+
+            if (registeredDateKyiv > todayUtc)
+            {
+                return 0;
+            }
+
+            return (todayUtc - registeredDateKyiv).Days + 1;
         }
     }
 }

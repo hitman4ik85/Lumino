@@ -1,4 +1,4 @@
-using Lumino.Api.Application.DTOs;
+﻿using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Application.Services;
 using Lumino.Api.Domain.Entities;
@@ -166,6 +166,93 @@ public class LessonMistakesServiceTests
         Assert.Empty(updated!.MistakeExerciseIds);
         Assert.Equal(2, updated.Answers.Count);
         Assert.True(updated.Answers.First(x => x.ExerciseId == 11).IsCorrect);
+    }
+
+    [Fact]
+    public void SubmitLessonMistakes_WhenExerciseHasLinkedVocabularyTranslations_ShouldAcceptAlternativeTranslation()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        SeedLessonBase(dbContext, lessonId: 1, isUnlocked: true);
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 10,
+            LessonId = 1,
+            Order = 1,
+            Type = ExerciseType.Input,
+            Question = "room",
+            CorrectAnswer = "кімната",
+            Data = "{}"
+        });
+
+        dbContext.VocabularyItems.Add(new VocabularyItem
+        {
+            Id = 100,
+            Word = "room",
+            Translation = "кімната"
+        });
+
+        dbContext.VocabularyItemTranslations.Add(new VocabularyItemTranslation
+        {
+            VocabularyItemId = 100,
+            Translation = "кімната",
+            Order = 0
+        });
+
+        dbContext.VocabularyItemTranslations.Add(new VocabularyItemTranslation
+        {
+            VocabularyItemId = 100,
+            Translation = "номер",
+            Order = 1
+        });
+
+        dbContext.ExerciseVocabularies.Add(new ExerciseVocabulary
+        {
+            ExerciseId = 10,
+            VocabularyItemId = 100
+        });
+
+        var details = new LessonResultDetailsJson
+        {
+            MistakeExerciseIds = new() { 10 },
+            Answers = new()
+            {
+                new LessonAnswerResultDto { ExerciseId = 10, UserAnswer = "WRONG", CorrectAnswer = "кімната", IsCorrect = false }
+            }
+        };
+
+        dbContext.LessonResults.Add(new LessonResult
+        {
+            Id = 1,
+            UserId = 1,
+            LessonId = 1,
+            Score = 0,
+            TotalQuestions = 1,
+            CompletedAt = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc),
+            MistakesJson = JsonSerializer.Serialize(details)
+        });
+
+        dbContext.SaveChanges();
+
+        var service = CreateService(dbContext);
+
+        var response = service.SubmitLessonMistakes(userId: 1, lessonId: 1, new SubmitLessonMistakesRequest
+        {
+            Answers = new()
+            {
+                new SubmitExerciseAnswerRequest
+                {
+                    ExerciseId = 10,
+                    Answer = "номер"
+                }
+            }
+        });
+
+        Assert.True(response.IsCompleted);
+        Assert.Empty(response.MistakeExerciseIds);
+        Assert.Equal(1, response.TotalExercises);
+        Assert.Equal(1, response.CorrectAnswers);
     }
 
     [Fact]
@@ -379,7 +466,7 @@ public class LessonMistakesServiceTests
         var userProgress = dbContext.UserProgresses.FirstOrDefault(x => x.UserId == 1);
         Assert.NotNull(userProgress);
         Assert.Equal(1, userProgress!.CompletedLessons);
-        Assert.Equal(4, userProgress.TotalScore);
+        Assert.Equal(20, userProgress.TotalScore);
     }
 
     [Fact]
@@ -511,6 +598,115 @@ public class LessonMistakesServiceTests
         Assert.Equal(1, achievementService.LastUserId);
         Assert.Equal(4, achievementService.LastLessonScore);
         Assert.Equal(5, achievementService.LastTotalQuestions);
+    }
+
+
+    [Fact]
+    public void SubmitLessonMistakes_WhenLessonWasAlreadyPassed_ShouldStillAddMistakeWordsToReview()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 1,
+            Title = "Course",
+            Description = "Desc",
+            IsPublished = true
+        });
+
+        dbContext.Topics.Add(new Topic
+        {
+            Id = 1,
+            CourseId = 1,
+            Title = "Topic",
+            Order = 1
+        });
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 1,
+            TopicId = 1,
+            Title = "Lesson 1",
+            Theory = "Theory",
+            Order = 1
+        });
+
+        dbContext.Exercises.AddRange(
+            new Exercise { Id = 1, LessonId = 1, Order = 1, Type = ExerciseType.Input, Question = "Q1", CorrectAnswer = "a", Data = "{}" },
+            new Exercise { Id = 2, LessonId = 1, Order = 2, Type = ExerciseType.Input, Question = "Q2", CorrectAnswer = "b", Data = "{}" },
+            new Exercise { Id = 3, LessonId = 1, Order = 3, Type = ExerciseType.Input, Question = "Q3", CorrectAnswer = "c", Data = "{}" },
+            new Exercise { Id = 4, LessonId = 1, Order = 4, Type = ExerciseType.Input, Question = "Q4", CorrectAnswer = "d", Data = "{}" },
+            new Exercise { Id = 5, LessonId = 1, Order = 5, Type = ExerciseType.Input, Question = "Q5", CorrectAnswer = "e", Data = "{}" }
+        );
+
+        dbContext.UserLessonProgresses.Add(new UserLessonProgress
+        {
+            UserId = 1,
+            LessonId = 1,
+            IsUnlocked = true,
+            IsCompleted = true,
+            BestScore = 4
+        });
+
+        dbContext.VocabularyItems.Add(new VocabularyItem
+        {
+            Id = 101,
+            Word = "mistake",
+            Translation = "m",
+            Example = null
+        });
+
+        dbContext.ExerciseVocabularies.Add(new ExerciseVocabulary
+        {
+            ExerciseId = 5,
+            VocabularyItemId = 101
+        });
+
+        var details = new LessonResultDetailsJson
+        {
+            MistakeExerciseIds = new() { 5 },
+            Answers = new()
+            {
+                new LessonAnswerResultDto { ExerciseId = 1, UserAnswer = "a", CorrectAnswer = "a", IsCorrect = true },
+                new LessonAnswerResultDto { ExerciseId = 2, UserAnswer = "b", CorrectAnswer = "b", IsCorrect = true },
+                new LessonAnswerResultDto { ExerciseId = 3, UserAnswer = "c", CorrectAnswer = "c", IsCorrect = true },
+                new LessonAnswerResultDto { ExerciseId = 4, UserAnswer = "d", CorrectAnswer = "d", IsCorrect = true },
+                new LessonAnswerResultDto { ExerciseId = 5, UserAnswer = "WRONG", CorrectAnswer = "e", IsCorrect = false }
+            }
+        };
+
+        dbContext.LessonResults.Add(new LessonResult
+        {
+            Id = 1,
+            UserId = 1,
+            LessonId = 1,
+            Score = 4,
+            TotalQuestions = 5,
+            CompletedAt = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc),
+            MistakesJson = JsonSerializer.Serialize(details)
+        });
+
+        dbContext.SaveChanges();
+
+        var service = CreateService(dbContext, out _);
+
+        service.SubmitLessonMistakes(userId: 1, lessonId: 1, new SubmitLessonMistakesRequest
+        {
+            Answers = new()
+            {
+                new SubmitExerciseAnswerRequest { ExerciseId = 5, Answer = "e" }
+            }
+        });
+
+        var now = new DateTime(2026, 02, 16, 12, 0, 0, DateTimeKind.Utc);
+
+        var mistakeUserWord = dbContext.UserVocabularies
+            .Join(dbContext.VocabularyItems, x => x.VocabularyItemId, x => x.Id, (uv, vi) => new { UserWord = uv, Item = vi })
+            .FirstOrDefault(x => x.UserWord.UserId == 1 && x.Item.Word == "mistake" && x.Item.Translation == "m");
+
+        Assert.NotNull(mistakeUserWord);
+        Assert.NotEqual(101, mistakeUserWord!.UserWord.VocabularyItemId);
+        Assert.Equal(now, mistakeUserWord.UserWord.NextReviewAt);
     }
 
 
@@ -696,6 +892,99 @@ public class LessonMistakesServiceTests
 
         Assert.NotNull(updated);
         Assert.True(updated!.PracticeHeartGranted);
+    }
+
+
+    [Fact]
+    public void SubmitLessonMistakes_WhenScoreImproved_ShouldAwardCrystalsForImprovementOnlyOnce()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        SeedLessonBase(dbContext, lessonId: 1, isUnlocked: true);
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 10,
+            LessonId = 1,
+            Order = 1,
+            Type = ExerciseType.Input,
+            Question = "Translate",
+            CorrectAnswer = "hello",
+            Data = "{}"
+        });
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 11,
+            LessonId = 1,
+            Order = 2,
+            Type = ExerciseType.Input,
+            Question = "Translate",
+            CorrectAnswer = "world",
+            Data = "{}"
+        });
+
+        var lessonProgress = dbContext.UserLessonProgresses.First(x => x.UserId == 1 && x.LessonId == 1);
+        lessonProgress.BestScore = 1;
+
+        var details = new LessonResultDetailsJson
+        {
+            MistakeExerciseIds = new() { 11 },
+            Answers = new()
+            {
+                new LessonAnswerResultDto { ExerciseId = 10, UserAnswer = "hello", CorrectAnswer = "hello", IsCorrect = true },
+                new LessonAnswerResultDto { ExerciseId = 11, UserAnswer = "WRONG", CorrectAnswer = "world", IsCorrect = false }
+            }
+        };
+
+        dbContext.LessonResults.Add(new LessonResult
+        {
+            Id = 1,
+            UserId = 1,
+            LessonId = 1,
+            Score = 1,
+            TotalQuestions = 2,
+            CompletedAt = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc),
+            MistakesJson = JsonSerializer.Serialize(details)
+        });
+
+        dbContext.SaveChanges();
+
+        var service = CreateService(dbContext, out _, out var userEconomyService);
+
+        var response = service.SubmitLessonMistakes(userId: 1, lessonId: 1, new SubmitLessonMistakesRequest
+        {
+            IdempotencyKey = "mistakes-1",
+            Answers = new()
+            {
+                new SubmitExerciseAnswerRequest
+                {
+                    ExerciseId = 11,
+                    Answer = "world"
+                }
+            }
+        });
+
+        Assert.True(response.IsCompleted);
+        Assert.Equal(1, userEconomyService.AwardCrystalsCallsCount);
+        Assert.Equal(5, userEconomyService.LastAwardedCrystalsAmount);
+
+        var secondResponse = service.SubmitLessonMistakes(userId: 1, lessonId: 1, new SubmitLessonMistakesRequest
+        {
+            IdempotencyKey = "mistakes-1",
+            Answers = new()
+            {
+                new SubmitExerciseAnswerRequest
+                {
+                    ExerciseId = 11,
+                    Answer = "world"
+                }
+            }
+        });
+
+        Assert.True(secondResponse.IsCompleted);
+        Assert.Equal(1, userEconomyService.AwardCrystalsCallsCount);
+        Assert.Equal(5, userEconomyService.LastAwardedCrystalsAmount);
     }
 
 

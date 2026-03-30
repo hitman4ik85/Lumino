@@ -8,6 +8,7 @@ using Lumino.Api.Utils;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Lumino.Api.Application.Services
 {
@@ -166,6 +167,11 @@ namespace Lumino.Api.Application.Services
             };
         }
 
+        private static string? NormalizeImageUrl(string? imageUrl)
+        {
+            return MediaUrlResolver.NormalizeLessonImageUrl(imageUrl);
+        }
+
         public List<ExerciseResponse> GetDemoExercisesByLesson(int lessonId, string? languageCode = null, string? level = null)
         {
             EnsureDemoLessonAllowed(lessonId, languageCode, level);
@@ -185,7 +191,8 @@ namespace Lumino.Api.Application.Services
                     Question = x.Question,
                     Data = x.Data,
                     Order = x.Order,
-                    ImageUrl = x.ImageUrl
+                    ImageUrl = NormalizeImageUrl(x.ImageUrl),
+                    CorrectAnswer = x.CorrectAnswer
                 })
                 .ToList();
         }
@@ -690,85 +697,112 @@ namespace Lumino.Api.Application.Services
                 return false;
             }
 
-            List<MatchPair>? correctPairs;
+            List<MatchPair> correctPairs;
             List<MatchPair>? userPairs;
 
             try
             {
-                correctPairs = JsonSerializer.Deserialize<List<MatchPair>>(dataJson);
-                userPairs = JsonSerializer.Deserialize<List<MatchPair>>(userJson);
+                correctPairs = JsonSerializer.Deserialize<List<MatchPair>>(dataJson) ?? new List<MatchPair>();
+                userPairs = ParseMatchPairs(correctPairs, userJson);
             }
             catch
             {
                 return false;
             }
 
-            if (correctPairs == null || userPairs == null)
+            if (userPairs == null)
             {
                 return false;
             }
 
-            if (correctPairs.Count == 0 || userPairs.Count == 0)
+            return IsGroupedMatchCorrect(correctPairs, userPairs);
+        }
+
+        private bool IsIndexedMatchCorrect(List<MatchPair> correctPairs, List<MatchPair> userPairs)
+        {
+            return IsGroupedMatchCorrect(correctPairs, userPairs);
+        }
+
+        private static bool HasIndexedMatchPairs(List<MatchPair> pairs)
+        {
+            return pairs.Any(x => x.LeftIndex.HasValue || x.RightIndex.HasValue);
+        }
+
+        private bool IsGroupedMatchCorrect(List<MatchPair> correctPairs, List<MatchPair> userPairs)
+        {
+            var correctEntries = correctPairs
+                .Select(x => new
+                {
+                    Left = Normalize(x.left),
+                    Right = Normalize(x.right)
+                })
+                .Where(x => string.IsNullOrWhiteSpace(x.Left) == false && string.IsNullOrWhiteSpace(x.Right) == false)
+                .ToList();
+
+            var userEntries = userPairs
+                .Select(x => new
+                {
+                    Left = Normalize(x.left),
+                    Right = Normalize(x.right)
+                })
+                .Where(x => string.IsNullOrWhiteSpace(x.Left) == false && string.IsNullOrWhiteSpace(x.Right) == false)
+                .ToList();
+
+            if (correctEntries.Count == 0 || userEntries.Count == 0)
             {
                 return false;
             }
 
-            var correctMap = new Dictionary<string, string>();
-
-            foreach (var p in correctPairs)
-            {
-                var left = Normalize(p.left);
-                var right = Normalize(p.right);
-
-                if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
-                {
-                    continue;
-                }
-
-                if (!correctMap.ContainsKey(left))
-                {
-                    correctMap[left] = right;
-                }
-            }
-
-            var userMap = new Dictionary<string, string>();
-
-            foreach (var p in userPairs)
-            {
-                var left = Normalize(p.left);
-                var right = Normalize(p.right);
-
-                if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
-                {
-                    continue;
-                }
-
-                if (!userMap.ContainsKey(left))
-                {
-                    userMap[left] = right;
-                }
-            }
-
-            if (correctMap.Count == 0 || userMap.Count == 0)
+            if (correctEntries.Count != correctPairs.Count || userEntries.Count != userPairs.Count)
             {
                 return false;
             }
 
-            if (userMap.Count != correctMap.Count)
+            if (correctEntries.Count != userEntries.Count)
             {
                 return false;
             }
 
-            foreach (var kv in correctMap)
+            var correctCountsByLeft = correctEntries
+                .GroupBy(x => x.Left)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x.GroupBy(y => y.Right).ToDictionary(y => y.Key, y => y.Count()));
+
+            var userCountsByLeft = userEntries
+                .GroupBy(x => x.Left)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x.GroupBy(y => y.Right).ToDictionary(y => y.Key, y => y.Count()));
+
+            if (correctCountsByLeft.Count != userCountsByLeft.Count)
             {
-                if (!userMap.TryGetValue(kv.Key, out var userRight))
+                return false;
+            }
+
+            foreach (var leftGroup in correctCountsByLeft)
+            {
+                if (userCountsByLeft.TryGetValue(leftGroup.Key, out var userRightCounts) == false)
                 {
                     return false;
                 }
 
-                if (userRight != kv.Value)
+                if (leftGroup.Value.Count != userRightCounts.Count)
                 {
                     return false;
+                }
+
+                foreach (var rightGroup in leftGroup.Value)
+                {
+                    if (userRightCounts.TryGetValue(rightGroup.Key, out var userCount) == false)
+                    {
+                        return false;
+                    }
+
+                    if (userCount != rightGroup.Value)
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -777,8 +811,114 @@ namespace Lumino.Api.Application.Services
 
         private class MatchPair
         {
+            public int? LeftIndex { get; set; }
+            public int? RightIndex { get; set; }
             public string left { get; set; } = null!;
             public string right { get; set; } = null!;
+        }
+
+        private List<MatchPair>? ParseMatchPairs(List<MatchPair> correctPairs, string userJson)
+        {
+            if (string.IsNullOrWhiteSpace(userJson))
+            {
+                return null;
+            }
+
+            var trimmed = userJson.Trim();
+
+            if (trimmed.StartsWith("{"))
+            {
+                var map = JsonSerializer.Deserialize<Dictionary<string, string>>(trimmed);
+
+                if (map == null)
+                {
+                    return null;
+                }
+
+                return map.Select(x => new MatchPair { left = x.Key, right = x.Value }).ToList();
+            }
+
+            using var document = JsonDocument.Parse(trimmed);
+
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            var result = new List<MatchPair>();
+
+            foreach (var item in document.RootElement.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                {
+                    return null;
+                }
+
+                var leftIndex = GetMatchIndex(item, "leftIndex");
+                var rightIndex = GetMatchIndex(item, "rightIndex");
+                var left = ReadMatchText(item, "left");
+                var right = ReadMatchText(item, "right");
+
+                if (leftIndex.HasValue && leftIndex.Value >= 0 && leftIndex.Value < correctPairs.Count)
+                {
+                    left = correctPairs[leftIndex.Value].left;
+                }
+
+                if (rightIndex.HasValue && rightIndex.Value >= 0 && rightIndex.Value < correctPairs.Count)
+                {
+                    right = correctPairs[rightIndex.Value].right;
+                }
+
+                result.Add(new MatchPair
+                {
+                    LeftIndex = leftIndex,
+                    RightIndex = rightIndex,
+                    left = left,
+                    right = right
+                });
+            }
+
+            return result;
+        }
+
+        private static int? GetMatchIndex(JsonElement item, string propertyName)
+        {
+            if (item.TryGetProperty(propertyName, out var property) == false)
+            {
+                return null;
+            }
+
+            if (property.ValueKind == JsonValueKind.Number && property.TryGetInt32(out var index))
+            {
+                return index;
+            }
+
+            if (property.ValueKind == JsonValueKind.String && int.TryParse(property.GetString(), out index))
+            {
+                return index;
+            }
+
+            return null;
+        }
+
+        private static string ReadMatchText(JsonElement item, string propertyName)
+        {
+            if (item.TryGetProperty(propertyName, out var property) == false)
+            {
+                return string.Empty;
+            }
+
+            if (property.ValueKind == JsonValueKind.String)
+            {
+                return property.GetString() ?? string.Empty;
+            }
+
+            if (property.ValueKind == JsonValueKind.Null || property.ValueKind == JsonValueKind.Undefined)
+            {
+                return string.Empty;
+            }
+
+            return property.ToString();
         }
 
         private static string Normalize(string value)

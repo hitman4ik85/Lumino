@@ -13,7 +13,7 @@ const DESCRIPTION_BY_CODE = {
   "sys.five_lessons": "За проходження 5 уроків",
   "sys.perfect_lesson": "За урок без жодної помилки",
   "sys.perfect_three_in_row": "За кілька уроків підряд без помилок",
-  "sys.hundred_xp": "За отримання 100 XP",
+  "sys.hundred_xp": "За отримання 500 XP",
   "sys.first_scene": "За проходження першої сцени",
   "sys.first_topic_completed": "За завершення першої теми",
   "sys.five_scenes": "За проходження 5 сцен",
@@ -60,6 +60,8 @@ function resolveAchievementImageUrl(url) {
 
 function normalizeAchievement(item) {
   const code = String(item?.code || "").trim();
+  const earnedAtRaw = String(item?.earnedAt || "").trim();
+  const earnedAtTime = earnedAtRaw ? Date.parse(earnedAtRaw) : NaN;
 
   return {
     id: item?.id || code || 0,
@@ -67,8 +69,24 @@ function normalizeAchievement(item) {
     title: String(item?.title || "").trim(),
     description: String(DESCRIPTION_BY_CODE[code] || item?.description || "").trim(),
     isEarned: Boolean(item?.isEarned),
+    earnedAt: earnedAtRaw,
+    earnedAtTime: Number.isNaN(earnedAtTime) ? 0 : earnedAtTime,
     imageUrl: resolveAchievementImageUrl(String(item?.imageUrl || "").trim()),
   };
+}
+
+function sortAchievements(items) {
+  return [...items].sort((a, b) => {
+    if (a.isEarned !== b.isEarned) {
+      return a.isEarned ? -1 : 1;
+    }
+
+    if (a.isEarned && b.isEarned && a.earnedAtTime !== b.earnedAtTime) {
+      return b.earnedAtTime - a.earnedAtTime;
+    }
+
+    return Number(a.id || 0) - Number(b.id || 0);
+  });
 }
 
 export default function AchievementsContent() {
@@ -96,7 +114,7 @@ export default function AchievementsContent() {
       }
 
       const list = Array.isArray(res.data)
-        ? res.data.map(normalizeAchievement).filter((item) => item.title)
+        ? sortAchievements(res.data.map(normalizeAchievement).filter((item) => item.title))
         : [];
 
       setAchievements(list);
@@ -110,9 +128,10 @@ export default function AchievementsContent() {
   }, [navigate]);
 
   const displayItems = useMemo(() => {
-    const filled = [...achievements].slice(0, PLACEHOLDER_COUNT);
+    const filled = [...achievements];
+    const targetCount = Math.max(PLACEHOLDER_COUNT, filled.length);
 
-    while (filled.length < PLACEHOLDER_COUNT) {
+    while (filled.length < targetCount) {
       filled.push(null);
     }
 
@@ -165,7 +184,7 @@ export default function AchievementsContent() {
                       onError={() => handleImageError(key)}
                     />
                   ) : (
-                    <div className={styles.cardImagePlaceholder} />
+                    <div className={item.isEarned ? styles.cardImagePlaceholderEarned : styles.cardImagePlaceholder} />
                   )}
 
                   {!item.isEarned && <div className={styles.cardLockedOverlay} />}

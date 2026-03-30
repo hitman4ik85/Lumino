@@ -1,5 +1,5 @@
-using System;
-﻿using Lumino.Api.Application.Services;
+﻿using System;
+using Lumino.Api.Application.Services;
 using Microsoft.AspNetCore.Http;
 using Xunit;
 
@@ -10,7 +10,7 @@ public class MediaServiceTests
     [Fact]
     public void Upload_NullFile_ShouldThrow()
     {
-        var service = new MediaService();
+        var service = CreateService();
 
         var ex = Assert.Throws<ArgumentException>(() =>
         {
@@ -23,7 +23,7 @@ public class MediaServiceTests
     [Fact]
     public void Upload_EmptyFile_ShouldThrow()
     {
-        var service = new MediaService();
+        var service = CreateService();
 
         using var ms = new MemoryStream(Array.Empty<byte>());
 
@@ -44,7 +44,7 @@ public class MediaServiceTests
     [Fact]
     public void Upload_TooLarge_ShouldThrow()
     {
-        var service = new MediaService();
+        var service = CreateService();
 
         var bytes = new byte[10 * 1024 * 1024 + 1]; // 10MB + 1
         using var ms = new MemoryStream(bytes);
@@ -66,7 +66,7 @@ public class MediaServiceTests
     [Fact]
     public void Upload_NotAllowedExtension_ShouldThrow()
     {
-        var service = new MediaService();
+        var service = CreateService();
 
         using var ms = new MemoryStream(new byte[] { 1, 2, 3 });
 
@@ -87,12 +87,11 @@ public class MediaServiceTests
     [Fact]
     public void Upload_Valid_ShouldSaveFile_AndReturnUrl()
     {
-        var service = new MediaService();
-
         var originalDir = Directory.GetCurrentDirectory();
 
         var tempRoot = Path.Combine(Path.GetTempPath(), "LuminoMediaTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempRoot);
+        var service = CreateService(tempRoot);
 
         try
         {
@@ -146,12 +145,11 @@ public class MediaServiceTests
     [Fact]
     public void List_WhenUploadsFolderMissing_ShouldReturnEmpty()
     {
-        var service = new MediaService();
-
         var originalDir = Directory.GetCurrentDirectory();
 
         var tempRoot = Path.Combine(Path.GetTempPath(), "LuminoMediaTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempRoot);
+        var service = CreateService(tempRoot);
 
         try
         {
@@ -184,11 +182,10 @@ public class MediaServiceTests
     [Fact]
     public void List_WithQueryAndPaging_ShouldFilterAndPage()
     {
-        var service = new MediaService();
-
         var originalDir = Directory.GetCurrentDirectory();
 
         var tempRoot = Path.Combine(Path.GetTempPath(), "LuminoMediaTests", Guid.NewGuid().ToString("N"));
+        var service = CreateService(tempRoot);
         var uploadsPath = Path.Combine(tempRoot, "wwwroot", "uploads");
         Directory.CreateDirectory(uploadsPath);
 
@@ -229,4 +226,18 @@ public class MediaServiceTests
         }
     }
 
+    private static MediaService CreateService(string? contentRootPath = null)
+    {
+        var root = string.IsNullOrWhiteSpace(contentRootPath)
+            ? Path.GetTempPath()
+            : contentRootPath;
+
+        var environment = new FakeHostEnvironment
+        {
+            ContentRootPath = root,
+            WebRootPath = Path.Combine(root, "wwwroot")
+        };
+
+        return new MediaService(environment);
+    }
 }

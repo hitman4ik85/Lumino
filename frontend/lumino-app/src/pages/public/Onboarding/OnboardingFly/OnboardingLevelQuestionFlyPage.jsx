@@ -9,6 +9,7 @@ import BgRight from "../../../../assets/backgrounds/bg1-right.webp";
 import ArrowPrev from "../../../../assets/icons/arrow-previous.svg";
 import Bubble from "../../../../assets/onboarding/bubble3.svg";
 import Mascot from "../../../../assets/mascot/mascot4.svg";
+import AnimatedMascotBubble from "../shared/AnimatedMascotBubble.jsx";
 
 export default function OnboardingLevelQuestionFlyPage() {
   const navigate = useNavigate();
@@ -45,13 +46,18 @@ export default function OnboardingLevelQuestionFlyPage() {
           <div className={styles.progressFill} />
         </div>
 
-        <img className={styles.bubble} src={Bubble} alt="" />
-        <p className={styles.bubbleText}>
+        <AnimatedMascotBubble
+          mascotSrc={Mascot}
+          bubbleSrc={Bubble}
+          mascotClassName={styles.mascot}
+          bubbleClassName={styles.bubble}
+          textClassName={styles.bubbleText}
+          bubbleFirst
+          mascotAnimation="ufo"
+        >
           <span>Полетіли тренувати</span>
           <span>мовлення?</span>
-        </p>
-
-        <img className={styles.mascot} src={Mascot} alt="" />
+        </AnimatedMascotBubble>
 
         <button className={styles.continueBtn} type="button" onClick={handleContinue}>
           ПРОДОВЖИТИ

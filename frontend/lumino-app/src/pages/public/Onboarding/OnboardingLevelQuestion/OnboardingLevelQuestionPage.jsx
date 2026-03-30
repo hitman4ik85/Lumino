@@ -11,6 +11,7 @@ import GlassLoading from "../../../../components/common/GlassLoading/GlassLoadin
 import ArrowPrev from "../../../../assets/icons/arrow-previous.svg";
 import Bubble from "../../../../assets/onboarding/bubble2.svg";
 import Mascot from "../../../../assets/mascot/mascot3.svg";
+import AnimatedMascotBubble from "../shared/AnimatedMascotBubble.jsx";
 
 import A1Icon from "../../../../assets/icons/levels/a1.png";
 import A2Icon from "../../../../assets/icons/levels/a2.png";
@@ -110,10 +111,15 @@ const levels = useMemo(
           <div className={styles.progressFill} />
         </div>
 
-        <img className={styles.mascot} src={Mascot} alt="" />
-
-        <img className={styles.bubble} src={Bubble} alt="" />
-        <p className={styles.bubbleText}>Це займе лише секунду!</p>
+        <AnimatedMascotBubble
+          mascotSrc={Mascot}
+          bubbleSrc={Bubble}
+          mascotClassName={styles.mascot}
+          bubbleClassName={styles.bubble}
+          textClassName={styles.bubbleText}
+        >
+          Це займе лише секунду!
+        </AnimatedMascotBubble>
 
         <h1 className={styles.title}>Наскільки добре ви знаєте англійську?</h1>
 

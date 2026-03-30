@@ -1,10 +1,21 @@
-﻿using Lumino.Api.Domain.Entities;
+using Lumino.Api.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Lumino.Api.Data
 {
     public class LuminoDbContext : DbContext
     {
+        private static readonly ValueConverter<DateTime, DateTime> UtcDateTimeConverter = new(
+            value => NormalizeUtcDateTime(value),
+            value => NormalizeUtcDateTime(value)
+        );
+
+        private static readonly ValueConverter<DateTime?, DateTime?> NullableUtcDateTimeConverter = new(
+            value => value.HasValue ? NormalizeUtcDateTime(value.Value) : value,
+            value => value.HasValue ? NormalizeUtcDateTime(value.Value) : value
+        );
+
         public LuminoDbContext(DbContextOptions<LuminoDbContext> options)
             : base(options)
         {
@@ -429,6 +440,42 @@ namespace Lumino.Api.Data
 
                 entity.Property(x => x.LastActivityDateUtc).IsRequired();
             });
+
+            ApplyUtcDateTimeConverters(modelBuilder);
+        }
+
+        private static void ApplyUtcDateTimeConverters(ModelBuilder modelBuilder)
+        {
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                foreach (var property in entityType.GetProperties())
+                {
+                    if (property.ClrType == typeof(DateTime))
+                    {
+                        property.SetValueConverter(UtcDateTimeConverter);
+                    }
+
+                    if (property.ClrType == typeof(DateTime?))
+                    {
+                        property.SetValueConverter(NullableUtcDateTimeConverter);
+                    }
+                }
+            }
+        }
+
+        private static DateTime NormalizeUtcDateTime(DateTime value)
+        {
+            if (value.Kind == DateTimeKind.Utc)
+            {
+                return value;
+            }
+
+            if (value.Kind == DateTimeKind.Local)
+            {
+                return value.ToUniversalTime();
+            }
+
+            return DateTime.SpecifyKind(value, DateTimeKind.Utc);
         }
     }
 }

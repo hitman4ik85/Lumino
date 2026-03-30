@@ -64,4 +64,70 @@ public class AchievementQueryServiceTests
         Assert.Null(result[1].EarnedAt);
         Assert.Null(result[1].ImageUrl);
     }
+
+
+    [Fact]
+    public void GetUserAchievements_ShouldReturnDefaultImageUrl_ForSystemAchievement_WhenImageIsMissing()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Achievements.Add(new Achievement
+        {
+            Id = 1,
+            Code = "sys.first_day_learning",
+            Title = "First Study Day",
+            Description = "Complete your first study day"
+        });
+
+        dbContext.UserAchievements.Add(new UserAchievement
+        {
+            Id = 1,
+            UserId = 5,
+            AchievementId = 1,
+            EarnedAt = new DateTime(2026, 2, 10, 10, 0, 0, DateTimeKind.Utc)
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new AchievementQueryService(dbContext);
+
+        var result = service.GetUserAchievements(5);
+
+        Assert.Single(result);
+        Assert.Equal("/uploads/achievements/first-day-learning.png", result[0].ImageUrl);
+        Assert.True(result[0].IsEarned);
+    }
+
+    [Fact]
+    public void GetUserAchievements_ShouldReturnDefaultImageUrl_ForFirstLessonAchievement_WhenImageIsMissing()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Achievements.Add(new Achievement
+        {
+            Id = 1,
+            Code = "sys.first_lesson",
+            Title = "First Lesson",
+            Description = "Complete your first lesson"
+        });
+
+        dbContext.UserAchievements.Add(new UserAchievement
+        {
+            Id = 1,
+            UserId = 5,
+            AchievementId = 1,
+            EarnedAt = new DateTime(2026, 2, 10, 10, 0, 0, DateTimeKind.Utc)
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new AchievementQueryService(dbContext);
+
+        var result = service.GetUserAchievements(5);
+
+        Assert.Single(result);
+        Assert.Equal("/uploads/achievements/first-lesson.png", result[0].ImageUrl);
+        Assert.True(result[0].IsEarned);
+    }
+
 }

@@ -90,6 +90,15 @@
   background:var(--achievements-placeholder);
 }
 
+.cardImagePlaceholderEarned{
+  display:block;
+  width:170px;
+  height:202px;
+  border-radius:20px;
+  overflow:hidden;
+  background:linear-gradient(180deg, #99B5D6 0%, #D3E1F0 100%);
+}
+
 .cardLockedOverlay{
   position:absolute;
   inset:0;
@@ -150,3 +159,23 @@
   text-align:center;
   color:var(--achievements-blue-500);
 }
+
+/* dark theme visibility tuning */
+:global(body[data-lumino-theme="dark"]) .cardTitle,
+:global(body[data-lumino-theme="dark"]) .cardTitleLocked{
+  color:#3E5A7C;
+}
+
+:global(body[data-lumino-theme="dark"]) .cardDescription,
+:global(body[data-lumino-theme="dark"]) .cardDescriptionLocked,
+:global(body[data-lumino-theme="dark"]) .footerNote{
+  color:#587089;
+}
+
+:global(body[data-lumino-theme="dark"]) .cardImage,
+:global(body[data-lumino-theme="dark"]) .cardImagePlaceholderEarned{
+  filter:none !important;
+  opacity:1 !important;
+  mix-blend-mode:normal;
+}
+

@@ -56,7 +56,7 @@ namespace Lumino.Api.Application.Services
             }
 
             var nowUtc = _dateTimeProvider.UtcNow;
-
+            var todayKyiv = KyivDateTimeHelper.GetKyivDate(nowUtc);
 
             int totalVocabulary = _dbContext.UserVocabularies
                 .Count(x => x.UserId == userId);
@@ -70,7 +70,6 @@ namespace Lumino.Api.Application.Services
                 .Select(x => (DateTime?)x.NextReviewAt)
                 .FirstOrDefault();
 
-
             var streakRow = _dbContext.UserStreaks
                 .FirstOrDefault(x => x.UserId == userId);
 
@@ -79,10 +78,9 @@ namespace Lumino.Api.Application.Services
 
             if (streakRow != null)
             {
-                var todayUtc = nowUtc.Date;
                 var lastDate = streakRow.LastActivityDateUtc.Date;
 
-                if (lastDate < todayUtc.AddDays(-1) && streakRow.CurrentStreak != 0)
+                if (lastDate < todayKyiv.AddDays(-1) && streakRow.CurrentStreak != 0)
                 {
                     streakRow.CurrentStreak = 0;
                     _dbContext.SaveChanges();
@@ -152,18 +150,21 @@ namespace Lumino.Api.Application.Services
 
         private List<DailyScoreResponse> BuildWeeklyScores(int userId, DateTime nowUtc)
         {
-            var todayUtc = nowUtc.Date;
-            var startUtc = todayUtc.AddDays(-6);
-            var endUtc = todayUtc.AddDays(1);
+            var todayKyiv = KyivDateTimeHelper.GetKyivDate(nowUtc);
+            var startKyiv = todayKyiv.AddDays(-6);
+            var endKyivExclusive = todayKyiv.AddDays(1);
+            var (startUtc, endUtc) = KyivDateTimeHelper.GetUtcRangeForKyivDateRange(startKyiv, endKyivExclusive);
 
             var lessonScores = _dbContext.LessonResults
                 .Where(x => x.UserId == userId && x.CompletedAt >= startUtc && x.CompletedAt < endUtc)
-                .Select(x => new { Date = x.CompletedAt.Date, x.Score })
+                .AsEnumerable()
+                .Select(x => new { Date = KyivDateTimeHelper.GetKyivDate(x.CompletedAt), Points = GetLessonPoints(x.Score) })
                 .ToList();
 
             var sceneScores = _dbContext.SceneAttempts
                 .Where(x => x.UserId == userId && x.IsCompleted && x.CompletedAt >= startUtc && x.CompletedAt < endUtc)
-                .Select(x => new { Date = x.CompletedAt.Date, x.Score })
+                .AsEnumerable()
+                .Select(x => new { Date = KyivDateTimeHelper.GetKyivDate(x.CompletedAt), Points = _learningSettings.SceneCompletionScore })
                 .ToList();
 
             var all = lessonScores
@@ -172,13 +173,13 @@ namespace Lumino.Api.Application.Services
 
             var byDate = all
                 .GroupBy(x => x.Date)
-                .ToDictionary(x => x.Key, x => x.Sum(v => v.Score));
+                .ToDictionary(x => x.Key, x => x.Sum(v => v.Points));
 
             var result = new List<DailyScoreResponse>();
 
             for (int i = 0; i < 7; i++)
             {
-                var date = startUtc.AddDays(i);
+                var date = startKyiv.AddDays(i);
                 var score = byDate.TryGetValue(date, out var s) ? s : 0;
 
                 result.Add(new DailyScoreResponse
@@ -191,20 +192,19 @@ namespace Lumino.Api.Application.Services
             return result;
         }
 
-
         public DailyGoalResponse GetMyDailyGoal(int userId)
         {
             var nowUtc = _dateTimeProvider.UtcNow;
-            var todayUtc = nowUtc.Date;
-            var tomorrowUtc = todayUtc.AddDays(1);
+            var todayKyiv = KyivDateTimeHelper.GetKyivDate(nowUtc);
+            var (todayStartUtc, tomorrowStartUtc) = KyivDateTimeHelper.GetUtcRangeForKyivDate(todayKyiv);
 
             int passingScorePercent = LessonPassingRules.NormalizePassingPercent(_learningSettings.PassingScorePercent);
 
             var todayPassedLessons = _dbContext.LessonResults
                 .Where(x =>
                     x.UserId == userId &&
-                    x.CompletedAt >= todayUtc &&
-                    x.CompletedAt < tomorrowUtc &&
+                    x.CompletedAt >= todayStartUtc &&
+                    x.CompletedAt < tomorrowStartUtc &&
                     x.TotalQuestions > 0 &&
                     x.Score * 100 >= x.TotalQuestions * passingScorePercent
                 )
@@ -214,12 +214,12 @@ namespace Lumino.Api.Application.Services
                 .Where(x =>
                     x.UserId == userId &&
                     x.IsCompleted &&
-                    x.CompletedAt >= todayUtc &&
-                    x.CompletedAt < tomorrowUtc
+                    x.CompletedAt >= todayStartUtc &&
+                    x.CompletedAt < tomorrowStartUtc
                 )
                 .ToList();
 
-            int todayScore = todayPassedLessons.Sum(x => x.Score) + todayCompletedScenes.Sum(x => x.Score);
+            int todayScore = todayPassedLessons.Sum(x => GetLessonPoints(x.Score)) + todayCompletedScenes.Select(x => x.SceneId).Distinct().Count() * _learningSettings.SceneCompletionScore;
 
             int targetScore = _learningSettings.DailyGoalScoreTarget;
 
@@ -237,7 +237,7 @@ namespace Lumino.Api.Application.Services
 
             return new DailyGoalResponse
             {
-                DateUtc = todayUtc,
+                DateUtc = todayKyiv,
                 TargetScore = targetScore,
                 TodayScore = todayScore,
                 RemainingScore = remaining,
@@ -255,13 +255,13 @@ namespace Lumino.Api.Application.Services
             }
 
             var dates = studyCompletedAtUtc
-                .Select(x => x.Date)
+                .Select(KyivDateTimeHelper.GetKyivDate)
                 .Distinct()
                 .OrderBy(x => x)
                 .ToList();
 
             var lastDate = dates[^1];
-            var today = nowUtc.Date;
+            var today = KyivDateTimeHelper.GetKyivDate(nowUtc);
 
             if (lastDate < today.AddDays(-1))
             {
@@ -284,6 +284,23 @@ namespace Lumino.Api.Application.Services
             }
 
             return (streak, lastDate);
+        }
+
+        private int GetLessonPoints(int correctAnswers)
+        {
+            var lessonCorrectAnswerScore = _learningSettings.LessonCorrectAnswerScore;
+
+            if (lessonCorrectAnswerScore < 1)
+            {
+                lessonCorrectAnswerScore = 1;
+            }
+
+            if (correctAnswers <= 0)
+            {
+                return 0;
+            }
+
+            return correctAnswers * lessonCorrectAnswerScore;
         }
     }
 }

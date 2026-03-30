@@ -7,9 +7,12 @@ namespace Lumino.Api.Utils
         public int PassingScorePercent { get; set; } = 80;
 
         // щоденна ціль (як у Duolingo): скільки "очок" (правильних відповідей) треба набрати за день.
-        public int DailyGoalScoreTarget { get; set; } = 20;
+        public int DailyGoalScoreTarget { get; set; } = 100;
 
-        public int SceneCompletionScore { get; set; } = 5;
+        public int SceneCompletionScore { get; set; } = 15;
+
+        // Скільки балів у TotalScore / daily goal дає 1 правильна вправа уроку.
+        public int LessonCorrectAnswerScore { get; set; } = 5;
 
         // поріг проходження сцени у відсотках (як у Duolingo). 100 = без помилок.
         public int ScenePassingPercent { get; set; } = 100;
@@ -36,15 +39,16 @@ namespace Lumino.Api.Utils
         public int HeartsCostPerMistake { get; set; } = 1;
 
         // Скільки кристалів коштує відновити 1 сердечко.
-        public int CrystalCostPerHeart { get; set; } = 10;
+        public int CrystalCostPerHeart { get; set; } = 20;
 
         // Автовідновлення: через скільки хвилин відновлюється 1 сердечко.
         public int HeartRegenMinutes { get; set; } = 30;
 
-        // Нагорода кристалами за перше проходження уроку (passed).
-        public int CrystalsRewardPerPassedLesson { get; set; } = 1;
+        // Нагорода кристалами за урок рахується так само, як бали за правильні вправи.
+        // Значення лишаємо для backward-compatible конфігів, але для уроку використовується розрахунок від correct answers.
+        public int CrystalsRewardPerPassedLesson { get; set; } = 5;
 
         // Нагорода кристалами за перше проходження сцени (completed).
-        public int CrystalsRewardPerCompletedScene { get; set; } = 1;
+        public int CrystalsRewardPerCompletedScene { get; set; } = 15;
     }
 }

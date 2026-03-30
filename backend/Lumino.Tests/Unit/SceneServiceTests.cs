@@ -1,4 +1,4 @@
-using Lumino.Api.Application.DTOs;
+﻿using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Application.Services;
 using Lumino.Api.Data;
@@ -63,7 +63,7 @@ public class SceneServiceTests
 
         var settings = Options.Create(new LearningSettings
         {
-            SceneCompletionScore = 5,
+            SceneCompletionScore = 15,
             SceneUnlockEveryLessons = 1
         });
 
@@ -83,8 +83,8 @@ public class SceneServiceTests
         Assert.NotNull(progress);
 
         // lessonsScore = Max(2,3)=3
-        // scenesScore = 1 * 5 = 5
-        Assert.Equal(8, progress!.TotalScore);
+        // scenesScore = 1 * 15 = 15
+        Assert.Equal(30, progress!.TotalScore);
         Assert.Equal(0, progress.CompletedLessons);
         Assert.Equal(now, progress.LastUpdatedAt);
 
@@ -551,11 +551,13 @@ public class SceneServiceTests
 
         var achievementService = new CountingAchievementService();
 
+        var fakeUserEconomyService = new FakeUserEconomyService();
+
         var service = new SceneService(
             dbContext,
             dateTimeProvider,
             achievementService,
-            new FakeUserEconomyService(),
+            fakeUserEconomyService,
             Options.Create(new LearningSettings { PassingScorePercent = 80, SceneUnlockEveryLessons = 1, SceneCompletionScore = 5 })
         );
 
@@ -631,12 +633,13 @@ public class SceneServiceTests
         var dateTimeProvider = new FixedDateTimeProvider(now);
 
         var achievementService = new CountingAchievementService();
+        var fakeUserEconomyService = new FakeUserEconomyService();
 
         var service = new SceneService(
             dbContext,
             dateTimeProvider,
             achievementService,
-            new FakeUserEconomyService(),
+            fakeUserEconomyService,
             Options.Create(new LearningSettings { PassingScorePercent = 80, SceneUnlockEveryLessons = 1, SceneCompletionScore = 5 })
         );
 
@@ -722,12 +725,13 @@ public class SceneServiceTests
         var dateTimeProvider = new FixedDateTimeProvider(now);
 
         var achievementService = new CountingAchievementService();
+        var fakeUserEconomyService = new FakeUserEconomyService();
 
         var service = new SceneService(
             dbContext,
             dateTimeProvider,
             achievementService,
-            new FakeUserEconomyService(),
+            fakeUserEconomyService,
             Options.Create(new LearningSettings { PassingScorePercent = 80, SceneUnlockEveryLessons = 1, SceneCompletionScore = 5 })
         );
 
@@ -814,12 +818,13 @@ public class SceneServiceTests
         var dateTimeProvider = new FixedDateTimeProvider(now);
 
         var achievementService = new CountingAchievementService();
+        var fakeUserEconomyService = new FakeUserEconomyService();
 
         var service = new SceneService(
             dbContext,
             dateTimeProvider,
             achievementService,
-            new FakeUserEconomyService(),
+            fakeUserEconomyService,
             Options.Create(new LearningSettings { PassingScorePercent = 80, SceneUnlockEveryLessons = 1, SceneCompletionScore = 5 })
         );
 
@@ -857,6 +862,8 @@ public class SceneServiceTests
         Assert.Equal(now, attempt.CompletedAt);
         Assert.False(string.IsNullOrWhiteSpace(attempt.DetailsJson));
 
+        Assert.Equal(1, fakeUserEconomyService.ConsumeHeartsForMistakesCallsCount);
+        Assert.Equal(1, fakeUserEconomyService.LastConsumedMistakesCount);
         Assert.Equal(0, achievementService.SceneChecksCount);
     }
 
@@ -1194,12 +1201,13 @@ public class SceneServiceTests
         var dateTimeProvider = new FixedDateTimeProvider(now);
 
         var achievementService = new CountingAchievementService();
+        var fakeUserEconomyService = new FakeUserEconomyService();
 
         var service = new SceneService(
             dbContext,
             dateTimeProvider,
             achievementService,
-            new FakeUserEconomyService(),
+            fakeUserEconomyService,
             Options.Create(new LearningSettings { PassingScorePercent = 80, SceneUnlockEveryLessons = 1, SceneCompletionScore = 5 })
         );
 
@@ -1230,6 +1238,8 @@ public class SceneServiceTests
         Assert.Equal(1, attempt.TotalQuestions);
         Assert.False(string.IsNullOrWhiteSpace(attempt.DetailsJson));
 
+        Assert.Equal(1, fakeUserEconomyService.ConsumeHeartsForMistakesCallsCount);
+        Assert.Equal(1, fakeUserEconomyService.LastConsumedMistakesCount);
         Assert.Equal(0, achievementService.SceneChecksCount);
     }
 

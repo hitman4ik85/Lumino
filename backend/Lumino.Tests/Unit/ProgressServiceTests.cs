@@ -280,19 +280,21 @@ public class ProgressServiceTests
             Options.Create(new LearningSettings
             {
                 PassingScorePercent = 80,
-                DailyGoalScoreTarget = 12
+                DailyGoalScoreTarget = 100,
+                LessonCorrectAnswerScore = 5,
+                SceneCompletionScore = 15
             })
         );
 
         var result = service.GetMyDailyGoal(1);
 
         Assert.Equal(new DateTime(2026, 2, 9, 0, 0, 0, DateTimeKind.Utc), result.DateUtc);
-        Assert.Equal(12, result.TargetScore);
+        Assert.Equal(100, result.TargetScore);
 
         // Only passed lessons + completed scenes today:
-        // L1 passed (6) + Scene1 completed (5) = 11
-        Assert.Equal(11, result.TodayScore);
-        Assert.Equal(1, result.RemainingScore);
+        // L1 passed (6 * 5 = 30) + Scene1 completed (15) = 45
+        Assert.Equal(45, result.TodayScore);
+        Assert.Equal(55, result.RemainingScore);
         Assert.False(result.IsGoalMet);
 
         Assert.Equal(1, result.TodayPassedLessons);

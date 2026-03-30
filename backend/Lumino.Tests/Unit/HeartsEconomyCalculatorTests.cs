@@ -24,8 +24,8 @@ public class HeartsEconomyCalculatorTests
     [Fact]
     public void GetCrystalCostPerHeart_ShouldFallbackToDefault_WhenSettingsIsNullOrInvalid()
     {
-        Assert.Equal(10, HeartsEconomyCalculator.GetCrystalCostPerHeart(null!));
-        Assert.Equal(10, HeartsEconomyCalculator.GetCrystalCostPerHeart(new LearningSettings { CrystalCostPerHeart = 0 }));
+        Assert.Equal(20, HeartsEconomyCalculator.GetCrystalCostPerHeart(null!));
+        Assert.Equal(20, HeartsEconomyCalculator.GetCrystalCostPerHeart(new LearningSettings { CrystalCostPerHeart = 0 }));
         Assert.Equal(15, HeartsEconomyCalculator.GetCrystalCostPerHeart(new LearningSettings { CrystalCostPerHeart = 15 }));
     }
 

@@ -1,5 +1,6 @@
 using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
@@ -11,6 +12,7 @@ namespace Lumino.Api.Application.Services
     public class MediaService : IMediaService
     {
         private const long MaxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
+        private readonly IWebHostEnvironment _environment;
 
         private static readonly string[] AllowedExtensions = new[]
         {
@@ -19,6 +21,11 @@ namespace Lumino.Api.Application.Services
             ".glb", ".gltf",
             ".json"
         };
+
+        public MediaService(IWebHostEnvironment environment)
+        {
+            _environment = environment;
+        }
 
         public UploadMediaResponse Upload(IFormFile file, string baseUrl, string? folder = null)
         {
@@ -44,8 +51,7 @@ namespace Lumino.Api.Application.Services
                 throw new ArgumentException("File format is not allowed");
             }
 
-            var root = Directory.GetCurrentDirectory();
-            var uploadsPath = BuildUploadsPath(root, folder);
+            var uploadsPath = BuildUploadsPath(folder);
 
             if (!Directory.Exists(uploadsPath))
             {
@@ -75,24 +81,27 @@ namespace Lumino.Api.Application.Services
 
         public List<MediaFileResponse> List(string baseUrl, string? query = null, int skip = 0, int take = 100)
         {
-            var root = Directory.GetCurrentDirectory();
-            var uploadsPath = Path.Combine(root, "wwwroot", "uploads");
+            var uploadsPath = Path.Combine(ResolveWebRootPath(), "uploads");
 
             if (!Directory.Exists(uploadsPath))
             {
                 return new List<MediaFileResponse>();
             }
 
-            IEnumerable<FileInfo> filesQuery = Directory.GetFiles(uploadsPath)
-                .Select(path => new FileInfo(path))
-                .OrderByDescending(x => x.LastWriteTimeUtc);
+            IEnumerable<string> filePaths = Directory.GetFiles(uploadsPath, "*", SearchOption.AllDirectories);
 
             if (!string.IsNullOrWhiteSpace(query))
             {
                 var q = query.Trim();
 
-                filesQuery = filesQuery
-                    .Where(x => x.Name.Contains(q, StringComparison.OrdinalIgnoreCase));
+                filePaths = filePaths
+                    .Where(path =>
+                    {
+                        var relativePath = Path.GetRelativePath(uploadsPath, path)
+                            .Replace('\\', '/');
+
+                        return relativePath.Contains(q, StringComparison.OrdinalIgnoreCase);
+                    });
             }
 
             if (skip < 0)
@@ -105,25 +114,33 @@ namespace Lumino.Api.Application.Services
                 take = 100;
             }
 
-            var files = filesQuery
+            var files = filePaths
+                .Select(path => new FileInfo(path))
+                .OrderByDescending(x => x.LastWriteTimeUtc)
                 .Skip(skip)
                 .Take(take)
-                .Select(x => new MediaFileResponse
+                .Select(x =>
                 {
-                    FileName = x.Name,
-                    Url = $"{baseUrl}/uploads/{x.Name}",
-                    SizeBytes = x.Length,
-                    LastModifiedUtc = x.LastWriteTimeUtc,
-                    Extension = x.Extension
+                    var relativePath = Path.GetRelativePath(uploadsPath, x.FullName)
+                        .Replace('\\', '/');
+
+                    return new MediaFileResponse
+                    {
+                        FileName = relativePath,
+                        Url = $"{baseUrl}/uploads/{relativePath}",
+                        SizeBytes = x.Length,
+                        LastModifiedUtc = x.LastWriteTimeUtc,
+                        Extension = x.Extension
+                    };
                 })
                 .ToList();
 
             return files;
         }
 
-        private static string BuildUploadsPath(string root, string? folder)
+        private string BuildUploadsPath(string? folder)
         {
-            var uploadsRoot = Path.Combine(root, "wwwroot", "uploads");
+            var uploadsRoot = Path.Combine(ResolveWebRootPath(), "uploads");
             var relativeFolder = BuildRelativeFolder(folder);
 
             if (string.IsNullOrWhiteSpace(relativeFolder))
@@ -135,6 +152,21 @@ namespace Lumino.Api.Application.Services
                 .Split('/', StringSplitOptions.RemoveEmptyEntries);
 
             return parts.Aggregate(uploadsRoot, Path.Combine);
+        }
+
+        private string ResolveWebRootPath()
+        {
+            if (!string.IsNullOrWhiteSpace(_environment.WebRootPath))
+            {
+                return _environment.WebRootPath;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_environment.ContentRootPath))
+            {
+                return Path.Combine(_environment.ContentRootPath, "wwwroot");
+            }
+
+            return Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
         }
 
         private static string BuildRelativeFolder(string? folder)

@@ -368,4 +368,130 @@ public class ExerciseServiceTests
         Assert.Single(result);
         Assert.Equal("/uploads/cat.png", result[0].ImageUrl);
     }
+
+    [Fact]
+    public void GetExercisesByLesson_ShouldNormalizeImageUrl_WhenStoredAsFileName()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 1,
+            Title = "Course",
+            Description = "Desc",
+            IsPublished = true
+        });
+
+        dbContext.Topics.Add(new Topic
+        {
+            Id = 1,
+            CourseId = 1,
+            Title = "Topic",
+            Order = 1
+        });
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 1,
+            TopicId = 1,
+            Title = "Lesson",
+            Theory = "Theory",
+            Order = 1
+        });
+
+        dbContext.UserLessonProgresses.Add(new UserLessonProgress
+        {
+            UserId = 10,
+            LessonId = 1,
+            IsUnlocked = true,
+            IsCompleted = false,
+            BestScore = 0,
+            LastAttemptAt = DateTime.UtcNow
+        });
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 1,
+            LessonId = 1,
+            Type = ExerciseType.MultipleChoice,
+            Question = "червоний",
+            Data = "[\"red\",\"blue\"]",
+            CorrectAnswer = "red",
+            Order = 1,
+            ImageUrl = "red.png"
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new ExerciseService(dbContext, new FakeUserEconomyService());
+
+        var result = service.GetExercisesByLesson(10, 1);
+
+        Assert.Single(result);
+        Assert.Equal("/uploads/lessons/red.png", result[0].ImageUrl);
+    }
+
+
+    [Fact]
+    public void GetExercisesByLesson_ShouldNormalizeImageUrl_WhenStoredAsFullPhysicalPath()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 1,
+            Title = "Course",
+            Description = "Desc",
+            IsPublished = true
+        });
+
+        dbContext.Topics.Add(new Topic
+        {
+            Id = 1,
+            CourseId = 1,
+            Title = "Topic",
+            Order = 1
+        });
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 1,
+            TopicId = 1,
+            Title = "Lesson",
+            Theory = "Theory",
+            Order = 1
+        });
+
+        dbContext.UserLessonProgresses.Add(new UserLessonProgress
+        {
+            UserId = 10,
+            LessonId = 1,
+            IsUnlocked = true,
+            IsCompleted = false,
+            BestScore = 0,
+            LastAttemptAt = DateTime.UtcNow
+        });
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 1,
+            LessonId = 1,
+            Type = ExerciseType.MultipleChoice,
+            Question = "червоний",
+            Data = "[\"red\",\"blue\"]",
+            CorrectAnswer = "red",
+            Order = 1,
+            ImageUrl = "backend/Lumino.API/wwwroot/uploads/lessons/red.png"
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new ExerciseService(dbContext, new FakeUserEconomyService());
+
+        var result = service.GetExercisesByLesson(10, 1);
+
+        Assert.Single(result);
+        Assert.Equal("/uploads/lessons/red.png", result[0].ImageUrl);
+    }
+
 }

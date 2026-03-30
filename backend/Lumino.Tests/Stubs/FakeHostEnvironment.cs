@@ -1,9 +1,10 @@
-﻿using Microsoft.Extensions.FileProviders;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 
 namespace Lumino.Tests;
 
-public class FakeHostEnvironment : IHostEnvironment
+public class FakeHostEnvironment : IWebHostEnvironment
 {
     public FakeHostEnvironment()
     {
@@ -21,4 +22,8 @@ public class FakeHostEnvironment : IHostEnvironment
     public string ContentRootPath { get; set; } = string.Empty;
 
     public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+
+    public string WebRootPath { get; set; } = string.Empty;
+
+    public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
 }

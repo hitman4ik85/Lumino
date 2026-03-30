@@ -8,6 +8,7 @@ import BgRight from "../../../../assets/backgrounds/bg-right.webp";
 
 import Bubble from "../../../../assets/onboarding/bubble1.svg";
 import Mascot from "../../../../assets/mascot/mascot2.svg";
+import AnimatedMascotBubble from "../shared/AnimatedMascotBubble.jsx";
 
 export default function OnboardingLevelPage() {
   const navigate = useNavigate();
@@ -26,14 +27,18 @@ export default function OnboardingLevelPage() {
         <img className={styles.bgLeft} src={BgLeft} alt="" />
         <img className={styles.bgRight} src={BgRight} alt="" />
 
-        <img className={styles.bubble} src={Bubble} alt="" />
-        <p className={styles.bubbleText}>
+        <AnimatedMascotBubble
+          mascotSrc={Mascot}
+          bubbleSrc={Bubble}
+          mascotClassName={styles.mascot}
+          bubbleClassName={styles.bubble}
+          textClassName={styles.bubbleText}
+          bubbleFirst
+        >
           Дайте відповідь всього на<br />
           <strong>декілька коротких питань</strong> — і<br />
           ми розпочнемо перший урок!
-        </p>
-
-        <img className={styles.mascot} src={Mascot} alt="" />
+        </AnimatedMascotBubble>
 
         <button className={styles.continueBtn} onClick={handleContinue}>
           ПРОДОВЖИТИ

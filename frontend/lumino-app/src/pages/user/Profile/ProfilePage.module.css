@@ -29,7 +29,7 @@
 }
 
 .viewportDark::before{
-  background:linear-gradient(180deg, rgba(34, 54, 77, .34) 0%, rgba(34, 54, 77, .48) 100%);
+  background:transparent;
 }
 
 
@@ -307,6 +307,10 @@
   line-height:22px;
 }
 
+.viewportDark .sectionTitle{
+  color:#8FA5BD;
+}
+
 .chartWrap{
   margin-top:30px;
   width:760px;
@@ -318,11 +322,19 @@
   height:100%;
 }
 
+.viewportDark .chartSvg{
+  color:#96ABC2;
+}
+
 .chartAxisLabel{
   font-family:var(--profile-font-ui);
   font-size:20px;
   font-weight:600;
   fill:currentColor;
+}
+
+.viewportDark .chartAxisLabel{
+  fill:#96ABC2;
 }
 
 .chartGrid{
@@ -374,6 +386,10 @@
   margin-bottom:0;
 }
 
+.viewportDark .legend{
+  color:#96ABC2;
+}
+
 .legendRow{
   display:grid;
   grid-template-columns:29px 200px 1fr;
@@ -421,6 +437,10 @@
   line-height:22px;
   text-align:center;
   color:#26415E;
+}
+
+.viewportDark .settingsTitle{
+  color:#8FA5BD;
 }
 
 .accountTitle{
@@ -519,6 +539,10 @@
   color:#899DB4;
 }
 
+.viewportDark .panelTitle{
+  color:#A6B8CC;
+}
+
 .panelClose{
   position:relative;
   width:22px;
@@ -528,6 +552,10 @@
   cursor:pointer;
   padding:0;
   color:#26415E;
+}
+
+.viewportDark .panelClose{
+  color:#8FA5BD;
 }
 
 .panelClose::before,
@@ -733,6 +761,21 @@
   color:#587089;
 }
 
+.viewportDark .languageRowTitle{
+  color:#7F97B1;
+}
+
+.viewportDark .languageRowFlagWrap{
+  position:relative;
+  z-index:1;
+}
+
+.viewportDark .languageRowFlag{
+  filter:none !important;
+  opacity:1 !important;
+  mix-blend-mode:normal;
+}
+
 .languageDelete{
   position:relative;
   width:30px;
@@ -789,9 +832,24 @@
   flex:0 0 auto;
 }
 
+.viewportDark .googleBadge{
+  position:relative;
+  z-index:1;
+  border-color:#B4C7DC;
+  background:#FFFFFF;
+  color:#D7CBE7;
+  filter:none !important;
+  opacity:1 !important;
+  mix-blend-mode:normal;
+}
+
 .linkedAccountTitle{
   flex:0 1 auto;
   margin-left:0;
+}
+
+.viewportDark .linkedAccountTitle{
+  color:#7F97B1;
 }
 
 .linkedAccountState{
@@ -1265,8 +1323,9 @@
   background:#26415E;
 }
 
-.viewportDark .profileWarningBackdrop{
-  background:rgba(27, 40, 56, .56);
+.viewportDark .profileWarningBackdrop,
+:global(body[data-lumino-theme="dark"]) .profileWarningBackdrop{
+  background:rgba(2, 11, 23, .52);
 }
 
 .viewportDark .profileWarningModal{
@@ -1284,6 +1343,10 @@
   display:flex;
   align-items:center;
   justify-content:center;
+}
+
+:global(body[data-lumino-theme="dark"]) .avatarOverlay{
+  background:rgba(2, 11, 23, .52);
 }
 
 .avatarDialog{

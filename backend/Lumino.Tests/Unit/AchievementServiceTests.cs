@@ -118,7 +118,7 @@ public class AchievementServiceTests
 
         var userId = 10;
 
-        // уроки: best score = 10
+        // уроки: best score = 90
         dbContext.LessonResults.Add(new LessonResult
         {
             UserId = userId,
@@ -128,8 +128,8 @@ public class AchievementServiceTests
             CompletedAt = new DateTime(2026, 2, 1, 10, 0, 0, DateTimeKind.Utc)
         });
 
-        // сцени: 18 completed * 5 = 90 => 10 + 90 = 100
-        for (int i = 1; i <= 18; i++)
+        // сцени: 30 completed * 15 = 450 => 50 + 450 = 500
+        for (int i = 1; i <= 30; i++)
         {
             dbContext.SceneAttempts.Add(new SceneAttempt
             {
@@ -145,37 +145,44 @@ public class AchievementServiceTests
         var service = new AchievementService(
             dbContext,
             new FixedDateTimeProvider(new DateTime(2026, 2, 2, 12, 0, 0, DateTimeKind.Utc)),
-            Options.Create(new LearningSettings { PassingScorePercent = 80, SceneCompletionScore = 5 })
+            Options.Create(new LearningSettings { PassingScorePercent = 80, LessonCorrectAnswerScore = 5, SceneCompletionScore = 15 })
         );
 
         service.CheckAndGrantAchievements(userId, 10, 10);
 
-        var a = dbContext.Achievements.FirstOrDefault(x => x.Title == "100 XP");
+        var a = dbContext.Achievements.FirstOrDefault(x => x.Code == "sys.hundred_xp");
         Assert.NotNull(a);
 
-        var ua = dbContext.UserAchievements.FirstOrDefault(x => x.UserId == userId && x.AchievementId == a!.Id);
+        var ua = dbContext.UserAchievements
+            .Join(
+                dbContext.Achievements,
+                userAchievement => userAchievement.AchievementId,
+                achievement => achievement.Id,
+                (userAchievement, achievement) => new { userAchievement, achievement }
+            )
+            .FirstOrDefault(x => x.userAchievement.UserId == userId && x.achievement.Code == "sys.hundred_xp");
         Assert.NotNull(ua);
     }
 
     [Fact]
-    public void GrantHundredXp_ShouldNotGrant_WhenTotalScoreLessThan100()
+    public void GrantHundredXp_ShouldNotGrant_WhenTotalScoreLessThan500()
     {
         var dbContext = TestDbContextFactory.Create();
 
         var userId = 10;
 
-        // уроки: best score = 4
+        // уроки: best score = 9
         dbContext.LessonResults.Add(new LessonResult
         {
             UserId = userId,
             LessonId = 1,
-            Score = 4,
+            Score = 9,
             TotalQuestions = 10,
             CompletedAt = new DateTime(2026, 2, 1, 10, 0, 0, DateTimeKind.Utc)
         });
 
-        // сцени: 19 completed * 5 = 95 => 4 + 95 = 99
-        for (int i = 1; i <= 19; i++)
+        // сцени: 30 completed * 15 = 450 => 45 + 450 = 495
+        for (int i = 1; i <= 30; i++)
         {
             dbContext.SceneAttempts.Add(new SceneAttempt
             {
@@ -191,13 +198,23 @@ public class AchievementServiceTests
         var service = new AchievementService(
             dbContext,
             new FixedDateTimeProvider(new DateTime(2026, 2, 2, 12, 0, 0, DateTimeKind.Utc)),
-            Options.Create(new LearningSettings { PassingScorePercent = 80, SceneCompletionScore = 5 })
+            Options.Create(new LearningSettings { PassingScorePercent = 80, LessonCorrectAnswerScore = 5, SceneCompletionScore = 15 })
         );
 
-        service.CheckAndGrantAchievements(userId, 4, 10);
+        service.CheckAndGrantAchievements(userId, 9, 10);
 
-        var a = dbContext.Achievements.FirstOrDefault(x => x.Title == "100 XP");
-        Assert.Null(a);
+        var a = dbContext.Achievements.FirstOrDefault(x => x.Code == "sys.hundred_xp");
+        Assert.NotNull(a);
+
+        var ua = dbContext.UserAchievements
+            .Join(
+                dbContext.Achievements,
+                userAchievement => userAchievement.AchievementId,
+                achievement => achievement.Id,
+                (userAchievement, achievement) => new { userAchievement, achievement }
+            )
+            .FirstOrDefault(x => x.userAchievement.UserId == userId && x.achievement.Code == "sys.hundred_xp");
+        Assert.Null(ua);
     }
     [Fact]
     public void GrantDailyGoal_ShouldGrant_WhenTodayScoreMeetsTarget()

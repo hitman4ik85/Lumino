@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.IO;
 using System.Text;
 
 namespace Lumino.Api
@@ -230,6 +231,9 @@ namespace Lumino.Api
                 app.UseHttpsRedirection();
             }
 
+            EnsureUploadsFolders(app);
+            SyncLessonUploads(app);
+
             app.UseStaticFiles();
 
             app.UseCors("AllowFrontend");
@@ -295,5 +299,89 @@ namespace Lumino.Api
             app.MapControllers();
             app.Run();
         }
+
+        private static void EnsureUploadsFolders(WebApplication app)
+        {
+            var webRoot = GetWebRootPath(app);
+
+            Directory.CreateDirectory(Path.Combine(webRoot, "uploads"));
+            Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "achievements"));
+            Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "lessons"));
+        }
+
+        private static void SyncLessonUploads(WebApplication app)
+        {
+            var targetLessonsPath = Path.Combine(GetWebRootPath(app), "uploads", "lessons");
+            Directory.CreateDirectory(targetLessonsPath);
+
+            var candidateRoots = new[]
+            {
+                app.Environment.WebRootPath,
+                !string.IsNullOrWhiteSpace(app.Environment.ContentRootPath)
+                    ? Path.Combine(app.Environment.ContentRootPath, "wwwroot")
+                    : null,
+                Path.Combine(AppContext.BaseDirectory, "wwwroot"),
+                Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")
+            }
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => Path.GetFullPath(x!))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+            foreach (var root in candidateRoots)
+            {
+                var sourceLessonsPath = Path.Combine(root, "uploads", "lessons");
+
+                if (!Directory.Exists(sourceLessonsPath)
+                    || PathsEqual(sourceLessonsPath, targetLessonsPath))
+                {
+                    continue;
+                }
+
+                foreach (var sourceFilePath in Directory.GetFiles(sourceLessonsPath))
+                {
+                    var targetFilePath = Path.Combine(targetLessonsPath, Path.GetFileName(sourceFilePath));
+
+                    if (!File.Exists(targetFilePath))
+                    {
+                        File.Copy(sourceFilePath, targetFilePath, overwrite: false);
+                        continue;
+                    }
+
+                    var sourceInfo = new FileInfo(sourceFilePath);
+                    var targetInfo = new FileInfo(targetFilePath);
+
+                    if (sourceInfo.Length != targetInfo.Length)
+                    {
+                        File.Copy(sourceFilePath, targetFilePath, overwrite: true);
+                    }
+                }
+            }
+        }
+
+        private static string GetWebRootPath(WebApplication app)
+        {
+            if (!string.IsNullOrWhiteSpace(app.Environment.WebRootPath))
+            {
+                return app.Environment.WebRootPath;
+            }
+
+            if (!string.IsNullOrWhiteSpace(app.Environment.ContentRootPath))
+            {
+                return Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+            }
+
+            return Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+        }
+
+        private static bool PathsEqual(string left, string right)
+        {
+            return string.Equals(
+                Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase
+            );
+        }
+
     }
 }

@@ -6,6 +6,7 @@ import { authStorage } from "../../../services/authStorage.js";
 import SearchIconAsset from "../../../assets/vocabulare/search.svg";
 import DeleteIconAsset from "../../../assets/vocabulare/cart.svg";
 import styles from "./VocabularyPage.module.css";
+import { formatKyivDateTime, getKyivDayDifference } from "../../../utils/kyivDate.js";
 
 
 function getVocabularyCacheKey() {
@@ -684,6 +685,49 @@ function getPrimaryTranslation(item) {
   return item?.translation || "";
 }
 
+function getAllTranslationsText(item) {
+  if (Array.isArray(item?.translations) && item.translations.length > 0) {
+    const seen = new Set();
+
+    return item.translations
+      .map((translation) => String(translation || "").trim())
+      .filter((translation) => {
+        if (!translation) {
+          return false;
+        }
+
+        const normalized = translation.toLowerCase();
+
+        if (seen.has(normalized)) {
+          return false;
+        }
+
+        seen.add(normalized);
+        return true;
+      })
+      .join(", ");
+  }
+
+  return String(item?.translation || "").trim();
+}
+
+function getWordChipTitle(item) {
+  const word = String(item?.word || "").trim();
+  const translation = getPrimaryTranslation(item).trim();
+
+  if (word && translation) {
+    return `${word} (${translation})`;
+  }
+
+  return word || translation;
+}
+
+function getWordOnlyTitle(item) {
+  const word = String(item?.word || "").trim();
+
+  return word || getPrimaryTranslation(item).trim();
+}
+
 function formatWordList(items) {
   if (!Array.isArray(items)) {
     return [];
@@ -697,10 +741,6 @@ function formatWordList(items) {
 
       const word = String(item.word || "").trim();
       const translation = getPrimaryTranslation(item).trim();
-
-      if (word && translation) {
-        return `${word} – ${translation}`;
-      }
 
       return word || translation;
     })
@@ -719,25 +759,7 @@ function formatRelativeDate(value) {
     return "-";
   }
 
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-
-  return `${day}.${month}.${year} ${hour}:${minute}`;
-}
-
-function getStartOfLocalDay(dateValue) {
-  const date = new Date(dateValue);
-
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return formatKyivDateTime(value);
 }
 
 function getReviewBucket(item) {
@@ -747,29 +769,14 @@ function getReviewBucket(item) {
     return "later";
   }
 
-  const date = new Date(nextReviewAt);
+  const diff = getKyivDayDifference(new Date(), nextReviewAt);
 
-  if (Number.isNaN(date.getTime())) {
-    return "later";
-  }
-
-  const today = getStartOfLocalDay(new Date());
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const dayAfterTomorrow = new Date(tomorrow);
-  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
-  const itemDay = getStartOfLocalDay(date);
-
-  if (itemDay.getTime() <= today.getTime()) {
+  if (diff <= 0) {
     return "today";
   }
 
-  if (itemDay.getTime() === tomorrow.getTime()) {
+  if (diff === 1) {
     return "tomorrow";
-  }
-
-  if (itemDay.getTime() >= dayAfterTomorrow.getTime()) {
-    return "later";
   }
 
   return "later";
@@ -797,15 +804,12 @@ function getReviewLaterLabel(items) {
   const values = items
     .map((item) => {
       const nextReviewAt = item?.nextReviewAt || item?.NextReviewAt;
-      const date = new Date(nextReviewAt);
 
-      if (Number.isNaN(date.getTime())) {
+      if (!nextReviewAt) {
         return null;
       }
 
-      const today = getStartOfLocalDay(new Date());
-      const itemDay = getStartOfLocalDay(date);
-      const diff = Math.round((itemDay.getTime() - today.getTime()) / 86400000);
+      const diff = getKyivDayDifference(new Date(), nextReviewAt);
 
       return diff >= 2 ? diff : null;
     })
@@ -816,6 +820,17 @@ function getReviewLaterLabel(items) {
   }
 
   return `Через ${Math.min(...values)} днів:`;
+}
+
+function areLevelChipMapsEqual(left, right) {
+  const leftKeys = Object.keys(left || {});
+  const rightKeys = Object.keys(right || {});
+
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  return leftKeys.every((key) => Boolean(left[key]) === Boolean(right[key]));
 }
 
 export default function VocabularyContent() {
@@ -840,6 +855,8 @@ export default function VocabularyContent() {
   const [reviewStats, setReviewStats] = useState({ known: 0, unknown: 0, repeat: 0 });
   const [reviewSessionWords, setReviewSessionWords] = useState([]);
   const [wordExampleIndex, setWordExampleIndex] = useState(0);
+  const [levelWideItemsMap, setLevelWideItemsMap] = useState({});
+  const levelGridRefs = useRef({});
   const [reviewPlanItemId, setReviewPlanItemId] = useState(0);
   const [reviewPlanPeriod, setReviewPlanPeriod] = useState("today");
   const [reviewPlanDays, setReviewPlanDays] = useState("3");
@@ -899,6 +916,10 @@ export default function VocabularyContent() {
     });
   }, [items, searchValue]);
 
+  const sortedListItems = useMemo(() => {
+    return filteredItems.slice().sort((a, b) => String(a?.word || "").localeCompare(String(b?.word || "")));
+  }, [filteredItems]);
+
   const reviewGroups = useMemo(() => {
     const groups = {
       today: [],
@@ -930,6 +951,60 @@ export default function VocabularyContent() {
   const reviewPlanItems = useMemo(() => {
     return filteredItems.slice().sort((a, b) => String(a.word || "").localeCompare(String(b.word || "")));
   }, [filteredItems]);
+
+  const setLevelGridRef = useCallback((level, node) => {
+    if (node) {
+      levelGridRefs.current[level] = node;
+      return;
+    }
+
+    delete levelGridRefs.current[level];
+  }, []);
+
+  const updateLevelWideItems = useCallback(() => {
+    if (activeFilter !== "level" || typeof window === "undefined") {
+      return;
+    }
+
+    const nextMap = {};
+
+    Object.values(levelGridRefs.current).forEach((grid) => {
+      if (!grid) {
+        return;
+      }
+
+      const gridStyles = window.getComputedStyle(grid);
+      const columnGap = Number.parseFloat(gridStyles.columnGap || gridStyles.gap || "0") || 0;
+      const singleColumnWidth = (grid.clientWidth - columnGap) / 2;
+
+      if (singleColumnWidth <= 0) {
+        return;
+      }
+
+      const buttons = Array.from(grid.querySelectorAll('[data-level-word-chip="true"]'));
+
+      buttons.forEach((button) => {
+        const itemId = Number(button.dataset.itemId || 0);
+
+        if (!itemId) {
+          return;
+        }
+
+        const textNode = button.querySelector('[data-level-word-text="true"]');
+        const buttonStyles = window.getComputedStyle(button);
+        const horizontalPadding = (Number.parseFloat(buttonStyles.paddingLeft || "0") || 0)
+          + (Number.parseFloat(buttonStyles.paddingRight || "0") || 0)
+          + (Number.parseFloat(buttonStyles.borderLeftWidth || "0") || 0)
+          + (Number.parseFloat(buttonStyles.borderRightWidth || "0") || 0);
+        const availableWidth = Math.max(0, singleColumnWidth - horizontalPadding);
+        const textWidth = textNode ? textNode.scrollWidth : 0;
+
+        nextMap[itemId] = textWidth > availableWidth;
+      });
+    });
+
+    setLevelWideItemsMap((prev) => (areLevelChipMapsEqual(prev, nextMap) ? prev : nextMap));
+  }, [activeFilter]);
 
   const reviewPlanPagedItems = useMemo(() => {
     const startIndex = reviewPlanPage * 15;
@@ -991,6 +1066,54 @@ export default function VocabularyContent() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [closeTransientState]);
+
+  useEffect(() => {
+    if (activeFilter !== "level") {
+      return undefined;
+    }
+
+    let frameId = 0;
+
+    const handleMeasure = () => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        updateLevelWideItems();
+      });
+    };
+
+    handleMeasure();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", handleMeasure);
+
+      return () => {
+        window.cancelAnimationFrame(frameId);
+        window.removeEventListener("resize", handleMeasure);
+      };
+    }
+
+    const observer = new ResizeObserver(() => {
+      handleMeasure();
+    });
+
+    Object.values(levelGridRefs.current).forEach((grid) => {
+      if (grid) {
+        observer.observe(grid);
+      }
+    });
+
+    window.addEventListener("resize", handleMeasure);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      observer.disconnect();
+      window.removeEventListener("resize", handleMeasure);
+    };
+  }, [activeFilter, levelGroups, updateLevelWideItems]);
 
   const loadVocabulary = useCallback(async (keepPanel = false, showBlocking = true) => {
     if (showBlocking) {
@@ -1365,6 +1488,7 @@ export default function VocabularyContent() {
         ...queueItem,
         details: null,
         showTranslation: false,
+        hintUsed: false,
       });
       setModal({ open: true, title: "Повторення", message: buildErrorText(detailsRes, "Не вдалося завантажити дані слова") });
       return;
@@ -1374,6 +1498,7 @@ export default function VocabularyContent() {
       ...queueItem,
       details: detailsRes.data,
       showTranslation: false,
+      hintUsed: false,
     });
     setWordInUseOpen(false);
     setWordExampleIndex(0);
@@ -1399,7 +1524,11 @@ export default function VocabularyContent() {
     }
 
     if (action === "flip") {
-      setReviewItem((prev) => ({ ...prev, showTranslation: !prev.showTranslation }));
+      setReviewItem((prev) => ({
+        ...prev,
+        showTranslation: !prev.showTranslation,
+        hintUsed: prev?.hintUsed || !prev?.showTranslation,
+      }));
       return;
     }
 
@@ -1443,6 +1572,7 @@ export default function VocabularyContent() {
         ...nextQueueItem,
         details: null,
         showTranslation: false,
+        hintUsed: false,
       });
       setModal({ open: true, title: "Повторення", message: buildErrorText(detailsRes, "Не вдалося завантажити наступне слово") });
       return;
@@ -1452,6 +1582,7 @@ export default function VocabularyContent() {
       ...nextQueueItem,
       details: detailsRes.data,
       showTranslation: false,
+      hintUsed: false,
     });
     setWordInUseOpen(false);
     setWordExampleIndex(0);
@@ -1553,12 +1684,14 @@ export default function VocabularyContent() {
   const selectedWordSynonyms = useMemo(() => formatWordList(selectedItemDetails?.synonyms), [selectedItemDetails]);
   const selectedWordIdioms = useMemo(() => formatWordList(selectedItemDetails?.idioms), [selectedItemDetails]);
 
+  const isReviewSessionActive = rightMode === "reviewCard";
+
   const renderWordPanel = () => (
     <div className={`${styles.sidePanelInner} ${styles.wordSidebarInner}`}>
       <div className={styles.wordSidebarTitleWrap}>
         <div className={styles.wordModalTitleLine}>
           <div className={styles.sideTitleWord}>{selectedItemDetails?.word || "Слово"}</div>
-          {getPrimaryTranslation(selectedItemDetails) ? <div className={styles.wordModalTranslation}>({getPrimaryTranslation(selectedItemDetails)})</div> : null}
+          {getAllTranslationsText(selectedItemDetails) ? <div className={styles.wordModalTranslation}>({getAllTranslationsText(selectedItemDetails)})</div> : null}
         </div>
 
         {selectedItemDetails?.partOfSpeech ? <div className={styles.wordMetaItalic}>{selectedItemDetails.partOfSpeech}</div> : null}
@@ -1588,7 +1721,7 @@ export default function VocabularyContent() {
             ) : null}
           </div>
           <div className={styles.wordInfoTextItalic}>{currentSelectedWordExample}</div>
-          {getPrimaryTranslation(selectedItemDetails) ? <div className={styles.wordInfoText}>{getPrimaryTranslation(selectedItemDetails)}</div> : null}
+          {getAllTranslationsText(selectedItemDetails) ? <div className={styles.wordInfoText}>{getAllTranslationsText(selectedItemDetails)}</div> : null}
         </div>
       ) : null}
 
@@ -1886,13 +2019,12 @@ export default function VocabularyContent() {
       {reviewItems.length > 0 ? (
         <div className={styles.wordGrid}>
           {reviewItems.map((item) => {
-            const translation = getPrimaryTranslation(item);
+            const chipTitle = getWordOnlyTitle(item);
 
             return (
               <div key={item.id} className={styles.wordChipWrap}>
-                <button type="button" className={styles.wordChip} onClick={() => openWordDetails(item)}>
+                <button type="button" className={styles.wordChip} onClick={() => openWordDetails(item)} title={chipTitle}>
                   <span className={styles.wordChipWord}>{item.word}</span>
-                  {translation ? <span className={styles.wordChipTranslation}>({translation})</span> : null}
                 </button>
               </div>
             );
@@ -1904,20 +2036,45 @@ export default function VocabularyContent() {
     </div>
   );
 
-  const renderLevelColumn = (title, itemsForLevel) => (
+  const handleLevelScrollToggle = (event) => {
+    const grid = event.currentTarget.parentElement?.querySelector(`.${styles.levelColumnGrid}`);
+
+    if (!grid) {
+      return;
+    }
+
+    const maxScrollTop = Math.max(0, grid.scrollHeight - grid.clientHeight);
+
+    if (grid.scrollTop >= maxScrollTop - 4) {
+      grid.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    grid.scrollTo({ top: Math.min(maxScrollTop, grid.scrollTop + grid.clientHeight - 24), behavior: "smooth" });
+  };
+
+  const renderLevelColumn = (level, title, itemsForLevel) => (
     <div className={styles.levelColumn}>
       <div className={styles.levelColumnHeader}>
         <span>{title}</span>
-        <span className={styles.levelColumnArrow}><ArrowIcon direction="right" /></span>
+        <button type="button" className={styles.levelColumnArrow} onClick={handleLevelScrollToggle} aria-label={`Прокрутити ${title}`}><ArrowIcon direction="right" /></button>
       </div>
-      <div className={styles.levelColumnGrid}>
+      <div className={styles.levelColumnGrid} ref={(node) => setLevelGridRef(level, node)}>
         {itemsForLevel.map((item) => {
-          const translation = getPrimaryTranslation(item);
+          const chipTitle = getWordOnlyTitle(item);
+          const isWideItem = Boolean(levelWideItemsMap[item.id]);
 
           return (
-            <button key={item.id} type="button" className={styles.wordChip} onClick={() => openWordDetails(item)}>
-              <span className={styles.wordChipWord}>{item.word}</span>
-              {translation ? <span className={styles.wordChipTranslation}>({translation})</span> : null}
+            <button
+              key={item.id}
+              type="button"
+              className={`${styles.wordChip} ${styles.levelWordChip} ${isWideItem ? styles.levelWordChipWide : ""}`}
+              onClick={() => openWordDetails(item)}
+              title={chipTitle}
+              data-level-word-chip="true"
+              data-item-id={item.id}
+            >
+              <span className={styles.wordChipWord} data-level-word-text="true">{item.word}</span>
             </button>
           );
         })}
@@ -2103,7 +2260,19 @@ export default function VocabularyContent() {
         <button type="button" className={`${styles.reviewDesignerActionButton} ${styles.reviewDesignerActionWrong}`} onClick={() => handleReviewAction("wrong")} aria-label="Не знаю">
           <ReviewWrongIcon />
         </button>
-        <button type="button" className={`${styles.reviewDesignerActionButton} ${styles.reviewDesignerActionCorrect}`} onClick={() => handleReviewAction("correct")} aria-label="Знаю">
+        <button
+          type="button"
+          className={`${styles.reviewDesignerActionButton} ${styles.reviewDesignerActionCorrect} ${reviewItem?.hintUsed ? styles.reviewDesignerActionButtonDisabled : ""}`}
+          onClick={() => {
+            if (reviewItem?.hintUsed) {
+              return;
+            }
+
+            handleReviewAction("correct");
+          }}
+          aria-label="Знаю"
+          disabled={reviewItem?.hintUsed}
+        >
           <ReviewCorrectIcon />
         </button>
         <button type="button" className={`${styles.reviewDesignerActionButton} ${styles.reviewDesignerActionSkip}`} onClick={() => handleReviewAction("skip")} aria-label="Далі">
@@ -2163,13 +2332,13 @@ export default function VocabularyContent() {
       {messageModalNode && messageModal ? createPortal(messageModal, messageModalNode) : messageModal}
 
       <div className={styles.embeddedContent}>
-        <section className={styles.dictionaryColumn}>
+        <section className={`${styles.dictionaryColumn} ${isReviewSessionActive ? styles.dictionaryColumnLocked : ""}`}>
           <div className={styles.dictionaryTopLine} />
 
           <div className={styles.dictionaryHeader}>
             <div className={styles.dictionaryTitle}>МІЙ СЛОВНИК</div>
 
-            <div className={styles.dictionaryTabs}>
+            <div className={`${styles.dictionaryTabs} ${isReviewSessionActive ? styles.dictionaryTabsLocked : ""}`}>
               <button type="button" className={`${styles.filterTab} ${activeFilter === "list" ? styles.filterTabActive : ""}`} onClick={() => handleFilterChange("list")}>список</button>
               <span className={styles.filterDivider} />
               <button type="button" className={`${styles.filterTab} ${activeFilter === "review" ? styles.filterTabActive : ""}`} onClick={() => handleFilterChange("review")}>повторення</button>
@@ -2177,7 +2346,7 @@ export default function VocabularyContent() {
               <button type="button" className={`${styles.filterTab} ${activeFilter === "level" ? styles.filterTabActive : ""}`} onClick={() => handleFilterChange("level")}>рівень</button>
             </div>
 
-            <div className={styles.headerIcons}>
+            <div className={`${styles.headerIcons} ${isReviewSessionActive ? styles.headerIconsLocked : ""}`}>
               <button type="button" className={styles.iconButton} onClick={handleOpenSearch} aria-label="Пошук">
                 <img src={SearchIconAsset} alt="" className={styles.headerIconAsset} />
               </button>
@@ -2190,13 +2359,14 @@ export default function VocabularyContent() {
 
           <div className={styles.dictionaryBottomLine} />
 
-          <div className={styles.wordsArea}>
+          <div className={`${styles.wordsArea} ${isReviewSessionActive ? styles.wordsAreaLocked : ""}`}>
             {activeFilter === "list" ? (
-              filteredItems.length > 0 ? (
+              sortedListItems.length > 0 ? (
                 <div className={styles.wordGrid}>
-                  {filteredItems.map((item) => {
+                  {sortedListItems.map((item) => {
                     const active = selectedItemId === item.id;
                     const translation = getPrimaryTranslation(item);
+                    const chipTitle = getWordChipTitle(item);
 
                     return (
                       <div key={item.id} className={styles.wordChipWrap}>
@@ -2210,6 +2380,7 @@ export default function VocabularyContent() {
 
                             openWordDetails(item);
                           }}
+                          title={chipTitle}
                         >
                           <span className={styles.wordChipWord}>{item.word}</span>
                           {translation ? <span className={styles.wordChipTranslation}>({translation})</span> : null}
@@ -2255,9 +2426,9 @@ export default function VocabularyContent() {
 
             {activeFilter === "level" ? (
               <div className={styles.levelColumnsWrap}>
-                {renderLevelColumn("Рівень 1", levelGroups[1])}
-                {renderLevelColumn("Рівень 2", levelGroups[2])}
-                {renderLevelColumn("Рівень 3", levelGroups[3])}
+                {renderLevelColumn(1, "Рівень 1", levelGroups[1])}
+                {renderLevelColumn(2, "Рівень 2", levelGroups[2])}
+                {renderLevelColumn(3, "Рівень 3", levelGroups[3])}
               </div>
             ) : null}
           </div>
@@ -2273,7 +2444,7 @@ export default function VocabularyContent() {
           <div className={styles.grammarHeader}>ГРАМАТИКА</div>
           <div className={styles.grammarTopLine} />
 
-          <div className={styles.grammarButtonsColumn}>
+          <div className={`${styles.grammarButtonsColumn} ${isReviewSessionActive ? styles.grammarButtonsColumnLocked : ""}`}>
             {GRAMMAR_TOPICS.map((item) => (
               <button
                 key={item.key}
@@ -2287,7 +2458,8 @@ export default function VocabularyContent() {
             ))}
           </div>
 
-          <button type="button" className={styles.repeatButton} onClick={handleOpenReview}>Повторити слова</button>
+          <button type="button" className={`${styles.repeatButton} ${isReviewSessionActive ? styles.repeatButtonLocked : ""}`} onClick={handleOpenReview} disabled={isReviewSessionActive}>Повторити слова</button>
+          {isReviewSessionActive ? <div className={styles.dictionaryReviewOverlay} aria-hidden="true" /> : null}
         </section>
 
         <aside className={styles.sidePanel}>

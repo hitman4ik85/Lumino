@@ -153,18 +153,50 @@ namespace Lumino.Api.Application.Services
 
             var primaryTranslation = translations[0];
 
-            var existingUserItem = (
+            var existingUserVocabulary = (
                 from uv in _dbContext.UserVocabularies
                 join vi in _dbContext.VocabularyItems on uv.VocabularyItemId equals vi.Id
                 where uv.UserId == userId && vi.Word.ToLower() == normalizedWord
                 orderby uv.Id
-                select vi
-            ).ToList();
+                select uv
+            ).FirstOrDefault();
 
-            var alreadyAddedItem = SelectCandidate(existingUserItem, primaryTranslation);
-
-            if (alreadyAddedItem != null)
+            if (existingUserVocabulary != null)
             {
+                var existingItem = _dbContext.VocabularyItems.FirstOrDefault(x => x.Id == existingUserVocabulary.VocabularyItemId);
+
+                if (existingItem != null)
+                {
+                    if (CanUpdateVocabularyItemInPlace(existingItem.Id, userId) == false)
+                    {
+                        var clonedItem = new VocabularyItem
+                        {
+                            Word = existingItem.Word,
+                            Translation = existingItem.Translation,
+                            Example = existingItem.Example,
+                            PartOfSpeech = existingItem.PartOfSpeech,
+                            Definition = existingItem.Definition,
+                            Transcription = existingItem.Transcription,
+                            Gender = existingItem.Gender,
+                            ExamplesJson = existingItem.ExamplesJson,
+                            SynonymsJson = existingItem.SynonymsJson,
+                            IdiomsJson = existingItem.IdiomsJson
+                        };
+
+                        _dbContext.VocabularyItems.Add(clonedItem);
+                        _dbContext.SaveChanges();
+
+                        EnsureTranslations(clonedItem.Id, existingItem.Translation, GetTranslationsForItem(existingItem));
+
+                        existingUserVocabulary.VocabularyItemId = clonedItem.Id;
+                        _dbContext.SaveChanges();
+
+                        existingItem = clonedItem;
+                    }
+
+                    EnsureTranslations(existingItem.Id, existingItem.Translation, translations);
+                }
+
                 return;
             }
 

@@ -139,7 +139,7 @@ public class DtoContractsHttpIntegrationTests : IClassFixture<ApiWebApplicationF
         {
             var root = submitMistakesDoc.RootElement;
 
-            AssertJsonHasProperties(root, "lessonId", "totalExercises", "correctAnswers", "isCompleted", "mistakeExerciseIds", "answers");
+            AssertJsonHasProperties(root, "lessonId", "totalExercises", "correctAnswers", "isCompleted", "restoredHearts", "mistakeExerciseIds", "answers");
 
             Assert.Equal(1, root.GetProperty("lessonId").GetInt32());
         }

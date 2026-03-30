@@ -1,4 +1,4 @@
-using Lumino.Api.Application.Services;
+﻿using Lumino.Api.Application.Services;
 using Microsoft.AspNetCore.Http;
 using Xunit;
 
@@ -9,10 +9,10 @@ public class MediaServiceAchievementsFolderTests
     [Fact]
     public void Upload_WithAchievementsFolder_ShouldSaveFileToNestedDirectory_AndReturnNestedUrl()
     {
-        var service = new MediaService();
         var originalDir = Directory.GetCurrentDirectory();
         var tempRoot = Path.Combine(Path.GetTempPath(), "LuminoMediaTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempRoot);
+        var service = CreateService(tempRoot);
 
         try
         {
@@ -50,10 +50,10 @@ public class MediaServiceAchievementsFolderTests
     [Fact]
     public void Upload_WithUnsafeFolder_ShouldNormalizeFolder_AndNotEscapeUploadsRoot()
     {
-        var service = new MediaService();
         var originalDir = Directory.GetCurrentDirectory();
         var tempRoot = Path.Combine(Path.GetTempPath(), "LuminoMediaTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempRoot);
+        var service = CreateService(tempRoot);
 
         try
         {
@@ -86,5 +86,16 @@ public class MediaServiceAchievementsFolderTests
             }
             catch { }
         }
+    }
+
+    private static MediaService CreateService(string contentRootPath)
+    {
+        var environment = new FakeHostEnvironment
+        {
+            ContentRootPath = contentRootPath,
+            WebRootPath = Path.Combine(contentRootPath, "wwwroot")
+        };
+
+        return new MediaService(environment);
     }
 }

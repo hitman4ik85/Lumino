@@ -22,4 +22,8 @@ export const PATHS = {
   achievements: "/achievements",
   vocabulary: "/vocabulary",
   admin: "/admin",
+  lesson: (lessonId = ":lessonId") => `/lesson/${lessonId}`,
+  lessonResult: (lessonId = ":lessonId") => `/lesson/${lessonId}/result`,
+  scene: (sceneId = ":sceneId") => `/scene/${sceneId}`,
+  sceneResult: (sceneId = ":sceneId") => `/scene/${sceneId}/result`,
 };

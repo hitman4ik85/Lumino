@@ -11,6 +11,7 @@ import { avatarsService } from "../../../services/avatarsService.js";
 import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
 import styles from "./ProfilePage.module.css";
+import { getKyivDateKey, getKyivWeekDayIndex } from "../../../utils/kyivDate.js";
 
 import HeaderCrystal from "../../../assets/home/header/crystal.svg";
 import HeaderEnergy from "../../../assets/home/header/energy.svg";
@@ -82,17 +83,13 @@ function getLanguageDisplayText(item, fallbackCode) {
 }
 
 function formatRegistrationDate(value) {
-  if (!value) return "";
+  const iso = getKyivDateKey(value);
 
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
+  if (!iso) {
     return "";
   }
 
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
+  const [year, month, day] = iso.split("-");
 
   return `${day}.${month}.${year}`;
 }
@@ -176,20 +173,21 @@ function getChartMax(values) {
 }
 
 function buildChartSeries(week, previousWeek) {
-  const weekMap = new Map((Array.isArray(week) ? week : []).map((item) => [new Date(item?.dateUtc).toDateString(), Number(item?.points || 0)]));
-  const prevMap = new Map((Array.isArray(previousWeek) ? previousWeek : []).map((item) => [new Date(item?.dateUtc).toDateString(), Number(item?.points || 0)]));
-  const now = new Date();
-  const day = now.getDay();
+  const weekMap = new Map((Array.isArray(week) ? week : []).map((item) => [getKyivDateKey(item?.dateUtc), Number(item?.points || 0)]));
+  const prevMap = new Map((Array.isArray(previousWeek) ? previousWeek : []).map((item) => [getKyivDateKey(item?.dateUtc), Number(item?.points || 0)]));
+  const todayIso = getKyivDateKey(new Date());
+  const [todayYear, todayMonth, todayDay] = todayIso.split("-").map(Number);
+  const day = getKyivWeekDayIndex(new Date());
   const mondayShift = day === 0 ? -6 : 1 - day;
-  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayShift);
+  const monday = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay + mondayShift, 12, 0, 0));
   const current = [];
   const previous = [];
 
   for (let i = 0; i < 7; i += 1) {
-    const currentDate = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
-    const prevDate = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i - 7);
-    current.push(weekMap.get(currentDate.toDateString()) || 0);
-    previous.push(prevMap.get(prevDate.toDateString()) || 0);
+    const currentDate = new Date(monday.getTime() + (i * 86400000));
+    const prevDate = new Date(monday.getTime() + ((i - 7) * 86400000));
+    current.push(weekMap.get(getKyivDateKey(currentDate)) || 0);
+    previous.push(prevMap.get(getKyivDateKey(prevDate)) || 0);
   }
 
   return { current, previous };
@@ -245,7 +243,7 @@ function PasswordEyeIcon({ opened = false }) {
   );
 }
 
-export default function ProfileContent() {
+export default function ProfileContent({ onProfileChange = null }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [savingTheme, setSavingTheme] = useState(false);
@@ -271,7 +269,31 @@ export default function ProfileContent() {
   const nameInputRef = useRef(null);
   const [stageNode, setStageNode] = useState(null);
 
-  const theme = profile?.theme === "dark" ? "dark" : "light";
+  const theme = useMemo(() => {
+    if (profile?.theme === "dark") {
+      return "dark";
+    }
+
+    if (profile?.theme === "light") {
+      return "light";
+    }
+
+    if (typeof window !== "undefined") {
+      const savedTheme = String(localStorage.getItem("lumino_theme") || "").trim().toLowerCase();
+
+      if (savedTheme === "dark" || savedTheme === "light") {
+        return savedTheme;
+      }
+
+      const bodyTheme = String(document.body?.dataset?.luminoTheme || document.documentElement?.dataset?.luminoTheme || "").trim().toLowerCase();
+
+      if (bodyTheme === "dark" || bodyTheme === "light") {
+        return bodyTheme;
+      }
+    }
+
+    return "light";
+  }, [profile?.theme]);
   const profileName = formatProfileName(profile?.username || "User");
   const activeAvatarUrl = useMemo(() => {
     const profileAvatarValue = getAvatarValue(profile?.avatarUrl || profile?.avatar || profile?.selectedAvatarUrl);
@@ -293,11 +315,6 @@ export default function ProfileContent() {
     document.documentElement.dataset.luminoTheme = theme;
     document.body.dataset.luminoTheme = theme;
     localStorage.setItem("lumino_theme", theme);
-
-    return () => {
-      document.documentElement.removeAttribute("data-lumino-theme");
-      document.body.removeAttribute("data-lumino-theme");
-    };
   }, [theme]);
 
   useEffect(() => {
@@ -327,9 +344,12 @@ export default function ProfileContent() {
     setLoading(true);
 
     try {
-      const [meRes, languagesRes] = await Promise.all([
+      const [meRes, languagesRes, weeklyRes, externalLoginsRes, avatarsRes] = await Promise.all([
         userService.getMe(),
         onboardingService.getMyLanguages(),
+        profileService.getWeeklyProgress(),
+        userService.getExternalLogins(),
+        avatarsService.getAll(),
       ]);
 
       if (!meRes.ok) {
@@ -339,6 +359,9 @@ export default function ProfileContent() {
 
       const nextProfile = meRes.data || null;
       setProfile(nextProfile);
+      if (typeof onProfileChange === "function") {
+        onProfileChange(nextProfile);
+      }
       setMyDataForm({ username: nextProfile?.username || "", email: nextProfile?.email || "" });
 
       if (languagesRes.ok) {
@@ -349,33 +372,23 @@ export default function ProfileContent() {
         setActiveTargetLanguageCode(nextProfile?.targetLanguageCode || "");
       }
 
-      setLoading(false);
+      if (weeklyRes?.ok) {
+        setWeeklyProgress(weeklyRes.data || { currentWeek: [], previousWeek: [], totalPoints: 0 });
+      } else {
+        setWeeklyProgress({ currentWeek: [], previousWeek: [], totalPoints: 0 });
+      }
 
-      Promise.allSettled([
-        profileService.getWeeklyProgress(),
-        userService.getExternalLogins(),
-        avatarsService.getAll(),
-      ]).then((responses) => {
-        const weeklyRes = responses[0].status === "fulfilled" ? responses[0].value : null;
-        const externalLoginsRes = responses[1].status === "fulfilled" ? responses[1].value : null;
-        const avatarsRes = responses[2].status === "fulfilled" ? responses[2].value : null;
+      if (externalLoginsRes?.ok) {
+        setExternalLogins(Array.isArray(externalLoginsRes.data) ? externalLoginsRes.data : []);
+      } else {
+        setExternalLogins([]);
+      }
 
-        if (weeklyRes?.ok) {
-          setWeeklyProgress(weeklyRes.data || { currentWeek: [], previousWeek: [], totalPoints: 0 });
-        }
-
-        if (externalLoginsRes?.ok) {
-          setExternalLogins(Array.isArray(externalLoginsRes.data) ? externalLoginsRes.data : []);
-        } else {
-          setExternalLogins([]);
-        }
-
-        if (avatarsRes?.ok) {
-          setAvatars(Array.isArray(avatarsRes.items) ? avatarsRes.items : []);
-        } else {
-          setAvatars([]);
-        }
-      });
+      if (avatarsRes?.ok) {
+        setAvatars(Array.isArray(avatarsRes.items) ? avatarsRes.items : []);
+      } else {
+        setAvatars([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -466,6 +479,9 @@ export default function ProfileContent() {
 
       const nextProfile = res.data || null;
       setProfile(nextProfile);
+      if (typeof onProfileChange === "function") {
+        onProfileChange(nextProfile);
+      }
       setMyDataForm((prev) => ({ ...prev, username: nextProfile?.username || nextName }));
       setNameDraft(nextProfile?.username || nextName);
       setEditingName(false);
@@ -490,7 +506,11 @@ export default function ProfileContent() {
         return;
       }
 
-      setProfile(res.data || { ...profile, theme: nextTheme });
+      const nextProfile = res.data || { ...profile, theme: nextTheme };
+      setProfile(nextProfile);
+      if (typeof onProfileChange === "function") {
+        onProfileChange(nextProfile);
+      }
     } finally {
       setSavingTheme(false);
     }
@@ -511,7 +531,11 @@ export default function ProfileContent() {
         return;
       }
 
-      setProfile(res.data || { ...profile, avatarUrl });
+      const nextProfile = res.data || { ...profile, avatarUrl };
+      setProfile(nextProfile);
+      if (typeof onProfileChange === "function") {
+        onProfileChange(nextProfile);
+      }
       setAvatarModalOpen(false);
     } finally {
       setSavingAvatar(false);

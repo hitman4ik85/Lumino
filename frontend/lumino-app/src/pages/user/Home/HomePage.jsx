@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { authStorage } from "../../../services/authStorage.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
@@ -16,6 +16,7 @@ import ProfileContent from "../Profile/ProfileContent.jsx";
 import AchievementsContent from "../Achievements/AchievementsContent.jsx";
 import VocabularyContent from "../Vocabulary/VocabularyContent.jsx";
 import styles from "./HomePage.module.css";
+import { getKyivCurrentMonth, getKyivDaysBetween, getKyivMonthLabel, getKyivTodayIso } from "../../../utils/kyivDate.js";
 
 import FlagEn from "../../../assets/flags/flag-en.svg";
 import FlagDe from "../../../assets/flags/flag-de.svg";
@@ -181,7 +182,7 @@ const GUEST_USER = {
   currentStreakDays: 15,
   bestStreakDays: 24,
   heartRegenMinutes: 30,
-  crystalCostPerHeart: 15,
+  crystalCostPerHeart: 20,
   nextHeartInSeconds: 0,
 };
 
@@ -256,6 +257,19 @@ function getOrbitBundle(index) {
   return HOME_ORBIT_ASSETS[getOrbitType(index)];
 }
 
+function formatDuration(totalSeconds) {
+  const safeTotalSeconds = Math.max(0, Number(totalSeconds || 0));
+  const hours = Math.floor(safeTotalSeconds / 3600);
+  const minutes = Math.floor((safeTotalSeconds % 3600) / 60);
+  const seconds = safeTotalSeconds % 60;
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 function formatCourseBadge(course, topicIndex) {
   const level = String(course?.level || course?.title || "A1").match(/A1|A2|B1|B2|C1|C2/i)?.[0]?.toUpperCase() || "A1";
   return `${level}, ТЕМА ${topicIndex + 1}`;
@@ -305,13 +319,14 @@ function getCourseProgressPercent(courseItem, pathData, isSelectedCourse) {
 }
 
 
-function buildMonth(year, month, activeDates) {
+function buildMonth(year, month, activeDates, registrationDates = []) {
   const first = new Date(year, month - 1, 1);
   const last = new Date(year, month, 0);
   const prevLast = new Date(year, month - 1, 0);
   const startWeekDay = (first.getDay() + 6) % 7;
   const totalDays = last.getDate();
   const activeSet = new Set(activeDates);
+  const registrationSet = new Set(registrationDates);
   const cells = [];
 
   for (let i = startWeekDay - 1; i >= 0; i -= 1) {
@@ -319,6 +334,7 @@ function buildMonth(year, month, activeDates) {
       key: `prev-${i}`,
       day: prevLast.getDate() - i,
       active: false,
+      registered: false,
       muted: true,
       currentMonth: false,
     });
@@ -330,6 +346,7 @@ function buildMonth(year, month, activeDates) {
       key: iso,
       day,
       active: activeSet.has(iso),
+      registered: registrationSet.has(iso),
       muted: false,
       currentMonth: true,
     });
@@ -342,6 +359,7 @@ function buildMonth(year, month, activeDates) {
       key: `next-${nextDay}`,
       day: nextDay,
       active: false,
+      registered: false,
       muted: true,
       currentMonth: false,
     });
@@ -351,24 +369,33 @@ function buildMonth(year, month, activeDates) {
   return cells;
 }
 
-function extractCalendarDates(data) {
-  if (!data) return [];
-
-  if (Array.isArray(data.days)) {
-    return data.days
-      .filter((item) => item?.isCompleted || item?.completed || item?.active)
-      .map((item) => String(item.date || item.day || ""))
-      .filter(Boolean);
+function extractCalendarPayload(data) {
+  if (!data) {
+    return { activeDates: [], registrationDates: [], daysSinceJoined: 0, currentKyivDateTimeText: "" };
   }
 
-  if (Array.isArray(data.items)) {
-    return data.items
-      .filter((item) => item?.isCompleted || item?.completed || item?.active)
-      .map((item) => String(item.date || item.day || ""))
-      .filter(Boolean);
-  }
+  const source = Array.isArray(data.days)
+    ? data.days
+    : Array.isArray(data.items)
+      ? data.items
+      : [];
 
-  return [];
+  const activeDates = source
+    .filter((item) => item?.isCompleted || item?.completed || item?.active || item?.isActive)
+    .map((item) => String(item.date || item.dateUtc || item.day || item.dayUtc || ""))
+    .filter(Boolean);
+
+  const registrationDates = source
+    .filter((item) => item?.isRegistrationDay)
+    .map((item) => String(item.date || item.dateUtc || item.day || item.dayUtc || ""))
+    .filter(Boolean);
+
+  return {
+    activeDates,
+    registrationDates,
+    daysSinceJoined: Number(data.daysSinceJoined ?? 0),
+    currentKyivDateTimeText: String(data.currentKyivDateTimeText || "").trim(),
+  };
 }
 
 function getWeekProgress(days) {
@@ -392,6 +419,155 @@ function normalizeCoursePath(data) {
   return {
     topics: Array.isArray(data.topics) ? data.topics : [],
     scenes: Array.isArray(data.scenes) ? data.scenes : [],
+  };
+}
+
+function cloneCoursePath(path) {
+  const normalizedPath = normalizeCoursePath(path);
+
+  if (!normalizedPath) {
+    return null;
+  }
+
+  return {
+    topics: normalizedPath.topics.map((topic) => ({
+      ...topic,
+      lessons: Array.isArray(topic?.lessons)
+        ? topic.lessons.map((lesson) => ({ ...lesson }))
+        : [],
+    })),
+    scenes: normalizedPath.scenes.map((scene) => ({ ...scene })),
+  };
+}
+
+function applyOptimisticLessonCompletion(path, lessonId, isPassed) {
+  if (!path || !lessonId || !isPassed) {
+    return normalizeCoursePath(path);
+  }
+
+  const nextPath = cloneCoursePath(path);
+
+  if (!nextPath) {
+    return null;
+  }
+
+  let changed = false;
+  let topicIndex = -1;
+  let lessonIndex = -1;
+
+  for (let i = 0; i < nextPath.topics.length; i += 1) {
+    const currentLessonIndex = nextPath.topics[i]?.lessons?.findIndex((lesson) => Number(lesson?.id || 0) === Number(lessonId));
+
+    if (currentLessonIndex >= 0) {
+      topicIndex = i;
+      lessonIndex = currentLessonIndex;
+      break;
+    }
+  }
+
+  if (topicIndex === -1 || lessonIndex === -1) {
+    return nextPath;
+  }
+
+  const currentTopic = nextPath.topics[topicIndex];
+  const currentLesson = currentTopic?.lessons?.[lessonIndex];
+
+  if (!currentLesson) {
+    return nextPath;
+  }
+
+  if (!currentLesson.isUnlocked) {
+    currentLesson.isUnlocked = true;
+    changed = true;
+  }
+
+  if (!currentLesson.isPassed) {
+    currentLesson.isPassed = true;
+    changed = true;
+  }
+
+  const nextLesson = currentTopic.lessons?.[lessonIndex + 1];
+
+  if (nextLesson && !nextLesson.isUnlocked) {
+    nextLesson.isUnlocked = true;
+    changed = true;
+  }
+
+  return changed ? nextPath : nextPath;
+}
+
+function applyOptimisticSceneCompletion(path, sceneId) {
+  if (!path || !sceneId) {
+    return normalizeCoursePath(path);
+  }
+
+  const nextPath = cloneCoursePath(path);
+
+  if (!nextPath) {
+    return null;
+  }
+
+  const sceneIndex = nextPath.scenes.findIndex((scene) => Number(scene?.id || 0) === Number(sceneId));
+
+  if (sceneIndex === -1) {
+    return nextPath;
+  }
+
+  let changed = false;
+  const currentScene = nextPath.scenes[sceneIndex];
+
+  if (!currentScene.isUnlocked) {
+    currentScene.isUnlocked = true;
+    changed = true;
+  }
+
+  if (!currentScene.isCompleted) {
+    currentScene.isCompleted = true;
+    changed = true;
+  }
+
+  const currentTopicId = Number(currentScene?.topicId || 0);
+
+  if (currentTopicId > 0) {
+    const orderedTopicIndex = nextPath.topics.findIndex((topic) => Number(topic?.id || 0) === currentTopicId);
+    const nextTopic = orderedTopicIndex >= 0 ? nextPath.topics[orderedTopicIndex + 1] : null;
+    const firstLesson = nextTopic?.lessons?.[0];
+
+    if (firstLesson && !firstLesson.isUnlocked) {
+      firstLesson.isUnlocked = true;
+      changed = true;
+    }
+  }
+
+  return changed ? nextPath : nextPath;
+}
+
+function applyOptimisticHomeRefresh(snapshot, locationState) {
+  if (!snapshot) {
+    return null;
+  }
+
+  const completedLessonId = Number(locationState?.completedLessonId || 0);
+  const isLessonPassed = Boolean(locationState?.isLessonPassed);
+  const completedSceneId = Number(locationState?.completedSceneId || 0);
+
+  let nextPath = normalizeCoursePath(snapshot.path);
+
+  if (completedLessonId > 0 && isLessonPassed) {
+    nextPath = applyOptimisticLessonCompletion(nextPath, completedLessonId, true);
+  }
+
+  if (completedSceneId > 0) {
+    nextPath = applyOptimisticSceneCompletion(nextPath, completedSceneId);
+  }
+
+  if (nextPath === snapshot.path) {
+    return snapshot;
+  }
+
+  return {
+    ...snapshot,
+    path: nextPath,
   };
 }
 
@@ -533,6 +709,9 @@ function getCachedHomeSnapshot() {
       course: parsed?.course || null,
       path: normalizeCoursePath(parsed?.path),
       calendarDates: Array.isArray(parsed?.calendarDates) ? parsed.calendarDates : [],
+      calendarRegistrationDates: Array.isArray(parsed?.calendarRegistrationDates) ? parsed.calendarRegistrationDates : [],
+      calendarDaysSinceJoined: Number(parsed?.calendarDaysSinceJoined || 0),
+      calendarCurrentKyivDateTimeText: String(parsed?.calendarCurrentKyivDateTimeText || ""),
       calendarMonth: parsed?.calendarMonth || null,
     };
   } catch {
@@ -631,6 +810,7 @@ function normalizeUser(data) {
     crystals: data.crystals ?? data.crystalsCount ?? GUEST_USER.crystals,
     currentStreakDays: data.currentStreakDays ?? GUEST_USER.currentStreakDays,
     bestStreakDays: data.bestStreakDays ?? GUEST_USER.bestStreakDays,
+    createdAt: data.createdAt || data.createdAtUtc || null,
     heartRegenMinutes: data.heartRegenMinutes ?? GUEST_USER.heartRegenMinutes,
     crystalCostPerHeart: data.crystalCostPerHeart ?? GUEST_USER.crystalCostPerHeart,
     nextHeartInSeconds: data.nextHeartInSeconds ?? GUEST_USER.nextHeartInSeconds,
@@ -701,6 +881,7 @@ function OrbitSection({
           const isUnlocked = isGuest ? index === 0 && lessonIndex === 0 : Boolean(lesson?.isUnlocked);
           const isPassed = Boolean(lesson?.isPassed);
           const lessonLayout = layout.lessons[lessonIndex];
+          const lessonImageSrc = isUnlocked ? (bundle.lessonsActive?.[lessonIndex] || lessonImage) : lessonImage;
 
           return (
             <button
@@ -717,7 +898,7 @@ function OrbitSection({
               onMouseDown={(event) => event.stopPropagation()}
               onClick={() => onLessonClick(item, lesson, !isUnlocked)}
             >
-              <img className={styles.lessonImage} src={lessonImage} alt="" aria-hidden="true" />
+              <img className={styles.lessonImage} src={lessonImageSrc} alt="" aria-hidden="true" />
               {isPassed ? <span className={styles.lessonPassedDot} /> : null}
             </button>
           );
@@ -736,7 +917,7 @@ function OrbitSection({
           onMouseDown={(event) => event.stopPropagation()}
           onClick={() => onSceneSunClick(item, item?.scene, !item?.scene?.isUnlocked)}
         >
-          <img className={styles.sunImage} src={bundle.sun} alt="" aria-hidden="true" />
+          <img className={styles.sunImage} src={item?.scene?.isUnlocked ? (bundle.sunActive || bundle.sun) : bundle.sun} alt="" aria-hidden="true" />
         </button>
       </div>
 
@@ -790,12 +971,16 @@ export default function HomePage() {
   const dragRef = useRef({ active: false, startX: 0, startLeft: 0 });
   const dropdownRef = useRef(null);
   const scenesRequestRef = useRef(0);
+  const loadHomeRequestRef = useRef(0);
+  const loadHomeStartedRef = useRef(false);
 
   useStageScale(stageRef, { mode: "absolute" });
 
   const [isSessionExpired, setIsSessionExpired] = useState(false);
+  const location = useLocation();
   const isGuest = isSessionExpired || !authStorage.isAuthed();
-  const initialHomeCacheRef = useRef(!isGuest ? getCachedHomeSnapshot() : null);
+  const shouldUseCoursePathCache = true;
+  const initialHomeCacheRef = useRef(!isGuest ? applyOptimisticHomeRefresh(getCachedHomeSnapshot(), location.state) : null);
   const [loading, setLoading] = useState(initialHomeCacheRef.current == null);
   const [restoringHearts, setRestoringHearts] = useState(false);
   const initialTab = ["profile", "achievements", "dictionary"].includes(searchParams.get("tab")) ? searchParams.get("tab") : "learning";
@@ -816,7 +1001,29 @@ export default function HomePage() {
   const [scenesOverview, setScenesOverview] = useState([]);
   const [scenePreviewsEnabled, setScenePreviewsEnabled] = useState(false);
   const [calendarDates, setCalendarDates] = useState(initialHomeCacheRef.current?.calendarDates || []);
-  const [calendarMonth, setCalendarMonth] = useState(initialHomeCacheRef.current?.calendarMonth || { year: new Date().getFullYear(), month: new Date().getMonth() + 1 });
+  const [calendarRegistrationDates, setCalendarRegistrationDates] = useState(initialHomeCacheRef.current?.calendarRegistrationDates || []);
+  const [calendarDaysSinceJoined, setCalendarDaysSinceJoined] = useState(Number(initialHomeCacheRef.current?.calendarDaysSinceJoined || 0));
+  const [calendarCurrentKyivDateTimeText, setCalendarCurrentKyivDateTimeText] = useState(String(initialHomeCacheRef.current?.calendarCurrentKyivDateTimeText || ""));
+  const [calendarMonth, setCalendarMonth] = useState(initialHomeCacheRef.current?.calendarMonth || getKyivCurrentMonth());
+
+  useEffect(() => {
+    if (isGuest) {
+      return;
+    }
+
+    const initialCourseId = Number(initialHomeCacheRef.current?.course?.id || 0);
+    const initialLanguageCode = normalizeCode(
+      initialHomeCacheRef.current?.course?.languageCode ||
+      initialHomeCacheRef.current?.languageState?.activeTargetLanguageCode ||
+      ""
+    );
+
+    if (!initialCourseId || !initialLanguageCode || !initialHomeCacheRef.current?.path) {
+      return;
+    }
+
+    setCachedCoursePath(initialLanguageCode, initialCourseId, initialHomeCacheRef.current.path);
+  }, [isGuest]);
 
   useEffect(() => {
     bodyViewRef.current = bodyView;
@@ -895,9 +1102,31 @@ export default function HomePage() {
 
   const guestTargetLanguageCode = normalizeCode(localStorage.getItem("targetLanguage") || "en");
   const activeLanguageCode = normalizeCode(languageState.activeTargetLanguageCode || course?.languageCode || (isGuest ? guestTargetLanguageCode : ""));
-  const monthCells = useMemo(() => buildMonth(calendarMonth.year, calendarMonth.month, calendarDates), [calendarDates, calendarMonth]);
+  const monthCells = useMemo(() => buildMonth(calendarMonth.year, calendarMonth.month, calendarDates, calendarRegistrationDates), [calendarDates, calendarMonth, calendarRegistrationDates]);
   const streakProgress = useMemo(() => getWeekProgress(user.currentStreakDays), [user.currentStreakDays]);
+  const daysInApp = useMemo(() => {
+    if (calendarDaysSinceJoined > 0) {
+      return calendarDaysSinceJoined;
+    }
+
+    if (!user?.createdAt) {
+      return 0;
+    }
+
+    return getKyivDaysBetween(user.createdAt);
+  }, [calendarDaysSinceJoined, user?.createdAt]);
   const energySteps = useMemo(() => Math.max(1, Number(user.heartsMax || 5)), [user.heartsMax]);
+  const energyRestoreTimerText = useMemo(() => {
+    if (Number(user.hearts || 0) >= Number(user.heartsMax || 0)) {
+      return "";
+    }
+
+    if (Number(user.nextHeartInSeconds || 0) <= 0) {
+      return "";
+    }
+
+    return formatDuration(user.nextHeartInSeconds);
+  }, [user.hearts, user.heartsMax, user.nextHeartInSeconds]);
   const isFullPanelView = FULL_PANEL_VIEWS.includes(bodyView);
   const isTopBarHidden = TOP_BAR_HIDDEN_VIEWS.includes(bodyView);
   const showBlockingHomeLoading = (loading || restoringHearts) && !["profile", "achievements", "dictionary"].includes(bodyView);
@@ -966,6 +1195,10 @@ export default function HomePage() {
   }, []);
 
   const loadHome = useCallback(async (preferredLanguageCode = "", showBlocking = true) => {
+    const requestId = loadHomeRequestRef.current + 1;
+    loadHomeRequestRef.current = requestId;
+    loadHomeStartedRef.current = true;
+
     if (showBlocking) {
       setLoading(true);
     }
@@ -984,8 +1217,8 @@ export default function HomePage() {
         const publicCoursesRes = await coursesService.getPublishedCourses(preferred);
         const publicCourses = publicCoursesRes.items || [];
         const nextCourse = publicCourses[0] || null;
-        const today = new Date();
-        const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        const todayIso = getKyivTodayIso();
+        const currentMonth = getKyivCurrentMonth();
 
         setCourses(publicCourses);
         setCourse(nextCourse);
@@ -996,7 +1229,7 @@ export default function HomePage() {
           activeTargetLanguageCode: preferred,
           learningLanguages: [{ code: preferred, title: getLanguageLabel(preferred), isActive: true }],
         });
-        setCalendarMonth({ year: today.getFullYear(), month: today.getMonth() + 1 });
+        setCalendarMonth(currentMonth);
         setCalendarDates([todayIso]);
         return { hasCourses: publicCourses.length > 0, activeTargetLanguageCode: preferred };
       }
@@ -1029,11 +1262,28 @@ export default function HomePage() {
       const myCoursesRes = await coursesService.getMyCourses(targetCode);
       const nextCourses = myCoursesRes.items || [];
       const activeCourse = nextCourses.find((item) => !item?.isLocked) || nextCourses[0] || null;
-      const cachedPath = activeCourse?.id ? getCachedCoursePath(targetCode, activeCourse.id) : null;
+      const cachedPath = activeCourse?.id && shouldUseCoursePathCache
+        ? getCachedCoursePath(targetCode, activeCourse.id)
+        : null;
+
+      let nextPathForCache = cachedPath;
+
+      if (activeCourse?.id && !cachedPath) {
+        const pathRes = await learningService.getMyCoursePath(activeCourse.id);
+
+        if (loadHomeRequestRef.current !== requestId) {
+          return { hasCourses: nextCourses.length > 0, activeTargetLanguageCode: targetCode };
+        }
+
+        if (pathRes?.ok) {
+          nextPathForCache = normalizeCoursePath(pathRes.data);
+          setCachedCoursePath(targetCode, activeCourse.id, nextPathForCache);
+        }
+      }
 
       setCourses(nextCourses);
       setCourse(activeCourse);
-      setPath(cachedPath);
+      setPath(nextPathForCache);
       setCachedHomeSnapshot({
         user: nextUser,
         languageState: languagesRes?.ok ? {
@@ -1045,8 +1295,11 @@ export default function HomePage() {
         },
         courses: nextCourses,
         course: activeCourse,
-        path: cachedPath,
+        path: nextPathForCache,
         calendarDates,
+        calendarRegistrationDates,
+        calendarDaysSinceJoined,
+        calendarCurrentKyivDateTimeText,
         calendarMonth,
       });
       setLoading(false);
@@ -1056,25 +1309,32 @@ export default function HomePage() {
         streakService.getMyCalendarMonth(calendarMonth.year, calendarMonth.month),
       ];
 
-      if (activeCourse?.id) {
+      if (activeCourse?.id && cachedPath) {
         backgroundRequests.unshift(learningService.getMyCoursePath(activeCourse.id));
       }
 
       Promise.all(backgroundRequests).then((responses) => {
-        const hasPathResponse = Boolean(activeCourse?.id);
+        if (loadHomeRequestRef.current !== requestId) {
+          return;
+        }
+
+        const hasPathResponse = Boolean(activeCourse?.id && cachedPath);
         const pathRes = hasPathResponse ? responses[0] : null;
         const streakRes = responses[hasPathResponse ? 1 : 0];
         const calendarRes = responses[hasPathResponse ? 2 : 1];
 
-        let nextPathForCache = cachedPath;
+        let nextPathForCacheForBackground = nextPathForCache;
         let nextUserForCache = nextUser;
         let nextCalendarDatesForCache = calendarDates;
+        let nextCalendarRegistrationDatesForCache = calendarRegistrationDates;
+        let nextCalendarDaysSinceJoinedForCache = calendarDaysSinceJoined;
+        let nextCalendarCurrentKyivDateTimeTextForCache = calendarCurrentKyivDateTimeText;
 
         if (pathRes?.ok) {
           const normalizedPath = normalizeCoursePath(pathRes.data);
           setPath(normalizedPath);
           setCachedCoursePath(targetCode, activeCourse.id, normalizedPath);
-          nextPathForCache = normalizedPath;
+          nextPathForCacheForBackground = normalizedPath;
         }
 
         if (streakRes?.ok && streakRes.data) {
@@ -1092,8 +1352,15 @@ export default function HomePage() {
         }
 
         if (calendarRes?.ok) {
-          nextCalendarDatesForCache = extractCalendarDates(calendarRes.data);
+          const calendarPayload = extractCalendarPayload(calendarRes.data);
+          nextCalendarDatesForCache = calendarPayload.activeDates;
+          nextCalendarRegistrationDatesForCache = calendarPayload.registrationDates;
+          nextCalendarDaysSinceJoinedForCache = calendarPayload.daysSinceJoined;
+          nextCalendarCurrentKyivDateTimeTextForCache = calendarPayload.currentKyivDateTimeText;
           setCalendarDates(nextCalendarDatesForCache);
+          setCalendarRegistrationDates(nextCalendarRegistrationDatesForCache);
+          setCalendarDaysSinceJoined(nextCalendarDaysSinceJoinedForCache);
+          setCalendarCurrentKyivDateTimeText(nextCalendarCurrentKyivDateTimeTextForCache);
         }
 
         setCachedHomeSnapshot({
@@ -1107,21 +1374,58 @@ export default function HomePage() {
           },
           courses: nextCourses,
           course: activeCourse,
-          path: nextPathForCache,
+          path: nextPathForCacheForBackground,
           calendarDates: nextCalendarDatesForCache,
+          calendarRegistrationDates: nextCalendarRegistrationDatesForCache,
+          calendarDaysSinceJoined: nextCalendarDaysSinceJoinedForCache,
+          calendarCurrentKyivDateTimeText: nextCalendarCurrentKyivDateTimeTextForCache,
           calendarMonth,
         });
       });
 
       return { hasCourses: nextCourses.length > 0, activeTargetLanguageCode: targetCode };
     } finally {
-      setLoading(false);
+      if (loadHomeRequestRef.current === requestId) {
+        setLoading(false);
+      }
     }
-  }, [calendarMonth.month, calendarMonth.year, courses.length, guestTargetLanguageCode, isGuest, languageState.activeTargetLanguageCode]);
+  }, [calendarCurrentKyivDateTimeText, calendarMonth.month, calendarMonth.year, courses.length, guestTargetLanguageCode, isGuest, languageState.activeTargetLanguageCode, shouldUseCoursePathCache]);
 
   useEffect(() => {
     const hasCache = initialHomeCacheRef.current != null;
+
+    if (loadHomeStartedRef.current && !hasCache) {
+      return;
+    }
+
     loadHome("", !hasCache);
+  }, [loadHome]);
+
+  useEffect(() => {
+    let currentKyivDate = getKyivTodayIso();
+
+    const intervalId = window.setInterval(() => {
+      const nextKyivDate = getKyivTodayIso();
+
+      if (nextKyivDate === currentKyivDate) {
+        return;
+      }
+
+      currentKyivDate = nextKyivDate;
+      const currentMonth = getKyivCurrentMonth();
+      const hasMonthChanged = calendarMonth.year !== currentMonth.year || calendarMonth.month !== currentMonth.month;
+
+      if (hasMonthChanged) {
+        setCalendarMonth(currentMonth);
+        return;
+      }
+
+      loadHome("", false);
+    }, 60000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, [loadHome]);
 
   useEffect(() => {
@@ -1134,6 +1438,46 @@ export default function HomePage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (Number(user.hearts || 0) >= Number(user.heartsMax || 0)) {
+      return undefined;
+    }
+
+    if (Number(user.nextHeartInSeconds || 0) <= 0) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setUser((prev) => {
+        const currentHearts = Number(prev.hearts || 0);
+        const maxHearts = Number(prev.heartsMax || 0);
+        const nextHeartInSeconds = Math.max(0, Number(prev.nextHeartInSeconds || 0));
+
+        if (currentHearts >= maxHearts || nextHeartInSeconds <= 0) {
+          return prev;
+        }
+
+        if (nextHeartInSeconds === 1) {
+          const restoredHearts = Math.min(maxHearts, currentHearts + 1);
+          const hasMoreHeartsToRestore = restoredHearts < maxHearts;
+
+          return {
+            ...prev,
+            hearts: restoredHearts,
+            nextHeartInSeconds: hasMoreHeartsToRestore ? Math.max(1, Number(prev.heartRegenMinutes || 0)) * 60 : 0,
+          };
+        }
+
+        return {
+          ...prev,
+          nextHeartInSeconds: nextHeartInSeconds - 1,
+        };
+      });
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [user.hearts, user.heartsMax, user.heartRegenMinutes, user.nextHeartInSeconds]);
 
   const handleLanguageSwitch = useCallback(async (code) => {
     const nextCode = normalizeCode(code);
@@ -1213,6 +1557,13 @@ export default function HomePage() {
       return;
     }
 
+    const neededCrystals = heartsToRestore * Number(user.crystalCostPerHeart || 0);
+
+    if (Number(user.crystals || 0) < neededCrystals) {
+      showInfo("Недостатньо кристалів", "У тебе недостатньо кристалів, щоб відновити енергію.");
+      return;
+    }
+
     setRestoringHearts(true);
 
     try {
@@ -1223,12 +1574,20 @@ export default function HomePage() {
         return;
       }
 
-      setUser((prev) => ({ ...prev, ...normalizeUser(res.data) }));
+      setUser((prev) => ({
+        ...prev,
+        hearts: res.data?.hearts ?? res.data?.heartsCount ?? prev.hearts,
+        heartsMax: res.data?.heartsMax ?? res.data?.maxHearts ?? prev.heartsMax,
+        crystals: res.data?.crystals ?? res.data?.crystalsCount ?? prev.crystals,
+        heartRegenMinutes: res.data?.heartRegenMinutes ?? prev.heartRegenMinutes,
+        crystalCostPerHeart: res.data?.crystalCostPerHeart ?? prev.crystalCostPerHeart,
+        nextHeartInSeconds: res.data?.nextHeartInSeconds ?? prev.nextHeartInSeconds,
+      }));
       setOpenDropdown("");
     } finally {
       setRestoringHearts(false);
     }
-  }, [guestPrompt, isGuest, showInfo, user.hearts, user.heartsMax]);
+  }, [guestPrompt, isGuest, showInfo, user.crystalCostPerHeart, user.crystals, user.hearts, user.heartsMax]);
 
   const handleRestoreOneHeart = useCallback(async () => {
     if (isGuest) {
@@ -1238,6 +1597,13 @@ export default function HomePage() {
 
     if (Number(user.hearts || 0) >= Number(user.heartsMax || 0)) {
       showInfo("Енергія повна", "Тобі зараз не потрібно відновлювати ще одну енергію.");
+      return;
+    }
+
+    const neededCrystals = Number(user.crystalCostPerHeart || 0);
+
+    if (Number(user.crystals || 0) < neededCrystals) {
+      showInfo("Недостатньо кристалів", "У тебе недостатньо кристалів, щоб додати ще одну енергію.");
       return;
     }
 
@@ -1251,12 +1617,20 @@ export default function HomePage() {
         return;
       }
 
-      setUser((prev) => ({ ...prev, ...normalizeUser(res.data) }));
+      setUser((prev) => ({
+        ...prev,
+        hearts: res.data?.hearts ?? res.data?.heartsCount ?? prev.hearts,
+        heartsMax: res.data?.heartsMax ?? res.data?.maxHearts ?? prev.heartsMax,
+        crystals: res.data?.crystals ?? res.data?.crystalsCount ?? prev.crystals,
+        heartRegenMinutes: res.data?.heartRegenMinutes ?? prev.heartRegenMinutes,
+        crystalCostPerHeart: res.data?.crystalCostPerHeart ?? prev.crystalCostPerHeart,
+        nextHeartInSeconds: res.data?.nextHeartInSeconds ?? prev.nextHeartInSeconds,
+      }));
       setOpenDropdown("");
     } finally {
       setRestoringHearts(false);
     }
-  }, [guestPrompt, isGuest, showInfo, user.hearts, user.heartsMax]);
+  }, [guestPrompt, isGuest, showInfo, user.crystalCostPerHeart, user.crystals, user.hearts, user.heartsMax]);
 
   const handleNavClick = useCallback((key) => {
     if (isGuest) {
@@ -1453,8 +1827,13 @@ export default function HomePage() {
       return;
     }
 
-    showInfo("Сцена буде наступною", "Контент сцени підв’яжемо на наступному кроці. Зараз зберіг її як готову точку входу.");
-  }, [guestPrompt, isGuest, showInfo]);
+    navigate(PATHS.scene(scene?.id), {
+      state: {
+        topic,
+        scene,
+      },
+    });
+  }, [guestPrompt, isGuest, navigate, showInfo]);
 
   const handleLessonClick = useCallback((topic, lesson, disabled) => {
     if (isGuest) {
@@ -1467,10 +1846,18 @@ export default function HomePage() {
       return;
     }
 
-    setSelectedTopic(topic || null);
-    setSelectedLesson(lesson || null);
-    setBodyView("lesson");
-  }, [guestPrompt, isGuest, showInfo]);
+    if (Number(user.hearts || 0) <= 0) {
+      showInfo("Енергія закінчилась", "Щоб почати урок, спочатку віднови енергію.");
+      return;
+    }
+
+    navigate(PATHS.lesson(lesson?.id), {
+      state: {
+        topic,
+        lesson,
+      },
+    });
+  }, [guestPrompt, isGuest, navigate, showInfo, user.hearts]);
 
   const handleTrackMouseDown = useCallback((event) => {
     const track = trackRef.current;
@@ -1513,7 +1900,11 @@ export default function HomePage() {
     const res = await streakService.getMyCalendarMonth(calendarMonth.year, calendarMonth.month);
 
     if (res.ok) {
-      setCalendarDates(extractCalendarDates(res.data));
+      const calendarPayload = extractCalendarPayload(res.data);
+      setCalendarDates(calendarPayload.activeDates);
+      setCalendarRegistrationDates(calendarPayload.registrationDates);
+      setCalendarDaysSinceJoined(calendarPayload.daysSinceJoined);
+      setCalendarCurrentKyivDateTimeText(calendarPayload.currentKyivDateTimeText);
     }
   }, [calendarMonth.month, calendarMonth.year, guestPrompt, isGuest]);
 
@@ -1530,7 +1921,11 @@ export default function HomePage() {
     const res = await streakService.getMyCalendarMonth(next.year, next.month);
 
     if (res.ok) {
-      setCalendarDates(extractCalendarDates(res.data));
+      const calendarPayload = extractCalendarPayload(res.data);
+      setCalendarDates(calendarPayload.activeDates);
+      setCalendarRegistrationDates(calendarPayload.registrationDates);
+      setCalendarDaysSinceJoined(calendarPayload.daysSinceJoined);
+      setCalendarCurrentKyivDateTimeText(calendarPayload.currentKyivDateTimeText);
     }
   }, [calendarMonth.month, calendarMonth.year, isGuest]);
 
@@ -1685,7 +2080,11 @@ export default function HomePage() {
                     return;
                   }
 
-                  showInfo("Сцена відкрита", "Цю сцену вже можна проходити або перепроходити. Окрему сторінку сцени підв’яжемо наступним кроком, не ламаючи цю логіку.");
+                  navigate(PATHS.scene(scene?.id), {
+                    state: {
+                      scene,
+                    },
+                  });
                 }}
               >
                 <span className={`${styles.scenesCardPreview} ${locked ? styles.scenesCardPreviewLocked : styles.scenesCardPreviewOpen}`}>
@@ -1744,7 +2143,19 @@ export default function HomePage() {
     }
 
     if (bodyView === "profile") {
-      return <ProfileContent />;
+      return <ProfileContent onProfileChange={(nextProfile) => {
+        setUser((prev) => ({
+          ...prev,
+          hearts: Number(nextProfile?.hearts ?? nextProfile?.heartsCount ?? prev.hearts ?? 0),
+          heartsMax: Number(nextProfile?.heartsMax ?? nextProfile?.maxHearts ?? prev.heartsMax ?? 5),
+          crystals: Number(nextProfile?.crystals ?? nextProfile?.crystalsCount ?? prev.crystals ?? 0),
+          currentStreakDays: Number(nextProfile?.currentStreakDays ?? prev.currentStreakDays ?? 0),
+          bestStreakDays: Number(nextProfile?.bestStreakDays ?? prev.bestStreakDays ?? 0),
+          heartRegenMinutes: Number(nextProfile?.heartRegenMinutes ?? prev.heartRegenMinutes ?? 0),
+          crystalCostPerHeart: Number(nextProfile?.crystalCostPerHeart ?? prev.crystalCostPerHeart ?? 0),
+          nextHeartInSeconds: Number(nextProfile?.nextHeartInSeconds ?? prev.nextHeartInSeconds ?? 0),
+        }));
+      }} />;
     }
 
     if (bodyView === "languages") {
@@ -1974,7 +2385,7 @@ export default function HomePage() {
             {openDropdown === "energy" ? (
               <div className={`${styles.dropdownCard} ${styles.energyDropdownCard}`} style={{ left: "1518px", top: "135px", width: "402px", minHeight: "293px" }}>
                 <div className={styles.energyDropdownTitle}>Енергія</div>
-                <div className={styles.energyChargeLabel}>ЗАРЯДЖЕННЯ</div>
+                <div className={styles.energyChargeLabel}>ЗАРЯДЖЕННЯ{energyRestoreTimerText ? ` (${energyRestoreTimerText})` : ""}</div>
                 <div className={styles.energyScale}>
                   <div className={styles.energyScaleTrack} />
                   <div className={styles.energyScaleFill} style={{ width: `${(Number(user.hearts || 0) / energySteps) * 100}%` }}>
@@ -1993,7 +2404,7 @@ export default function HomePage() {
                   </div>
                   <div className={styles.energyActionRight}>
                     <img className={styles.energyActionCrystal} src={HOME_HEADER_ICONS.crystal} alt="" aria-hidden="true" />
-                    <span>{energySteps * 100}</span>
+                    <span>{Math.max(0, Math.max(0, Number(user.heartsMax || 0) - Number(user.hearts || 0)) * Number(user.crystalCostPerHeart || 0))}</span>
                   </div>
                 </button>
                 <button type="button" className={`${styles.energyAction} ${styles.energyActionSecondary}`} onClick={handleRestoreOneHeart}>
@@ -2006,7 +2417,7 @@ export default function HomePage() {
                   </div>
                   <div className={styles.energyActionRight}>
                     <img className={styles.energyActionCrystal} src={HOME_HEADER_ICONS.crystal} alt="" aria-hidden="true" />
-                    <span>100</span>
+                    <span>{Number(user.crystalCostPerHeart || 0)}</span>
                   </div>
                 </button>
               </div>
@@ -2025,17 +2436,18 @@ export default function HomePage() {
               </div>
               <div className={styles.calendarTopDivider} />
               <div className={styles.calendarHero}>
+                <div className={styles.calendarCurrentKyivDateTime}>Дата/Час: {calendarCurrentKyivDateTimeText || "—"}</div>
                 <div className={styles.calendarHeroCard}>
                   <div className={styles.calendarHeroDays}>{Number(user.currentStreakDays || 0)}</div>
                   <div className={styles.calendarHeroLabel}>-денний відрізок!</div>
                 </div>
                 <img className={styles.calendarHeroIcon} src={HOME_HEADER_ICONS.streak} alt="" aria-hidden="true" />
               </div>
-              <div className={styles.calendarSectionTitle}>Календар</div>
+              <div className={styles.calendarSectionTitle}>Календар{daysInApp > 0 ? ` · у застосунку ${daysInApp} днів` : ""}</div>
               <div className={styles.calendarMonthCard}>
                 <div className={styles.calendarHeader}>
                   <span>
-                    {new Date(calendarMonth.year, calendarMonth.month - 1).toLocaleString("uk-UA", { month: "long" })} {calendarMonth.year} <span style={{ textTransform: "none" }}>р.</span>
+                    {getKyivMonthLabel(calendarMonth.year, calendarMonth.month)} {calendarMonth.year} <span style={{ textTransform: "none" }}>р.</span>
                   </span>
                   <div className={styles.calendarHeaderActions}>
                     <button type="button" onClick={() => handleChangeCalendarMonth(-1)}>‹</button>
@@ -2052,9 +2464,10 @@ export default function HomePage() {
                     {monthCells.map((cell) => (
                       <span
                         key={cell.key}
-                        className={`${styles.calendarCell} ${cell.active ? styles.calendarCellActive : ""} ${cell.muted ? styles.calendarCellMuted : ""}`}
+                        className={`${styles.calendarCell} ${cell.active || cell.registered ? styles.calendarCellActive : ""} ${cell.muted ? styles.calendarCellMuted : ""}`}
+                        title={cell.registered ? "День реєстрації" : cell.active ? "День навчання" : ""}
                       >
-                        {cell.active ? <img className={styles.calendarCellStar} src={HOME_HEADER_ICONS.streak} alt="" aria-hidden="true" /> : null}
+                        {cell.active || cell.registered ? <img className={styles.calendarCellStar} src={HOME_HEADER_ICONS.streak} alt="" aria-hidden="true" /> : null}
                         <span className={styles.calendarCellText}>{cell.day}</span>
                       </span>
                     ))}

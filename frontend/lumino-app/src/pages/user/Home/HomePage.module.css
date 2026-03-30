@@ -759,6 +759,7 @@
 }
 
 .calendarHero{
+  position:relative;
   min-height:240px;
   padding:50px 27px 32px;
   background:#43658B;
@@ -767,6 +768,17 @@
   justify-content:space-between;
   gap:20px;
   box-sizing:border-box;
+}
+
+.calendarCurrentKyivDateTime{
+  position:absolute;
+  left:27px;
+  top:16px;
+  font-family:var(--font-ui);
+  font-size:18px;
+  line-height:22px;
+  font-weight:600;
+  color:#DDE8F4;
 }
 
 .calendarHeroCard{
@@ -975,14 +987,14 @@
   left:0;
   top:0;
   width:280px;
-  height:92px;
+  min-height:108px;
   border:0;
   border-radius:18px;
   background:#88ABD4;
   box-shadow:none;
   text-align:left;
   color:#FFFFFF;
-  padding:16px 20px;
+  padding:16px 20px 18px;
   box-sizing:border-box;
   cursor:pointer;
   transition:transform .14s ease, background .14s ease;
@@ -1025,6 +1037,7 @@
   font-size:28px;
   font-weight:800;
   line-height:1.05;
+  word-break:break-word;
 }
 
 .orbitBox{
@@ -1091,14 +1104,7 @@
 }
 
 .lessonPassedDot{
-  position:absolute;
-  right:6px;
-  bottom:6px;
-  width:10px;
-  height:10px;
-  border-radius:50%;
-  background:#FFE797;
-  box-shadow:0 0 0 4px rgba(255,231,151,.25);
+  display:none;
 }
 
 .sceneButton{
@@ -1778,7 +1784,8 @@
 .dividerBottom{ height:300px; background:#26415e; }
 
 .dividerIcon{
-  width:26px;
+  width:42px;
+  height:42px;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -1786,6 +1793,11 @@
 
 .sectionDivider img{
   width:26px;
+  height:40px;
+}
+
+.sectionDivider img[src$="unlocked-star.svg"]{
+  width:40px;
   height:40px;
 }
 
@@ -2067,3 +2079,63 @@
 .homeWarningButtonDark{
   background:#26415E;
 }
+
+/* dark theme visibility tuning */
+:global(body[data-lumino-theme="dark"]) .logo,
+:global(body[data-lumino-theme="dark"]) .navButton{
+  color:#DCEAF8;
+}
+
+:global(body[data-lumino-theme="dark"]) .navButton:hover,
+:global(body[data-lumino-theme="dark"]) .navButtonActive{
+  background:#5B6F86;
+  color:#DCEAF8;
+  box-shadow:inset 0 0 0 2px rgba(136,171,212,.28);
+}
+
+:global(body[data-lumino-theme="dark"]) .counterButton span,
+:global(body[data-lumino-theme="dark"]) .counterStatic span{
+  color:#F5FAFF;
+}
+
+:global(body[data-lumino-theme="dark"]) .panelTitle,
+:global(body[data-lumino-theme="dark"]) .languagePageTitle,
+:global(body[data-lumino-theme="dark"]) .scenesPageTitle,
+:global(body[data-lumino-theme="dark"]) .scenesCardLabel{
+  color:#3E5A7C;
+}
+
+:global(body[data-lumino-theme="dark"]) .panelSubtitle{
+  color:#587089;
+}
+
+:global(body[data-lumino-theme="dark"]) .flagIcon,
+:global(body[data-lumino-theme="dark"]) .headerSvg,
+:global(body[data-lumino-theme="dark"]) .energyActionSun,
+:global(body[data-lumino-theme="dark"]) .energyActionCrystal,
+:global(body[data-lumino-theme="dark"]) .energyScaleIcon,
+:global(body[data-lumino-theme="dark"]) .streakHeroIcon,
+:global(body[data-lumino-theme="dark"]) .calendarHeroIcon,
+:global(body[data-lumino-theme="dark"]) .languagePageFlag,
+:global(body[data-lumino-theme="dark"]) .lessonImage,
+:global(body[data-lumino-theme="dark"]) .sunImage,
+:global(body[data-lumino-theme="dark"]) .sceneButtonImage,
+:global(body[data-lumino-theme="dark"]) .sectionDivider img,
+:global(body[data-lumino-theme="dark"]) .courseStageIcon,
+:global(body[data-lumino-theme="dark"]) .scenesCardPreviewImage{
+  filter:none !important;
+  opacity:1 !important;
+  mix-blend-mode:normal;
+}
+
+:global(body[data-lumino-theme="dark"]) .lessonButtonLocked,
+:global(body[data-lumino-theme="dark"]) .sunButtonLocked{
+  filter:none !important;
+  opacity:1 !important;
+}
+
+:global(body[data-lumino-theme="dark"]) .homeWarningBackdrop,
+:global(body[data-lumino-theme="dark"]) .calendarOverlay{
+  background:rgba(2, 11, 23, .52);
+}
+

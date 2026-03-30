@@ -9,6 +9,7 @@ import BgRight from "../../../../assets/backgrounds/bg-right.webp";
 import ArrowPrev from "../../../../assets/icons/arrow-previous.svg";
 import Bubble from "../../../../assets/onboarding/bubble1.svg";
 import Mascot from "../../../../assets/mascot/mascot8.svg";
+import AnimatedMascotBubble from "../shared/AnimatedMascotBubble.jsx";
 import MascotPlanet from "../../../../assets/mascot/mascotplanet.svg";
 
 export default function OnboardingCreateProfLaterPage() {
@@ -36,15 +37,20 @@ export default function OnboardingCreateProfLaterPage() {
           <img className={styles.backIcon} src={ArrowPrev} alt="back" />
         </button>
 
-        <img className={styles.bubble} src={Bubble} alt="" />
-        <p className={styles.bubbleText}>
+        <AnimatedMascotBubble
+          mascotSrc={Mascot}
+          bubbleSrc={Bubble}
+          mascotClassName={styles.mascot}
+          bubbleClassName={styles.bubble}
+          textClassName={styles.bubbleText}
+          bubbleFirst
+          decorationSrc={MascotPlanet}
+          decorationClassName={styles.mascotPlanet}
+        >
           <span>Спочатку можете</span>
           <span>ознайомитися з курсом, а</span>
           <span>профіль створити пізніше.</span>
-        </p>
-
-        <img className={styles.mascotPlanet} src={MascotPlanet} alt="" />
-        <img className={styles.mascot} src={Mascot} alt="" />
+        </AnimatedMascotBubble>
 
         <button className={styles.continueBtn} type="button" onClick={handleContinue}>
           ПРОДОВЖИТИ

@@ -221,6 +221,86 @@ public class LessonResultServiceIntegrationTests
         Assert.True(response.Answers[0].IsCorrect);
     }
 
+
+    [Fact]
+    public void SubmitLesson_MatchExercise_ObjectMapAnswer_ShouldEvaluateCorrectly()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Lessons.Add(new Lesson
+        {
+            Id = 1,
+            Title = "Lesson Match",
+            Theory = "Text",
+            TopicId = 1,
+            Order = 1
+        });
+
+        var correctPairs = new[]
+        {
+            new { left = "Hello", right = "Привіт" },
+            new { left = "Goodbye", right = "До побачення" }
+        };
+
+        var userMap = new Dictionary<string, string>
+        {
+            ["Goodbye"] = "До побачення",
+            ["Hello"] = "Привіт"
+        };
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            Id = 1,
+            LessonId = 1,
+            Type = ExerciseType.Match,
+            Question = "Match the pairs",
+            Data = JsonSerializer.Serialize(correctPairs),
+            CorrectAnswer = "{}",
+            Order = 1
+        });
+
+        dbContext.UserLessonProgresses.Add(new UserLessonProgress
+        {
+            UserId = 10,
+            LessonId = 1,
+            IsUnlocked = true,
+            IsCompleted = false,
+            BestScore = 0,
+            LastAttemptAt = DateTime.UtcNow
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new LessonResultService(
+            dbContext,
+            new FakeAchievementService(),
+            new FakeDateTimeProvider(),
+	        new FakeUserEconomyService(),
+            new FakeStreakService(),
+            new SubmitLessonRequestValidator(),
+            Options.Create(new LearningSettings { PassingScorePercent = 80 })
+        );
+
+        var response = service.SubmitLesson(10, new SubmitLessonRequest
+        {
+            LessonId = 1,
+            Answers = new List<SubmitExerciseAnswerRequest>
+            {
+                new SubmitExerciseAnswerRequest
+                {
+                    ExerciseId = 1,
+                    Answer = JsonSerializer.Serialize(userMap)
+                }
+            }
+        });
+
+        Assert.Equal(1, response.TotalExercises);
+        Assert.Equal(1, response.CorrectAnswers);
+        Assert.True(response.IsPassed);
+        Assert.Single(response.Answers);
+        Assert.True(response.Answers[0].IsCorrect);
+    }
+
     [Fact]
     public void SubmitLesson_EmptyAnswers_ShouldThrow()
     {
@@ -424,7 +504,7 @@ public class LessonResultServiceIntegrationTests
 
         Assert.Equal(1, progress!.CompletedLessons);
 
-        // TotalScore = best score per lesson, тому 1, а не 2
-        Assert.Equal(1, progress.TotalScore);
+        // TotalScore = best score per lesson * 5, тому 5, а не 10
+        Assert.Equal(5, progress.TotalScore);
     }
 }

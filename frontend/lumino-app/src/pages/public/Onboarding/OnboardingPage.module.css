@@ -43,13 +43,14 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-ui);
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 500;
-  line-height: 22px;
+  line-height: 27px;
   letter-spacing: 0;
   color: #000000;
   margin: 0;
   text-align: center;
+  white-space: nowrap;
 }
 
 .bubbleText strong{
@@ -119,7 +120,9 @@
     transform: translateX(-50%);
     top: 140px;
     width: 300px;
-    font-size: 16px;
+    font-size: 18px;
+    line-height: 22px;
+    white-space: nowrap;
   }
 
   .mascot {

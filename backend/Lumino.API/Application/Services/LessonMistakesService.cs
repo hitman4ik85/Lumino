@@ -162,6 +162,7 @@ namespace Lumino.Api.Application.Services
                     TotalExercises = totalExercises,
                     CorrectAnswers = 0,
                     IsCompleted = true,
+                    RestoredHearts = 0,
                     MistakeExerciseIds = new List<int>(),
                     Answers = new List<LessonAnswerResultDto>()
                 };
@@ -169,6 +170,7 @@ namespace Lumino.Api.Application.Services
 
             var passingScorePercent = LessonPassingRules.NormalizePassingPercent(_learningSettings.PassingScorePercent);
 
+            var previousBestScore = progress?.BestScore ?? 0;
             var prevScore = lastResult.Score;
             var prevTotal = lastResult.TotalQuestions;
             var prevIsPassed = LessonPassingRules.IsPassed(prevScore, prevTotal, passingScorePercent);
@@ -224,6 +226,7 @@ namespace Lumino.Api.Application.Services
                         TotalExercises = totalExercises,
                         CorrectAnswers = correctCount,
                         IsCompleted = completed,
+                        RestoredHearts = 0,
                         MistakeExerciseIds = details.MistakeExerciseIds,
                         Answers = details.Answers
                     };
@@ -263,6 +266,7 @@ namespace Lumino.Api.Application.Services
                     correctCount,
                     totalExercises,
                     prevIsPassed,
+                    previousBestScore,
                     passingScorePercent);
 
                 return new SubmitLessonMistakesResponse
@@ -271,6 +275,7 @@ namespace Lumino.Api.Application.Services
                     TotalExercises = totalExercises,
                     CorrectAnswers = correctCount,
                     IsCompleted = completed,
+                    RestoredHearts = 0,
                     MistakeExerciseIds = details.MistakeExerciseIds,
                     Answers = details.Answers
                 };
@@ -350,7 +355,7 @@ namespace Lumino.Api.Application.Services
 
             _dbContext.SaveChanges();
 
-            TryAwardHeartForPracticeIfNeeded(userId, targetMistakeIds.Count, completedAllMistakes, details, lastResult);
+            var restoredHearts = TryAwardHeartForPracticeIfNeeded(userId, targetMistakeIds.Count, completedAllMistakes, details, lastResult);
 
             ApplyPostSubmitSideEffects(
                 userId,
@@ -361,6 +366,7 @@ namespace Lumino.Api.Application.Services
                 correct,
                 totalExercises,
                 prevIsPassed,
+                previousBestScore,
                 passingScorePercent);
 
             return new SubmitLessonMistakesResponse
@@ -369,12 +375,13 @@ namespace Lumino.Api.Application.Services
                 TotalExercises = totalExercises,
                 CorrectAnswers = correct,
                 IsCompleted = completedAllMistakes,
+                RestoredHearts = restoredHearts,
                 MistakeExerciseIds = details.MistakeExerciseIds,
                 Answers = details.Answers
             };
         }
 
-        private void TryAwardHeartForPracticeIfNeeded(
+        private int TryAwardHeartForPracticeIfNeeded(
             int userId,
             int practiceTargetMistakesCount,
             bool completedAllMistakes,
@@ -383,24 +390,32 @@ namespace Lumino.Api.Application.Services
         {
             if (!completedAllMistakes)
             {
-                return;
+                return 0;
             }
 
             if (practiceTargetMistakesCount <= 0)
             {
-                return;
+                return 0;
             }
 
             if (details.PracticeHeartGranted)
             {
-                return;
+                return 0;
             }
 
+            var userBeforeAward = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+            var heartsBeforeAward = userBeforeAward?.Hearts ?? 0;
+
             _userEconomyService.AwardHeartForPracticeIfPossible(userId);
+
+            var userAfterAward = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+            var heartsAfterAward = userAfterAward?.Hearts ?? heartsBeforeAward;
 
             details.PracticeHeartGranted = true;
             lastResult.MistakesJson = SerializeDetails(details);
             _dbContext.SaveChanges();
+
+            return Math.Max(0, heartsAfterAward - heartsBeforeAward);
         }
 
         private void ApplyPostSubmitSideEffects(
@@ -412,15 +427,22 @@ namespace Lumino.Api.Application.Services
             int score,
             int totalQuestions,
             bool prevIsPassed,
+            int previousBestScore,
             int passingScorePercent)
         {
             var isPassed = LessonPassingRules.IsPassed(score, totalQuestions, passingScorePercent);
+            var earnedCrystals = CalculateEarnedCrystals(previousBestScore, score);
+
+            if (earnedCrystals > 0)
+            {
+                _userEconomyService.AwardCrystals(userId, earnedCrystals);
+            }
 
             var shouldIncrementCompletedLessons = isPassed && !prevIsPassed;
 
             UpdateUserProgress(userId, shouldIncrementCompletedLessons);
 
-            if (isPassed && !prevIsPassed)
+            if (isPassed && mistakeExerciseIdsForVocabulary != null && mistakeExerciseIdsForVocabulary.Count > 0)
             {
                 AddLessonVocabularyIfNeeded(userId, lesson, exercises, answers, mistakeExerciseIdsForVocabulary, isPassed);
             }
@@ -464,16 +486,28 @@ namespace Lumino.Api.Application.Services
             _dbContext.SaveChanges();
         }
 
+        private int CalculateEarnedCrystals(int previousBestScore, int currentScore)
+        {
+            return CalculateEarnedPoints(previousBestScore, currentScore);
+        }
+
+        private int CalculateEarnedPoints(int previousBestScore, int currentScore)
+        {
+            var improvement = currentScore - previousBestScore;
+
+            if (improvement <= 0)
+            {
+                return 0;
+            }
+
+            return GetLessonPoints(improvement);
+        }
+
         private int CalculateBestTotalScore(int userId)
         {
             var results = _dbContext.LessonResults
                 .Where(x => x.UserId == userId)
                 .ToList();
-
-            if (results.Count == 0)
-            {
-                return 0;
-            }
 
             var bestByLesson = new Dictionary<int, int>();
 
@@ -491,7 +525,17 @@ namespace Lumino.Api.Application.Services
                 }
             }
 
-            return bestByLesson.Values.Sum();
+            var lessonsScore = bestByLesson.Values.Sum(GetLessonPoints);
+
+            int completedScenesCount = _dbContext.SceneAttempts
+                .Where(x => x.UserId == userId && x.IsCompleted)
+                .Select(x => x.SceneId)
+                .Distinct()
+                .Count();
+
+            int scenesScore = completedScenesCount * _learningSettings.SceneCompletionScore;
+
+            return lessonsScore + scenesScore;
         }
 
         private void AddLessonVocabularyIfNeeded(
@@ -555,6 +599,11 @@ namespace Lumino.Api.Application.Services
                 var translation = Normalize(pair.Translation);
 
                 if (string.IsNullOrWhiteSpace(word) || string.IsNullOrWhiteSpace(translation))
+                {
+                    continue;
+                }
+
+                if (AutoVocabularyFilter.ShouldAutoAdd(word) == false)
                 {
                     continue;
                 }
@@ -709,6 +758,13 @@ namespace Lumino.Api.Application.Services
 
         private int? UnlockNextLesson(int userId, int courseId, int currentLessonId, DateTime now)
         {
+            var orderedTopics = _dbContext.Topics
+                .Where(x => x.CourseId == courseId)
+                .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
+                .ThenBy(x => x.Id)
+                .Select(x => x.Id)
+                .ToList();
+
             var orderedLessons =
                 (from t in _dbContext.Topics
                  join l in _dbContext.Lessons on t.Id equals l.TopicId
@@ -738,17 +794,21 @@ namespace Lumino.Api.Application.Services
 
             if (nextInfo.TopicId != current.TopicId)
             {
-                bool hasCurrentTopicScene = _dbContext.Scenes.Any(x => x.TopicId == current.TopicId);
+                var orderedScenes = _dbContext.Scenes
+                    .Where(x => x.CourseId == courseId || x.CourseId == null)
+                    .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
+                    .ThenBy(x => x.Id)
+                    .ToList();
+
+                bool hasCurrentTopicScene = HasSceneGatewayForTopic(orderedScenes, orderedTopics, current.TopicId);
 
                 if (hasCurrentTopicScene)
                 {
                     bool isCurrentTopicSceneCompleted = _dbContext.SceneAttempts
                         .Where(x => x.UserId == userId && x.IsCompleted)
-                        .Join(_dbContext.Scenes,
-                            attempt => attempt.SceneId,
-                            scene => scene.Id,
-                            (attempt, scene) => scene)
-                        .Any(x => x.TopicId == current.TopicId);
+                        .Select(x => x.SceneId)
+                        .ToList()
+                        .Any(sceneId => IsSceneMappedToTopic(orderedScenes, orderedTopics, sceneId, current.TopicId));
 
                     if (!isCurrentTopicSceneCompleted)
                     {
@@ -789,6 +849,68 @@ namespace Lumino.Api.Application.Services
             }
 
             return nextLessonId;
+        }
+
+
+        private static bool HasSceneGatewayForTopic(List<Scene> scenes, List<int> orderedTopicIds, int topicId)
+        {
+            if (scenes == null || scenes.Count == 0 || orderedTopicIds == null || orderedTopicIds.Count == 0)
+            {
+                return false;
+            }
+
+            var courseScenes = scenes.Where(x => x.CourseId != null).ToList();
+            var sourceScenes = courseScenes.Count > 0 ? courseScenes : scenes.Where(x => x.CourseId == null).ToList();
+
+            for (int i = 0; i < sourceScenes.Count; i++)
+            {
+                if (sourceScenes[i].TopicId == topicId)
+                {
+                    return true;
+                }
+
+                if (!sourceScenes[i].TopicId.HasValue && i < orderedTopicIds.Count && orderedTopicIds[i] == topicId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsSceneMappedToTopic(List<Scene> scenes, List<int> orderedTopicIds, int sceneId, int topicId)
+        {
+            if (scenes == null || scenes.Count == 0 || orderedTopicIds == null || orderedTopicIds.Count == 0)
+            {
+                return false;
+            }
+
+            var courseScenes = scenes.Where(x => x.CourseId != null).ToList();
+            var sourceScenes = courseScenes.Count > 0 ? courseScenes : scenes.Where(x => x.CourseId == null).ToList();
+
+            var orderedSourceScenes = sourceScenes
+                .OrderBy(x => x.Order <= 0 ? int.MaxValue : x.Order)
+                .ThenBy(x => x.Id)
+                .ToList();
+
+            for (int i = 0; i < orderedSourceScenes.Count; i++)
+            {
+                var scene = orderedSourceScenes[i];
+
+                if (scene.Id != sceneId)
+                {
+                    continue;
+                }
+
+                if (scene.TopicId.HasValue)
+                {
+                    return scene.TopicId.Value == topicId;
+                }
+
+                return i < orderedTopicIds.Count && orderedTopicIds[i] == topicId;
+            }
+
+            return false;
         }
 
         private void TryMarkCourseCompleted(int userId, UserCourse? userCourse, int courseId, DateTime now)
@@ -1120,6 +1242,11 @@ namespace Lumino.Api.Application.Services
 
             return key;
         }
+        private static string? NormalizeImageUrl(string? imageUrl)
+        {
+            return MediaUrlResolver.NormalizeLessonImageUrl(imageUrl);
+        }
+
         private static ExerciseResponse MapExercise(Exercise ex)
         {
             return new ExerciseResponse
@@ -1129,7 +1256,8 @@ namespace Lumino.Api.Application.Services
                 Question = ex.Question ?? string.Empty,
                 Data = ex.Data ?? string.Empty,
                 Order = ex.Order,
-                ImageUrl = ex.ImageUrl
+                ImageUrl = NormalizeImageUrl(ex.ImageUrl),
+                CorrectAnswer = ex.CorrectAnswer
             };
         }
 
@@ -1151,7 +1279,7 @@ namespace Lumino.Api.Application.Services
 
             if (exercise.Type == ExerciseType.Input)
             {
-                var answers = ParseCorrectAnswers(correctAnswerRaw);
+                var answers = GetAcceptedInputAnswers(exercise, correctAnswerRaw);
 
                 if (answers.Count == 0)
                 {
@@ -1170,6 +1298,94 @@ namespace Lumino.Api.Application.Services
 
             return !string.IsNullOrWhiteSpace(userAnswerText) &&
                 Normalize(userAnswerText) == Normalize(correctAnswerRaw);
+        }
+
+        private List<string> GetAcceptedInputAnswers(Exercise exercise, string correctAnswerRaw)
+        {
+            var answers = ParseCorrectAnswers(correctAnswerRaw);
+
+            if (exercise == null || answers.Count == 0)
+            {
+                return answers;
+            }
+
+            var vocabularyItemIds = _dbContext.ExerciseVocabularies
+                .Where(x => x.ExerciseId == exercise.Id)
+                .Select(x => x.VocabularyItemId)
+                .Distinct()
+                .ToList();
+
+            if (vocabularyItemIds.Count == 0)
+            {
+                return answers;
+            }
+
+            var normalizedAnswers = answers
+                .Select(Normalize)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (normalizedAnswers.Count == 0)
+            {
+                return answers;
+            }
+
+            var vocabularyItems = _dbContext.VocabularyItems
+                .Where(x => vocabularyItemIds.Contains(x.Id))
+                .Select(x => new
+                {
+                    x.Id,
+                    x.Translation
+                })
+                .ToList();
+
+            var translationsByItemId = _dbContext.VocabularyItemTranslations
+                .Where(x => vocabularyItemIds.Contains(x.VocabularyItemId))
+                .OrderBy(x => x.Order)
+                .ToList()
+                .GroupBy(x => x.VocabularyItemId)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x.Select(t => t.Translation).ToList());
+
+            foreach (var item in vocabularyItems)
+            {
+                var itemTranslations = translationsByItemId.TryGetValue(item.Id, out var list)
+                    ? list
+                    : new List<string>();
+
+                if (itemTranslations.Count == 0 && !string.IsNullOrWhiteSpace(item.Translation))
+                {
+                    itemTranslations.Add(item.Translation);
+                }
+
+                var normalizedTranslations = itemTranslations
+                    .Select(Normalize)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .ToList();
+
+                var expectsTranslation = normalizedTranslations.Any(normalizedAnswers.Contains);
+
+                if (!expectsTranslation)
+                {
+                    continue;
+                }
+
+                foreach (var translation in itemTranslations)
+                {
+                    var normalizedTranslation = Normalize(translation);
+
+                    if (string.IsNullOrWhiteSpace(normalizedTranslation) || normalizedAnswers.Contains(normalizedTranslation))
+                    {
+                        continue;
+                    }
+
+                    answers.Add(translation);
+                    normalizedAnswers.Add(normalizedTranslation);
+                }
+            }
+
+            return answers;
         }
 
         private static List<string> ParseCorrectAnswers(string correctAnswer)
@@ -1191,7 +1407,7 @@ namespace Lumino.Api.Application.Services
                 try
                 {
                     var list = JsonSerializer.Deserialize<List<string>>(trimmed);
-                    return list ?? new List<string>();
+                    return NormalizeAnswerList(list);
                 }
                 catch
                 {
@@ -1199,7 +1415,59 @@ namespace Lumino.Api.Application.Services
                 }
             }
 
-            return new List<string> { correctAnswer };
+            return NormalizeAnswerList(SplitAnswerVariants(trimmed));
+        }
+
+        private static List<string> SplitAnswerVariants(string value)
+        {
+            value = (value ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return new List<string>();
+            }
+
+            value = value
+                .Replace(" або ", "|", StringComparison.OrdinalIgnoreCase)
+                .Replace(" or ", "|", StringComparison.OrdinalIgnoreCase);
+
+            return value
+                .Split(new[] { '/', ',', ';', '|', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => (x ?? string.Empty).Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .ToList();
+        }
+
+        private static List<string> NormalizeAnswerList(List<string>? answers)
+        {
+            if (answers == null)
+            {
+                return new List<string>();
+            }
+
+            var result = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var answer in answers)
+            {
+                var trimmed = (answer ?? string.Empty).Trim();
+
+                if (trimmed.Length == 0)
+                {
+                    continue;
+                }
+
+                var normalized = Normalize(trimmed);
+
+                if (!seen.Add(normalized))
+                {
+                    continue;
+                }
+
+                result.Add(trimmed);
+            }
+
+            return result;
         }
 
         private bool IsMatchCorrect(string dataJson, string userJson)
@@ -1209,85 +1477,112 @@ namespace Lumino.Api.Application.Services
                 return false;
             }
 
-            List<MatchPair>? correctPairs;
+            List<MatchPair> correctPairs;
             List<MatchPair>? userPairs;
 
             try
             {
-                correctPairs = JsonSerializer.Deserialize<List<MatchPair>>(dataJson);
-                userPairs = JsonSerializer.Deserialize<List<MatchPair>>(userJson);
+                correctPairs = JsonSerializer.Deserialize<List<MatchPair>>(dataJson) ?? new List<MatchPair>();
+                userPairs = ParseMatchPairs(correctPairs, userJson);
             }
             catch
             {
                 return false;
             }
 
-            if (correctPairs == null || userPairs == null)
+            if (userPairs == null)
             {
                 return false;
             }
 
-            if (correctPairs.Count == 0 || userPairs.Count == 0)
+            return IsGroupedMatchCorrect(correctPairs, userPairs);
+        }
+
+        private bool IsIndexedMatchCorrect(List<MatchPair> correctPairs, List<MatchPair> userPairs)
+        {
+            return IsGroupedMatchCorrect(correctPairs, userPairs);
+        }
+
+        private static bool HasIndexedMatchPairs(List<MatchPair> pairs)
+        {
+            return pairs.Any(x => x.LeftIndex.HasValue || x.RightIndex.HasValue);
+        }
+
+        private bool IsGroupedMatchCorrect(List<MatchPair> correctPairs, List<MatchPair> userPairs)
+        {
+            var correctEntries = correctPairs
+                .Select(x => new
+                {
+                    Left = Normalize(x.left),
+                    Right = Normalize(x.right)
+                })
+                .Where(x => string.IsNullOrWhiteSpace(x.Left) == false && string.IsNullOrWhiteSpace(x.Right) == false)
+                .ToList();
+
+            var userEntries = userPairs
+                .Select(x => new
+                {
+                    Left = Normalize(x.left),
+                    Right = Normalize(x.right)
+                })
+                .Where(x => string.IsNullOrWhiteSpace(x.Left) == false && string.IsNullOrWhiteSpace(x.Right) == false)
+                .ToList();
+
+            if (correctEntries.Count == 0 || userEntries.Count == 0)
             {
                 return false;
             }
 
-            var correctMap = new Dictionary<string, string>();
-
-            foreach (var p in correctPairs)
-            {
-                var left = Normalize(p.left);
-                var right = Normalize(p.right);
-
-                if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
-                {
-                    continue;
-                }
-
-                if (!correctMap.ContainsKey(left))
-                {
-                    correctMap[left] = right;
-                }
-            }
-
-            var userMap = new Dictionary<string, string>();
-
-            foreach (var p in userPairs)
-            {
-                var left = Normalize(p.left);
-                var right = Normalize(p.right);
-
-                if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
-                {
-                    continue;
-                }
-
-                if (!userMap.ContainsKey(left))
-                {
-                    userMap[left] = right;
-                }
-            }
-
-            if (correctMap.Count == 0 || userMap.Count == 0)
+            if (correctEntries.Count != correctPairs.Count || userEntries.Count != userPairs.Count)
             {
                 return false;
             }
 
-            if (correctMap.Count != userMap.Count)
+            if (correctEntries.Count != userEntries.Count)
             {
                 return false;
             }
 
-            foreach (var kv in correctMap)
+            var correctCountsByLeft = correctEntries
+                .GroupBy(x => x.Left)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x.GroupBy(y => y.Right).ToDictionary(y => y.Key, y => y.Count()));
+
+            var userCountsByLeft = userEntries
+                .GroupBy(x => x.Left)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x.GroupBy(y => y.Right).ToDictionary(y => y.Key, y => y.Count()));
+
+            if (correctCountsByLeft.Count != userCountsByLeft.Count)
             {
-                if (!userMap.ContainsKey(kv.Key))
+                return false;
+            }
+
+            foreach (var leftGroup in correctCountsByLeft)
+            {
+                if (userCountsByLeft.TryGetValue(leftGroup.Key, out var userRightCounts) == false)
                 {
                     return false;
                 }
 
-                if (userMap[kv.Key] != kv.Value)
+                if (leftGroup.Value.Count != userRightCounts.Count)
                 {
                     return false;
+                }
+
+                foreach (var rightGroup in leftGroup.Value)
+                {
+                    if (userRightCounts.TryGetValue(rightGroup.Key, out var userCount) == false)
+                    {
+                        return false;
+                    }
+
+                    if (userCount != rightGroup.Value)
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -1296,13 +1591,136 @@ namespace Lumino.Api.Application.Services
 
         private class MatchPair
         {
+            public int? LeftIndex { get; set; }
+            public int? RightIndex { get; set; }
             public string left { get; set; } = null!;
             public string right { get; set; } = null!;
+        }
+
+        private List<MatchPair>? ParseMatchPairs(List<MatchPair> correctPairs, string userJson)
+        {
+            if (string.IsNullOrWhiteSpace(userJson))
+            {
+                return null;
+            }
+
+            var trimmed = userJson.Trim();
+
+            if (trimmed.StartsWith("{"))
+            {
+                var map = JsonSerializer.Deserialize<Dictionary<string, string>>(trimmed);
+
+                if (map == null)
+                {
+                    return null;
+                }
+
+                return map.Select(x => new MatchPair { left = x.Key, right = x.Value }).ToList();
+            }
+
+            using var document = JsonDocument.Parse(trimmed);
+
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            var result = new List<MatchPair>();
+
+            foreach (var item in document.RootElement.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                {
+                    return null;
+                }
+
+                var leftIndex = GetMatchIndex(item, "leftIndex");
+                var rightIndex = GetMatchIndex(item, "rightIndex");
+                var left = ReadMatchText(item, "left");
+                var right = ReadMatchText(item, "right");
+
+                if (leftIndex.HasValue && leftIndex.Value >= 0 && leftIndex.Value < correctPairs.Count)
+                {
+                    left = correctPairs[leftIndex.Value].left;
+                }
+
+                if (rightIndex.HasValue && rightIndex.Value >= 0 && rightIndex.Value < correctPairs.Count)
+                {
+                    right = correctPairs[rightIndex.Value].right;
+                }
+
+                result.Add(new MatchPair
+                {
+                    LeftIndex = leftIndex,
+                    RightIndex = rightIndex,
+                    left = left,
+                    right = right
+                });
+            }
+
+            return result;
+        }
+
+        private static int? GetMatchIndex(JsonElement item, string propertyName)
+        {
+            if (item.TryGetProperty(propertyName, out var property) == false)
+            {
+                return null;
+            }
+
+            if (property.ValueKind == JsonValueKind.Number && property.TryGetInt32(out var index))
+            {
+                return index;
+            }
+
+            if (property.ValueKind == JsonValueKind.String && int.TryParse(property.GetString(), out index))
+            {
+                return index;
+            }
+
+            return null;
+        }
+
+        private static string ReadMatchText(JsonElement item, string propertyName)
+        {
+            if (item.TryGetProperty(propertyName, out var property) == false)
+            {
+                return string.Empty;
+            }
+
+            if (property.ValueKind == JsonValueKind.String)
+            {
+                return property.GetString() ?? string.Empty;
+            }
+
+            if (property.ValueKind == JsonValueKind.Null || property.ValueKind == JsonValueKind.Undefined)
+            {
+                return string.Empty;
+            }
+
+            return property.ToString();
         }
 
         private static string Normalize(string value)
         {
             return AnswerNormalizer.Normalize(value);
+        }
+
+        private int GetLessonPoints(int correctAnswers)
+        {
+            var lessonCorrectAnswerScore = _learningSettings.LessonCorrectAnswerScore;
+
+            if (lessonCorrectAnswerScore < 1)
+            {
+                lessonCorrectAnswerScore = 1;
+            }
+
+            if (correctAnswers <= 0)
+            {
+                return 0;
+            }
+
+            return correctAnswers * lessonCorrectAnswerScore;
         }
     }
 }

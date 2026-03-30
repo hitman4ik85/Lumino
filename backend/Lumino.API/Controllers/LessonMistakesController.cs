@@ -2,6 +2,7 @@ using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Utils;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Lumino.Api.Controllers
@@ -12,10 +13,12 @@ namespace Lumino.Api.Controllers
     public class LessonMistakesController : ControllerBase
     {
         private readonly ILessonMistakesService _lessonMistakesService;
+        private readonly IWebHostEnvironment _environment;
 
-        public LessonMistakesController(ILessonMistakesService lessonMistakesService)
+        public LessonMistakesController(ILessonMistakesService lessonMistakesService, IWebHostEnvironment environment)
         {
             _lessonMistakesService = lessonMistakesService;
+            _environment = environment;
         }
 
         // помилки останньої спроби (вправи для повторення)
@@ -25,6 +28,13 @@ namespace Lumino.Api.Controllers
             var userId = ClaimsUtils.GetUserIdOrThrow(User);
 
             var result = _lessonMistakesService.GetLessonMistakes(userId, id);
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";
+
+            foreach (var item in result.Exercises)
+            {
+                item.ImageUrl = MediaUrlResolver.ResolveLessonImageForClient(_environment, baseUrl, item.ImageUrl);
+            }
+
             return Ok(result);
         }
 

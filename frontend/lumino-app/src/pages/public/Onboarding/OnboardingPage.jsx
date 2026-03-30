@@ -8,6 +8,7 @@ import BgRight from "../../../assets/backgrounds/bg-right.webp";
 
 import Bubble from "../../../assets/onboarding/bubble.svg";
 import Mascot from "../../../assets/mascot/mascot1.svg";
+import AnimatedMascotBubble from "./shared/AnimatedMascotBubble.jsx";
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
@@ -26,12 +27,16 @@ export default function OnboardingPage() {
         <img className={styles.bgLeft} src={BgLeft} alt="" />
         <img className={styles.bgRight} src={BgRight} alt="" />
 
-        <img className={styles.bubble} src={Bubble} alt="" />
-        <p className={styles.bubbleText}>
+        <AnimatedMascotBubble
+          mascotSrc={Mascot}
+          bubbleSrc={Bubble}
+          mascotClassName={styles.mascot}
+          bubbleClassName={styles.bubble}
+          textClassName={styles.bubbleText}
+          bubbleFirst
+        >
           Привіт! Мене звати <strong>Lumi</strong>
-        </p>
-
-        <img className={styles.mascot} src={Mascot} alt="" />
+        </AnimatedMascotBubble>
 
         <button className={styles.continueBtn} onClick={handleContinue}>
           ПРОДОВЖИТИ

@@ -23,15 +23,29 @@ namespace Lumino.Api.Utils
                 return;
             }
 
-            var userWord = (
-                from uv in dbContext.UserVocabularies
-                join vi in dbContext.VocabularyItems on uv.VocabularyItemId equals vi.Id
-                where uv.UserId == userId
-                    && vi.Word.ToLower() == normalizedWord.ToLower()
-                    && vi.Translation.ToLower() == normalizedTranslation.ToLower()
-                orderby uv.Id
-                select uv
-            ).FirstOrDefault();
+            var userWord = dbContext.UserVocabularies.Local
+                .Where(x => x.UserId == userId)
+                .OrderBy(x => x.Id)
+                .FirstOrDefault(x =>
+                {
+                    var localItem = dbContext.VocabularyItems.Local.FirstOrDefault(v => v.Id == x.VocabularyItemId)
+                        ?? dbContext.VocabularyItems.FirstOrDefault(v => v.Id == x.VocabularyItemId);
+
+                    return localItem != null
+                        && string.Equals(localItem.Word, normalizedWord, StringComparison.OrdinalIgnoreCase);
+                });
+
+            if (userWord == null)
+            {
+                userWord = (
+                    from uv in dbContext.UserVocabularies
+                    join vi in dbContext.VocabularyItems on uv.VocabularyItemId equals vi.Id
+                    where uv.UserId == userId
+                        && vi.Word.ToLower() == normalizedWord.ToLower()
+                    orderby uv.Id
+                    select uv
+                ).FirstOrDefault();
+            }
 
             VocabularyItem? item = null;
 
@@ -61,17 +75,62 @@ namespace Lumino.Api.Utils
             {
                 var privateItem = CreatePrivateCopy(dbContext, templateItem, normalizedWord, normalizedTranslation);
                 userWord.VocabularyItemId = privateItem.Id;
+                item = privateItem;
             }
             else if (CanUseItemInPlace(dbContext, item.Id, userId) == false)
             {
-                var privateItem = CreatePrivateCopy(dbContext, item, normalizedWord, normalizedTranslation);
+                var privateItem = CreatePrivateCopy(dbContext, item, item.Word, item.Translation);
                 userWord.VocabularyItemId = privateItem.Id;
+                item = privateItem;
+            }
+
+            if (item != null)
+            {
+                EnsureTranslation(dbContext, item, normalizedTranslation);
             }
 
             if (isMistake && userWord.NextReviewAt > now)
             {
                 userWord.NextReviewAt = now;
             }
+        }
+
+
+        private static void EnsureTranslation(LuminoDbContext dbContext, VocabularyItem item, string translation)
+        {
+            if (string.IsNullOrWhiteSpace(translation))
+            {
+                return;
+            }
+
+            var normalizedTranslation = translation.Trim();
+
+            if (string.IsNullOrWhiteSpace(item.Translation))
+            {
+                item.Translation = normalizedTranslation;
+            }
+
+            var existing = dbContext.VocabularyItemTranslations
+                .Where(x => x.VocabularyItemId == item.Id)
+                .OrderBy(x => x.Order)
+                .ThenBy(x => x.Id)
+                .ToList();
+
+            if (existing.Any(x => string.Equals(x.Translation, normalizedTranslation, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            var nextOrder = existing.Count == 0 ? 0 : existing.Max(x => x.Order) + 1;
+
+            dbContext.VocabularyItemTranslations.Add(new VocabularyItemTranslation
+            {
+                VocabularyItemId = item.Id,
+                Translation = normalizedTranslation,
+                Order = nextOrder
+            });
+
+            dbContext.SaveChanges();
         }
 
         private static bool CanUseItemInPlace(LuminoDbContext dbContext, int vocabularyItemId, int userId)
