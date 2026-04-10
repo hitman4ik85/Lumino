@@ -73,6 +73,7 @@ export default function GlassModal({
 
   const isLanguageWarning = variant === "languageWarning";
   const isSceneLocked = variant === "sceneLocked";
+  const isAchievement = variant === "achievement";
 
   const getButtonText = (text) => String(text || "").toUpperCase();
 
@@ -103,7 +104,7 @@ export default function GlassModal({
       <div className={`${styles.backdrop} ${isLanguageWarning ? styles.languageWarningBackdrop : ""} ${isSceneLocked ? styles.sceneLockedBackdrop : ""}`} />
 
       <div
-        className={`${styles.modal} ${isLanguageWarning ? styles.languageWarningModal : ""} ${isSceneLocked ? styles.sceneLockedModal : ""}`}
+        className={`${styles.modal} ${isLanguageWarning ? styles.languageWarningModal : ""} ${isSceneLocked ? styles.sceneLockedModal : ""} ${isAchievement ? styles.achievementModal : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="glass-modal-title"
@@ -117,9 +118,9 @@ export default function GlassModal({
           aria-label="Закрити"
         />
 
-        <div className={`${styles.contentBox} ${isLanguageWarning ? styles.languageWarningContentBox : ""} ${isSceneLocked ? styles.sceneLockedContentBox : ""}`}>
+        <div className={`${styles.contentBox} ${isLanguageWarning ? styles.languageWarningContentBox : ""} ${isSceneLocked ? styles.sceneLockedContentBox : ""} ${isAchievement ? styles.achievementContentBox : ""}`}>
           {illustrationSrc ? (
-            <img className={`${styles.illustration} ${isSceneLocked ? styles.sceneLockedIllustration : ""}`} src={illustrationSrc} alt="" aria-hidden="true" />
+            <img className={`${styles.illustration} ${isSceneLocked ? styles.sceneLockedIllustration : ""} ${isAchievement ? styles.achievementIllustration : ""}`} src={illustrationSrc} alt="" aria-hidden="true" />
           ) : null}
 
           {title ? (
@@ -176,7 +177,7 @@ export default function GlassModal({
 
   if (stageTargetNode) {
     return createPortal(
-      <div className={styles.stageOverlayRoot} role="presentation" onClick={onClose}>
+      <div className={styles.stageOverlayRoot} role="presentation">
         {content}
       </div>,
       stageTargetNode
@@ -189,7 +190,6 @@ export default function GlassModal({
         className={styles.stageFrame}
         style={{ transform: `translate(-50%, -50%) scale(${stageScale})` }}
         role="presentation"
-        onClick={onClose}
       >
         {content}
       </div>

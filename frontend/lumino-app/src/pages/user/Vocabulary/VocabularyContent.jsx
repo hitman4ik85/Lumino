@@ -2288,7 +2288,7 @@ export default function VocabularyContent() {
 
   const messageModalNode = typeof document !== "undefined" ? document.getElementById("lumino-home-stage") : null;
   const messageModal = modal.open ? (
-    <div className={styles.messageModalOverlay} onClick={closeMessageModal}>
+    <div className={styles.messageModalOverlay}>
       <div className={styles.messageModalCard} onClick={(event) => event.stopPropagation()}>
         <button type="button" className={styles.messageModalClose} onClick={closeMessageModal} aria-label="Закрити">
           <CloseIcon />
@@ -2486,7 +2486,7 @@ export default function VocabularyContent() {
 
           if (rightMode === "edit" && selectedItemDetails) {
             const editModal = (
-              <div className={styles.wordModalOverlay} onClick={closeTransientState}>
+              <div className={styles.wordModalOverlay}>
                 <div className={`${styles.wordModalContent} ${styles.wordModalContentEdit}`} onClick={(e) => e.stopPropagation()}>
                   {renderEditPanel()}
                 </div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { scenesService } from "../../../services/scenesService.js";
+import { achievementsService } from "../../../services/achievementsService.js";
 import { userService } from "../../../services/userService.js";
 import { profileService } from "../../../services/profileService.js";
 import { PATHS } from "../../../routes/paths.js";
@@ -72,6 +73,39 @@ function isUserDialogue(step, index) {
 
 function buildInputSlots(answer) {
   return Array.from(String(answer || ""));
+}
+
+function getAchievementKey(item) {
+  return String(item?.id || item?.code || item?.title || "").trim();
+}
+
+function getNewlyEarnedAchievements(previousItems, nextItems) {
+  const previousEarnedKeys = new Set(
+    Array.isArray(previousItems)
+      ? previousItems
+        .filter((item) => Boolean(item?.isEarned))
+        .map(getAchievementKey)
+        .filter(Boolean)
+      : []
+  );
+
+  if (!Array.isArray(nextItems)) {
+    return [];
+  }
+
+  return nextItems.filter((item) => {
+    if (!item?.isEarned) {
+      return false;
+    }
+
+    const key = getAchievementKey(item);
+
+    if (!key) {
+      return false;
+    }
+
+    return !previousEarnedKeys.has(key);
+  });
 }
 
 function getVisibleDialogueSteps(steps, currentStep, stepIndex) {
@@ -175,6 +209,7 @@ export default function ScenePage() {
   const [user, setUser] = useState({ hearts: 0, crystals: 0, points: 0 });
   const [submitting, setSubmitting] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
+  const [startAchievements, setStartAchievements] = useState([]);
   const isMistakesMode = location.state?.mode === "mistakes";
   const stateScene = location.state?.scene || null;
 
@@ -221,6 +256,29 @@ export default function ScenePage() {
       ignore = true;
     };
   }, [isMistakesMode, sceneId, stateScene]);
+
+  useEffect(() => {
+    if (isMistakesMode) {
+      setStartAchievements([]);
+      return undefined;
+    }
+
+    let ignore = false;
+
+    achievementsService.getMine().then((res) => {
+      if (ignore) {
+        return;
+      }
+
+      if (res.ok) {
+        setStartAchievements(Array.isArray(res.data) ? res.data : []);
+      }
+    });
+
+    return () => {
+      ignore = true;
+    };
+  }, [isMistakesMode, sceneId]);
 
   useEffect(() => {
     if (loading || error || !scene || steps.length === 0) {
@@ -280,10 +338,16 @@ export default function ScenePage() {
       const submitRequest = isMistakesMode ? scenesService.submitMistakes(sceneId, payload) : scenesService.submit(sceneId, payload);
 
       submitRequest.then(async (res) => {
-        const [userRes, weeklyRes] = await Promise.all([
+        const extraRequests = [
           userService.getMe(),
           profileService.getWeeklyProgress(),
-        ]);
+        ];
+
+        if (!isMistakesMode) {
+          extraRequests.push(achievementsService.getMine());
+        }
+
+        const [userRes, weeklyRes, achievementsRes] = await Promise.all(extraRequests);
         setSubmitting(false);
 
         if (!res.ok) {
@@ -300,6 +364,10 @@ export default function ScenePage() {
           earnedCrystals: Math.max(0, Number(nextUser?.crystals ?? nextUser?.crystalsCount ?? 0) - Number(startUser.crystals || 0)),
           earnedPoints: Math.max(0, Number(nextUser?.points || 0) - Number(startUser.points || 0)),
         };
+        const latestAchievements = Array.isArray(achievementsRes?.data) ? achievementsRes.data : [];
+        const newlyEarnedAchievements = isMistakesMode
+          ? []
+          : getNewlyEarnedAchievements(startAchievements, latestAchievements);
 
         navigate(PATHS.sceneResult(sceneId), {
           replace: true,
@@ -310,6 +378,7 @@ export default function ScenePage() {
             user: nextUser,
             scene,
             mode: isMistakesMode ? "mistakes" : undefined,
+            newlyEarnedAchievements,
           },
         });
       });
@@ -317,7 +386,7 @@ export default function ScenePage() {
     }
 
     setStepIndex((prev) => prev + 1);
-  }, [answers, isLastStep, isMistakesMode, navigate, questionSteps, scene, sceneId, user]);
+  }, [answers, isLastStep, isMistakesMode, navigate, questionSteps, scene, sceneId, startAchievements, user]);
 
   const handleCheck = useCallback(() => {
     const correct = isCorrectStep(currentStep, currentAnswer);
@@ -331,10 +400,15 @@ export default function ScenePage() {
   }, [currentAnswer, currentStep, isMistakesMode]);
 
   const handleFeedbackContinue = useCallback(() => {
+    if (isLastStep) {
+      handleContinueLine();
+      return;
+    }
+
     setScreen("content");
     setFeedback(null);
     handleContinueLine();
-  }, [handleContinueLine]);
+  }, [handleContinueLine, isLastStep]);
 
   return (
     <div className={styles.viewport}>

@@ -72,7 +72,9 @@ export default function LessonResultPage() {
   const isDemoLesson = Boolean(location.state?.demoLesson);
   const newlyEarnedAchievements = Array.isArray(location.state?.newlyEarnedAchievements) ? location.state.newlyEarnedAchievements : [];
   const [achievementModalOpen, setAchievementModalOpen] = useState(false);
-  const achievementIllustrationSrc = useMemo(() => resolveAchievementImageUrl(newlyEarnedAchievements[0]?.imageUrl || ""), [newlyEarnedAchievements]);
+  const [achievementModalIndex, setAchievementModalIndex] = useState(0);
+  const currentAchievement = newlyEarnedAchievements[achievementModalIndex] || null;
+  const achievementIllustrationSrc = useMemo(() => resolveAchievementImageUrl(currentAchievement?.imageUrl || ""), [currentAchievement]);
 
   const accuracyPercent = useMemo(() => {
     const total = Number(result?.totalExercises || 0);
@@ -94,9 +96,14 @@ export default function LessonResultPage() {
 
   useEffect(() => {
     if (!isMistakesMode && newlyEarnedAchievements.length > 0) {
+      setAchievementModalIndex(0);
       setAchievementModalOpen(true);
+      return;
     }
-  }, [isMistakesMode, newlyEarnedAchievements.length]);
+
+    setAchievementModalOpen(false);
+    setAchievementModalIndex(0);
+  }, [isMistakesMode, newlyEarnedAchievements]);
 
   useEffect(() => {
     setShowTitle(false);
@@ -120,25 +127,36 @@ export default function LessonResultPage() {
     };
   }, [result]);
 
+  const achievementTitle = useMemo(() => {
+    const title = String(currentAchievement?.title || "").trim();
+
+    if (title) {
+      return title;
+    }
+
+    return "Нова нагорода!";
+  }, [currentAchievement]);
+
   const achievementMessage = useMemo(() => {
-    if (!newlyEarnedAchievements.length) {
-      return "";
+    const description = String(currentAchievement?.description || "").trim();
+
+    if (description) {
+      return description;
     }
 
-    const titles = newlyEarnedAchievements
-      .map((item) => String(item?.title || "").trim())
-      .filter(Boolean);
+    return "Ти отримав нову нагороду за проходження уроку.";
+  }, [currentAchievement]);
 
-    if (!titles.length) {
-      return "Ти отримав нову нагороду за проходження уроку.";
+  const handleCloseAchievementModal = () => {
+    const nextIndex = achievementModalIndex + 1;
+
+    if (nextIndex < newlyEarnedAchievements.length) {
+      setAchievementModalIndex(nextIndex);
+      return;
     }
 
-    if (titles.length === 1) {
-      return `Ти отримав нагороду: ${titles[0]}`;
-    }
-
-    return `Ти отримав нові нагороди: ${titles.join(", ")}`;
-  }, [newlyEarnedAchievements]);
+    setAchievementModalOpen(false);
+  };
 
   const handleContinue = () => {
     if (isDemoLesson) {
@@ -209,10 +227,11 @@ export default function LessonResultPage() {
 
             <GlassModal
               open={achievementModalOpen}
-              title="Нова нагорода!"
+              title={achievementTitle}
               message={achievementMessage}
-              onClose={() => setAchievementModalOpen(false)}
+              onClose={handleCloseAchievementModal}
               primaryText="Добре"
+              variant="achievement"
               illustrationSrc={achievementIllustrationSrc}
               stageTargetId="lesson-result-stage-root"
             />

@@ -1,7 +1,6 @@
-﻿using Lumino.Api.Application.DTOs;
+using Lumino.Api.Application.DTOs;
 using Lumino.Api.Utils;
 using Microsoft.Extensions.Configuration;
-using Lumino.Api.Application.Validators;
 
 namespace Lumino.Api.Application.Validators
 {
@@ -21,16 +20,7 @@ namespace Lumino.Api.Application.Validators
                 throw new ArgumentException("Request is required");
             }
 
-            if (!string.IsNullOrWhiteSpace(request.Username))
-            {
-                var value = request.Username.Trim();
-
-                if (value.Length < 3 || value.Length > 32)
-                {
-                    throw new ArgumentException("Username length must be between 3 and 32 characters");
-                }
-
-            }
+            AccountValidationRules.ValidateUsername(request.Username, required: false);
 
             SupportedAvatars.Validate(request.AvatarUrl, "AvatarUrl", _configuration);
 

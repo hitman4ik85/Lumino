@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { PATHS } from "../../../../routes/paths.js";
 import { demoLessonService } from "../../../../services/demoLessonService.js";
+import { authStorage } from "../../../../services/authStorage.js";
 import { useStageScale } from "../../../../hooks/useStageScale.js";
 import styles from "./OnboardingDemoLessonStubPage.module.css";
 
@@ -43,6 +44,8 @@ export default function OnboardingDemoLessonStubPage() {
         setLoading(false);
         return;
       }
+
+      authStorage.enableGuestPreview();
 
       navigate(PATHS.lesson(res.data.lesson.id), {
         replace: true,

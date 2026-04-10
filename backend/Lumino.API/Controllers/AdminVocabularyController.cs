@@ -55,6 +55,12 @@ namespace Lumino.Api.Controllers
             return Ok(_adminVocabularyService.GetByLesson(lessonId));
         }
 
+        [HttpGet("course/{courseId}/language")]
+        public IActionResult GetByCourseLanguage(int courseId)
+        {
+            return Ok(_adminVocabularyService.GetByCourseLanguage(courseId));
+        }
+
         [HttpPost("lesson/{lessonId}/{vocabularyItemId}")]
         public IActionResult LinkToLesson(int lessonId, int vocabularyItemId)
         {
@@ -67,6 +73,18 @@ namespace Lumino.Api.Controllers
         {
             _adminVocabularyService.UnlinkFromLesson(lessonId, vocabularyItemId);
             return NoContent();
+        }
+
+        [HttpPost("export")]
+        public IActionResult Export(AdminVocabularyExportRequest request)
+        {
+            return Ok(_adminVocabularyService.Export(request));
+        }
+
+        [HttpPost("import")]
+        public IActionResult Import(AdminVocabularyImportRequest request)
+        {
+            return Ok(_adminVocabularyService.Import(request));
         }
     }
 }

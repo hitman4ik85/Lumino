@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
+import { validateEmail, validatePassword } from "../../../utils/validation.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { authService } from "../../../services/authService.js";
 import { authStorage } from "../../../services/authStorage.js";
@@ -40,8 +41,6 @@ function GoogleIcon() {
   );
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export default function LoginPage() {
   const navigate = useNavigate();
   const stageRef = useRef(null);
@@ -77,6 +76,10 @@ export default function LoginPage() {
     onPrimary: null,
     onSecondary: null,
   });
+
+  const getSuccessPath = () => {
+    return authStorage.isAdmin() ? PATHS.admin : PATHS.home;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -122,7 +125,7 @@ export default function LoginPage() {
 
           authStorage.setTokens(token, refreshToken);
           setSubmitting(false);
-          navigate(PATHS.home);
+          navigate(getSuccessPath(), { replace: true });
         },
       });
 
@@ -166,23 +169,9 @@ export default function LoginPage() {
     };
   }, [navigate]);
 
-  const emailError = useMemo(() => {
-    const value = form.email.trim();
+  const emailError = useMemo(() => validateEmail(form.email, { required: true }), [form.email]);
 
-    if (!value) return "Введіть електронну адресу.";
-    if (!EMAIL_RE.test(value)) return "Введіть дійсну адресу ел. пошти.";
-
-    return "";
-  }, [form.email]);
-
-  const passwordError = useMemo(() => {
-    const value = form.password;
-
-    if (!value) return "Введіть пароль.";
-    if (value.length < 6) return "Пароль має містити щонайменше 6 символів.";
-
-    return "";
-  }, [form.password]);
+  const passwordError = useMemo(() => validatePassword(form.password, { required: true }), [form.password]);
 
   const isValid = !emailError && !passwordError;
   const canSubmit = isValid && !submitting;
@@ -337,7 +326,7 @@ export default function LoginPage() {
       }
 
       authStorage.setTokens(token, refreshToken);
-      navigate(PATHS.home);
+      navigate(getSuccessPath(), { replace: true });
     } catch {
       setErrorText("Сталася помилка під час входу. Спробуйте ще раз.");
     } finally {

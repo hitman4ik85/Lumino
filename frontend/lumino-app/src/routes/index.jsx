@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { PATHS } from "./paths.js";
 import UserLayout from "../layouts/UserLayout.jsx";
 import AdminLayout from "../layouts/AdminLayout.jsx";
-import { authStorage } from "../services/authStorage.js";
+import { AdminGuard, DefaultRouteGuard, UserGuard } from "./guards.jsx";
 
 import StartPage from "../pages/public/Start/StartPage.jsx";
 import LoginPage from "../pages/public/Login/LoginPage.jsx";
@@ -30,12 +30,9 @@ import LessonPage from "../pages/user/Lesson/LessonPage.jsx";
 import LessonResultPage from "../pages/user/Result/LessonResultPage.jsx";
 import ScenePage from "../pages/user/Scenes/ScenePage.jsx";
 import SceneResultPage from "../pages/user/Scenes/Result/SceneResultPage.jsx";
+import AdminPage from "../pages/admin/AdminPage.jsx";
 
 export default function AppRoutes() {
-  const isAuthed = authStorage.isAuthed();
-  const isAdmin = false;
-  const isGuestPreview = localStorage.getItem("lumino_guest_preview") === "true";
-
   return (
     <Routes>
       <Route path={PATHS.start} element={<StartPage />} />
@@ -58,33 +55,21 @@ export default function AppRoutes() {
       <Route path={PATHS.onboardingCreateProfLater} element={<OnboardingCreateProfLaterPage />} />
 
       <Route element={<UserLayout />}>
-        <Route
-          path={PATHS.home}
-          element={<HomePage />}
-        />
-        <Route
-          path={PATHS.profile}
-          element={<ProfilePage />}
-        />
-        <Route
-          path={PATHS.achievements}
-          element={<AchievementsPage />}
-        />
-        <Route
-          path={PATHS.vocabulary}
-          element={<VocabularyPage />}
-        />
-        <Route path={PATHS.lesson()} element={<LessonPage />} />
-        <Route path={PATHS.lessonResult()} element={<LessonResultPage />} />
-        <Route path={PATHS.scene()} element={<ScenePage />} />
-        <Route path={PATHS.sceneResult()} element={<SceneResultPage />} />
+        <Route path={PATHS.home} element={<UserGuard><HomePage /></UserGuard>} />
+        <Route path={PATHS.profile} element={<UserGuard><ProfilePage /></UserGuard>} />
+        <Route path={PATHS.achievements} element={<UserGuard><AchievementsPage /></UserGuard>} />
+        <Route path={PATHS.vocabulary} element={<UserGuard><VocabularyPage /></UserGuard>} />
+        <Route path={PATHS.lesson()} element={<UserGuard><LessonPage /></UserGuard>} />
+        <Route path={PATHS.lessonResult()} element={<UserGuard><LessonResultPage /></UserGuard>} />
+        <Route path={PATHS.scene()} element={<UserGuard><ScenePage /></UserGuard>} />
+        <Route path={PATHS.sceneResult()} element={<UserGuard><SceneResultPage /></UserGuard>} />
       </Route>
 
       <Route element={<AdminLayout />}>
-        <Route path={PATHS.admin} element={isAdmin ? <div>Admin</div> : <Navigate to={PATHS.home} replace />} />
+        <Route path={PATHS.admin} element={<AdminGuard><AdminPage /></AdminGuard>} />
       </Route>
 
-      <Route path="*" element={<Navigate to={PATHS.start} replace />} />
+      <Route path="*" element={<DefaultRouteGuard />} />
     </Routes>
   );
 }

@@ -68,6 +68,7 @@ namespace Lumino.Api.Data
                 entity.Property(x => x.Username).HasMaxLength(32);
                 entity.Property(x => x.AvatarUrl).HasMaxLength(256);
                 entity.Property(x => x.Theme).HasMaxLength(20).HasDefaultValue("light");
+                entity.Property(x => x.SessionVersion).HasDefaultValue(0);
 
                 entity.Property(x => x.IsEmailVerified).HasDefaultValue(false);
             });
@@ -211,6 +212,7 @@ namespace Lumino.Api.Data
                 entity.Property(x => x.Title).IsRequired();
                 entity.Property(x => x.Description).IsRequired();
                 entity.Property(x => x.ImageUrl).HasMaxLength(256);
+                entity.Property(x => x.ConditionType).HasMaxLength(64);
             });
 
             modelBuilder.Entity<UserProgress>(entity =>

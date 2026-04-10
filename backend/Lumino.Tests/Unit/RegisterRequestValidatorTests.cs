@@ -27,7 +27,7 @@ Assert.Throws<ArgumentException>(() =>
             validator.Validate(new RegisterRequest
             {
                 Email = "test@mail.com",
-                Password = "123456",
+                Password = "abc12345",
                 NativeLanguageCode = "en",
                 TargetLanguageCode = null
             });
@@ -43,7 +43,7 @@ Assert.Throws<ArgumentException>(() =>
             validator.Validate(new RegisterRequest
             {
                 Email = "test@mail.com",
-                Password = "123456",
+                Password = "abc12345",
                 NativeLanguageCode = "en",
                 TargetLanguageCode = "en"
             });
@@ -59,7 +59,7 @@ Assert.Throws<ArgumentException>(() =>
             validator.Validate(new RegisterRequest
             {
                 Email = "test@mail.com",
-                Password = "123456",
+                Password = "abc12345",
                 NativeLanguageCode = "xx",
                 TargetLanguageCode = "en"
             });
@@ -73,9 +73,24 @@ Assert.Throws<ArgumentException>(() =>
 validator.Validate(new RegisterRequest
         {
             Email = "test@mail.com",
-            Password = "123456",
+            Password = "abc12345",
             NativeLanguageCode = "pl",
             TargetLanguageCode = "en"
         });
     }
+
+    [Fact]
+    public void Validate_WithUsernameContainingSpaces_ShouldPass()
+    {
+        var validator = new RegisterRequestValidator(CreateConfig());
+
+        validator.Validate(new RegisterRequest
+        {
+            Username = "Andrii Uroichenko",
+            Email = "space-user@mail.com",
+            Password = "abc12345",
+            TargetLanguageCode = "en"
+        });
+    }
+
 }

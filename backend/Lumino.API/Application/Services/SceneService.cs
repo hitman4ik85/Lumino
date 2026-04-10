@@ -1,4 +1,4 @@
-using Lumino.Api.Application.DTOs;
+﻿using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Application.Validators;
 using Lumino.Api.Data;
@@ -911,7 +911,12 @@ namespace Lumino.Api.Application.Services
 
             if (attempt != null)
             {
-                if (attempt.IsCompleted) return;
+                if (attempt.IsCompleted)
+                {
+                    RegisterSceneActivity(userId);
+                    _dbContext.SaveChanges();
+                    return;
+                }
 
                 attempt.IsCompleted = true;
                 attempt.CompletedAt = _dateTimeProvider.UtcNow;
@@ -924,6 +929,8 @@ namespace Lumino.Api.Application.Services
                 AddSceneVocabularyIfNeeded(userId, sceneId, detailsJson: null);
 
                 UpdateUserProgressAfterScene(userId);
+                RegisterSceneActivity(userId);
+                _dbContext.SaveChanges();
 
                 _achievementService.CheckAndGrantSceneAchievements(userId);
 
@@ -975,6 +982,8 @@ namespace Lumino.Api.Application.Services
             AddSceneVocabularyIfNeeded(userId, sceneId, detailsJson: null);
 
             UpdateUserProgressAfterScene(userId);
+            RegisterSceneActivity(userId);
+            _dbContext.SaveChanges();
 
             _achievementService.CheckAndGrantSceneAchievements(userId);
         }
@@ -1183,6 +1192,11 @@ namespace Lumino.Api.Application.Services
 
                 ApplyAttemptIdempotencyKeys(attempt, submitIdempotencyKey, mistakesIdempotencyKey);
 
+                if (markCompleted)
+                {
+                    RegisterSceneActivity(userId);
+                }
+
                 _dbContext.SaveChanges();
                 return;
             }
@@ -1267,6 +1281,8 @@ namespace Lumino.Api.Application.Services
                 AddSceneVocabularyIfNeeded(userId, sceneId, detailsJson);
 
                 UpdateUserProgressAfterScene(userId);
+                RegisterSceneActivity(userId);
+                _dbContext.SaveChanges();
 
                 UnlockNextTopicAfterSceneIfNeeded(userId, sceneId, now);
                 TryMarkCourseCompletedAfterScene(userId, sceneId, now);
@@ -1278,6 +1294,59 @@ namespace Lumino.Api.Application.Services
         }
 
 
+
+        private void RegisterSceneActivity(int userId)
+        {
+            var todayKyiv = KyivDateTimeHelper.GetKyivDate(_dateTimeProvider.UtcNow);
+
+            var activeRow = _dbContext.UserDailyActivities.FirstOrDefault(x => x.UserId == userId && x.DateUtc == todayKyiv);
+
+            if (activeRow == null)
+            {
+                _dbContext.UserDailyActivities.Add(new UserDailyActivity
+                {
+                    UserId = userId,
+                    DateUtc = todayKyiv
+                });
+            }
+
+            var streak = _dbContext.UserStreaks.FirstOrDefault(x => x.UserId == userId);
+
+            if (streak == null)
+            {
+                _dbContext.UserStreaks.Add(new UserStreak
+                {
+                    UserId = userId,
+                    CurrentStreak = 1,
+                    BestStreak = 1,
+                    LastActivityDateUtc = todayKyiv
+                });
+                return;
+            }
+
+            var lastDate = streak.LastActivityDateUtc.Date;
+
+            if (lastDate == todayKyiv)
+            {
+                return;
+            }
+
+            if (lastDate == todayKyiv.AddDays(-1))
+            {
+                streak.CurrentStreak += 1;
+            }
+            else
+            {
+                streak.CurrentStreak = 1;
+            }
+
+            if (streak.CurrentStreak > streak.BestStreak)
+            {
+                streak.BestStreak = streak.CurrentStreak;
+            }
+
+            streak.LastActivityDateUtc = todayKyiv;
+        }
 
         private void UnlockNextTopicAfterSceneIfNeeded(int userId, int sceneId, DateTime now)
         {

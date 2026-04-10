@@ -1,4 +1,4 @@
-﻿﻿using Lumino.Api.Application.DTOs;
+﻿using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Services;
 using Lumino.Api.Domain.Entities;
 using Xunit;
@@ -290,4 +290,196 @@ private static void SeedLesson(Lumino.Api.Data.LuminoDbContext dbContext)
 
         dbContext.SaveChanges();
     }
+
+    [Fact]
+    public void Create_WhenLessonAlreadyHasNineExercises_Throws()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        SeedLesson(dbContext);
+
+        for (int i = 1; i <= 9; i++)
+        {
+            dbContext.Exercises.Add(new Exercise
+            {
+                LessonId = 1,
+                Type = Lumino.Api.Domain.Enums.ExerciseType.Input,
+                Question = $"Q{i}",
+                Data = "{}",
+                CorrectAnswer = "A",
+                Order = i
+            });
+        }
+
+        dbContext.SaveChanges();
+
+        var service = new AdminExerciseService(dbContext);
+
+        var ex = Assert.Throws<ArgumentException>(() => service.Create(new CreateExerciseRequest
+        {
+            LessonId = 1,
+            Type = "Input",
+            Question = "Q10",
+            Data = "{}",
+            CorrectAnswer = "A",
+            Order = 0
+        }));
+
+        Assert.Contains("at most 9 exercises", ex.Message);
+    }
+
+    [Fact]
+    public void Copy_WhenTargetLessonAlreadyHasNineExercises_Throws()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 1,
+            Title = "English A1",
+            Description = "Desc",
+            IsPublished = true
+        });
+
+        dbContext.Topics.Add(new Topic
+        {
+            Id = 1,
+            CourseId = 1,
+            Title = "Basics",
+            Order = 1
+        });
+
+        dbContext.Lessons.AddRange(
+            new Lesson { Id = 1, TopicId = 1, Title = "Source", Theory = "T", Order = 1 },
+            new Lesson { Id = 2, TopicId = 1, Title = "Target", Theory = "T", Order = 2 }
+        );
+
+        dbContext.SaveChanges();
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            LessonId = 1,
+            Type = Lumino.Api.Domain.Enums.ExerciseType.Input,
+            Question = "Q1",
+            Data = "{}",
+            CorrectAnswer = "A",
+            Order = 1
+        });
+
+        for (int i = 1; i <= 9; i++)
+        {
+            dbContext.Exercises.Add(new Exercise
+            {
+                LessonId = 2,
+                Type = Lumino.Api.Domain.Enums.ExerciseType.Input,
+                Question = $"Q{i}",
+                Data = "{}",
+                CorrectAnswer = "A",
+                Order = i
+            });
+        }
+
+        dbContext.SaveChanges();
+
+        var service = new AdminExerciseService(dbContext);
+
+        var ex = Assert.Throws<ArgumentException>(() => service.Copy(1, new CopyItemRequest
+        {
+            TargetLessonId = 2
+        }));
+
+        Assert.Contains("at most 9 exercises", ex.Message);
+    }
+
+    [Fact]
+    public void Copy_WhenTargetLessonHasGap_UsesFirstFreeOrder()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 1,
+            Title = "English A1",
+            Description = "Desc",
+            IsPublished = true
+        });
+
+        dbContext.Topics.Add(new Topic
+        {
+            Id = 1,
+            CourseId = 1,
+            Title = "Basics",
+            Order = 1
+        });
+
+        dbContext.Lessons.AddRange(
+            new Lesson { Id = 1, TopicId = 1, Title = "Source", Theory = "T", Order = 1 },
+            new Lesson { Id = 2, TopicId = 1, Title = "Target", Theory = "T", Order = 2 }
+        );
+
+        dbContext.SaveChanges();
+
+        dbContext.Exercises.Add(new Exercise
+        {
+            LessonId = 1,
+            Type = Lumino.Api.Domain.Enums.ExerciseType.Input,
+            Question = "Q1",
+            Data = "{}",
+            CorrectAnswer = "A",
+            Order = 1
+        });
+
+        dbContext.Exercises.AddRange(
+            new Exercise
+            {
+                LessonId = 2,
+                Type = Lumino.Api.Domain.Enums.ExerciseType.Input,
+                Question = "Q1",
+                Data = "{}",
+                CorrectAnswer = "A",
+                Order = 1
+            },
+            new Exercise
+            {
+                LessonId = 2,
+                Type = Lumino.Api.Domain.Enums.ExerciseType.Input,
+                Question = "Q3",
+                Data = "{}",
+                CorrectAnswer = "A",
+                Order = 3
+            }
+        );
+
+        dbContext.SaveChanges();
+
+        var service = new AdminExerciseService(dbContext);
+
+        var copied = service.Copy(1, new CopyItemRequest
+        {
+            TargetLessonId = 2
+        });
+
+        Assert.Equal(2, copied.Order);
+    }
+
+    [Fact]
+    public void Create_WhenOrderGreaterThanNine_Throws()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        SeedLesson(dbContext);
+
+        var service = new AdminExerciseService(dbContext);
+
+        var ex = Assert.Throws<ArgumentException>(() => service.Create(new CreateExerciseRequest
+        {
+            LessonId = 1,
+            Type = "Input",
+            Question = "Q10",
+            Data = "{}",
+            CorrectAnswer = "A",
+            Order = 10
+        }));
+
+        Assert.Contains("between 1 and 9", ex.Message);
+    }
+
 }

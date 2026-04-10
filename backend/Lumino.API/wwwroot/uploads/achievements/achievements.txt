@@ -1,0 +1,14 @@
+/uploads/achievements/first_study_day.png
+/uploads/achievements/first_lesson.png
+/uploads/achievements/five_lessons_complated.png
+/uploads/achievements/perfect_lesson.png
+/uploads/achievements/no_mistakes_streak.png
+/uploads/achievements/500_xp.png
+/uploads/achievements/first_scene.png
+/uploads/achievements/first_topic_complated.png
+/uploads/achievements/five_scenes_complated.png
+/uploads/achievements/streak_starter.png
+/uploads/achievements/streak_7.png
+/uploads/achievements/streak_30.png
+/uploads/achievements/daily_goal.png
+/uploads/achievements/welcome_back.png

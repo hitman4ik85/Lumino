@@ -1,7 +1,11 @@
+using Lumino.Api.Application.DTOs;
+
 namespace Lumino.Api.Application.Interfaces
 {
     public interface IRefreshTokenCleanupService
     {
-        int Cleanup();
+        List<AdminRefreshTokenResponse> GetAll();
+
+        int Cleanup(bool deleteRevokedNow = false);
     }
 }

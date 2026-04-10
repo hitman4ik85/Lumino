@@ -1,4 +1,4 @@
-﻿namespace Lumino.Api.Domain.Entities
+namespace Lumino.Api.Domain.Entities
 {
     public class Achievement
     {
@@ -11,5 +11,9 @@
         public string Description { get; set; } = null!;
 
         public string? ImageUrl { get; set; }
+
+        public string? ConditionType { get; set; }
+
+        public int? ConditionThreshold { get; set; }
     }
 }

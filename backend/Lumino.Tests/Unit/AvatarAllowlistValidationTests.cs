@@ -17,7 +17,7 @@ public class AvatarAllowlistValidationTests
             validator.Validate(new RegisterRequest
             {
                 Email = "test@mail.com",
-                Password = "123456",
+                Password = "abc12345",
                 Username = "testuser",
                 AvatarUrl = "/avatars/not-exists.png"
             });
@@ -46,7 +46,7 @@ public class AvatarAllowlistValidationTests
         validator.Validate(new RegisterRequest
         {
             Email = "test@mail.com",
-            Password = "123456",
+            Password = "abc12345",
             Username = "testuser",
             AvatarUrl = "/avatars/alien-2.png"
         });

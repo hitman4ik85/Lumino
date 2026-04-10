@@ -1,4 +1,5 @@
 using Lumino.Api.Application.DTOs;
+using Lumino.Api.Utils;
 
 namespace Lumino.Api.Application.Validators
 {
@@ -26,15 +27,7 @@ namespace Lumino.Api.Application.Validators
                 throw new ArgumentException("ConfirmPassword is required");
             }
 
-            if (request.NewPassword.Length < 6)
-            {
-                throw new ArgumentException("NewPassword must be at least 6 characters");
-            }
-
-            if (request.NewPassword.Length > 64)
-            {
-                throw new ArgumentException("NewPassword must be at most 64 characters");
-            }
+            AccountValidationRules.ValidatePasswordForSet(request.NewPassword, fieldName: "NewPassword");
 
             if (request.NewPassword != request.ConfirmPassword)
             {

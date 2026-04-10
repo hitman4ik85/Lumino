@@ -61,6 +61,12 @@ namespace Lumino.Api.Controllers
             return NoContent();
         }
 
+        [HttpPut("{id}/assign-topic")]
+        public IActionResult AssignSceneToTopic(int id, AssignSceneToTopicRequest request)
+        {
+            return Ok(_adminSceneService.AssignSceneToTopic(id, request));
+        }
+
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {

@@ -1,4 +1,4 @@
-﻿using Lumino.Api.Application.DTOs;
+using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Services;
 using Lumino.Api.Domain.Entities;
 using Xunit;
@@ -146,6 +146,121 @@ public class AdminTopicServiceTests
     }
 
     [Fact]
+    public void Update_UpdatesBoundTopicSceneOrder()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var course = new Course
+        {
+            Title = "Course",
+            Description = "Desc",
+            IsPublished = true
+        };
+
+        dbContext.Courses.Add(course);
+        dbContext.SaveChanges();
+
+        var topic = new Topic
+        {
+            CourseId = course.Id,
+            Title = "Topic",
+            Order = 1
+        };
+
+        dbContext.Topics.Add(topic);
+        dbContext.SaveChanges();
+
+        var scene = new Scene
+        {
+            CourseId = course.Id,
+            TopicId = topic.Id,
+            Title = "Scene",
+            Description = "Desc",
+            SceneType = "Sun",
+            Order = 1
+        };
+
+        dbContext.Scenes.Add(scene);
+        dbContext.SaveChanges();
+
+        var service = new AdminTopicService(dbContext);
+
+        service.Update(topic.Id, new UpdateTopicRequest
+        {
+            Title = "Topic Updated",
+            Order = 3
+        });
+
+        var updatedScene = dbContext.Scenes.First(x => x.Id == scene.Id);
+
+        Assert.Equal(3, updatedScene.Order);
+        Assert.Equal(course.Id, updatedScene.CourseId);
+    }
+
+    [Fact]
+    public void Update_WhenUnboundSceneUsesTargetOrder_MovesUnboundSceneToZero()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var course = new Course
+        {
+            Title = "Course",
+            Description = "Desc",
+            IsPublished = true
+        };
+
+        dbContext.Courses.Add(course);
+        dbContext.SaveChanges();
+
+        var topic = new Topic
+        {
+            CourseId = course.Id,
+            Title = "Topic",
+            Order = 1
+        };
+
+        dbContext.Topics.Add(topic);
+        dbContext.SaveChanges();
+
+        var topicScene = new Scene
+        {
+            CourseId = course.Id,
+            TopicId = topic.Id,
+            Title = "Topic Scene",
+            Description = "Desc",
+            SceneType = "Sun",
+            Order = 1
+        };
+
+        var unboundScene = new Scene
+        {
+            CourseId = course.Id,
+            TopicId = null,
+            Title = "Unbound Scene",
+            Description = "Desc",
+            SceneType = "Sun",
+            Order = 2
+        };
+
+        dbContext.Scenes.AddRange(topicScene, unboundScene);
+        dbContext.SaveChanges();
+
+        var service = new AdminTopicService(dbContext);
+
+        service.Update(topic.Id, new UpdateTopicRequest
+        {
+            Title = "Topic Updated",
+            Order = 2
+        });
+
+        var updatedTopicScene = dbContext.Scenes.First(x => x.Id == topicScene.Id);
+        var updatedUnboundScene = dbContext.Scenes.First(x => x.Id == unboundScene.Id);
+
+        Assert.Equal(2, updatedTopicScene.Order);
+        Assert.Equal(0, updatedUnboundScene.Order);
+    }
+
+    [Fact]
     public void Delete_WhenNotFound_Throws()
     {
         var dbContext = TestDbContextFactory.Create();
@@ -185,6 +300,82 @@ public class AdminTopicServiceTests
         service.Delete(topic.Id);
 
         Assert.Empty(dbContext.Topics);
+    }
+
+    [Fact]
+    public void Delete_RemovesTopicScenesWithStepsAndAttempts()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var course = new Course
+        {
+            Title = "Course",
+            Description = "Desc",
+            IsPublished = true
+        };
+
+        dbContext.Courses.Add(course);
+        dbContext.SaveChanges();
+
+        var topic = new Topic
+        {
+            CourseId = course.Id,
+            Title = "Topic",
+            Order = 1
+        };
+
+        dbContext.Topics.Add(topic);
+        dbContext.SaveChanges();
+
+        var scene = new Scene
+        {
+            CourseId = course.Id,
+            TopicId = topic.Id,
+            Title = "Scene",
+            Description = "Desc",
+            SceneType = "Sun",
+            Order = 1
+        };
+
+        dbContext.Scenes.Add(scene);
+        dbContext.SaveChanges();
+
+        dbContext.Users.Add(new User
+        {
+            Id = 1,
+            Email = "test@example.com",
+            PasswordHash = "hash"
+        });
+
+        dbContext.SceneSteps.Add(new SceneStep
+        {
+            SceneId = scene.Id,
+            Order = 1,
+            Speaker = "Narrator",
+            Text = "Step",
+            StepType = "Line"
+        });
+
+        dbContext.SceneAttempts.Add(new SceneAttempt
+        {
+            SceneId = scene.Id,
+            UserId = 1,
+            Score = 1,
+            TotalQuestions = 1,
+            IsCompleted = false,
+            CompletedAt = DateTime.UtcNow
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new AdminTopicService(dbContext);
+
+        service.Delete(topic.Id);
+
+        Assert.Empty(dbContext.Topics);
+        Assert.Empty(dbContext.Scenes);
+        Assert.Empty(dbContext.SceneSteps);
+        Assert.Empty(dbContext.SceneAttempts);
     }
     [Fact]
     public void Create_WhenOrderDuplicateInCourse_Throws()
@@ -291,4 +482,71 @@ public class AdminTopicServiceTests
             Order = 1
         }));
     }
+
+    [Fact]
+    public void Create_WhenCourseAlreadyHasTenTopics_Throws()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var course = new Course
+        {
+            Title = "Course",
+            Description = "Desc",
+            IsPublished = true
+        };
+
+        dbContext.Courses.Add(course);
+        dbContext.SaveChanges();
+
+        for (int i = 1; i <= 10; i++)
+        {
+            dbContext.Topics.Add(new Topic
+            {
+                CourseId = course.Id,
+                Title = $"T{i}",
+                Order = i
+            });
+        }
+
+        dbContext.SaveChanges();
+
+        var service = new AdminTopicService(dbContext);
+
+        var ex = Assert.Throws<ArgumentException>(() => service.Create(new CreateTopicRequest
+        {
+            CourseId = course.Id,
+            Title = "T11",
+            Order = 0
+        }));
+
+        Assert.Contains("at most 10 topics", ex.Message);
+    }
+
+    [Fact]
+    public void Create_WhenOrderGreaterThanTen_Throws()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var course = new Course
+        {
+            Title = "Course",
+            Description = "Desc",
+            IsPublished = true
+        };
+
+        dbContext.Courses.Add(course);
+        dbContext.SaveChanges();
+
+        var service = new AdminTopicService(dbContext);
+
+        var ex = Assert.Throws<ArgumentException>(() => service.Create(new CreateTopicRequest
+        {
+            CourseId = course.Id,
+            Title = "T11",
+            Order = 11
+        }));
+
+        Assert.Contains("between 1 and 10", ex.Message);
+    }
+
 }

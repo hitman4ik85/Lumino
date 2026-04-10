@@ -1,6 +1,7 @@
 using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
 using Lumino.Api.Domain.Enums;
+using Lumino.Api.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Text;
@@ -21,7 +22,7 @@ public class DesignScenariosHttpIntegrationTests : IClassFixture<ApiWebApplicati
     [Fact]
     public async Task Home_PassLesson_ShouldIncreaseStreak_AndCalendarMonthShouldMatchMacet()
     {
-        var today = DateTime.UtcNow.Date;
+        var today = KyivDateTimeHelper.GetKyivDate(DateTime.UtcNow);
 
         using (var scope = _factory.Services.CreateScope())
         {

@@ -1,4 +1,5 @@
 using Lumino.Api.Application.DTOs;
+using Lumino.Api.Utils;
 
 namespace Lumino.Api.Application.Validators
 {
@@ -11,9 +12,9 @@ namespace Lumino.Api.Application.Validators
                 throw new ArgumentException("Request is required");
             }
 
-            if (!string.IsNullOrWhiteSpace(request.Password) && request.Password.Length > 64)
+            if (!string.IsNullOrWhiteSpace(request.Password))
             {
-                throw new ArgumentException("Password must be at most 64 characters");
+                AccountValidationRules.ValidatePasswordForLogin(request.Password, fieldName: "Password");
             }
         }
     }

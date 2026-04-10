@@ -18,6 +18,8 @@ namespace Lumino.Api.Application.Interfaces
 
         void Update(int id, UpdateSceneRequest request);
 
+        AdminSceneDetailsResponse AssignSceneToTopic(int sceneId, AssignSceneToTopicRequest request);
+
         void Delete(int id);
 
         List<AdminSceneStepResponse> GetSteps(int sceneId);

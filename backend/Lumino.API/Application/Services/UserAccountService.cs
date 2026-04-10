@@ -44,7 +44,7 @@ namespace Lumino.Api.Application.Services
             }
 
             user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
-            _dbContext.SaveChanges();
+            InvalidateUserSessions(user);
         }
 
         public void DeleteAccount(int userId, DeleteAccountRequest request)
@@ -82,6 +82,23 @@ namespace Lumino.Api.Application.Services
             }
 
             _dbContext.Users.Remove(user);
+            _dbContext.SaveChanges();
+        }
+
+        private void InvalidateUserSessions(Domain.Entities.User user)
+        {
+            var activeTokens = _dbContext.RefreshTokens
+                .Where(x => x.UserId == user.Id && x.RevokedAt == null)
+                .ToList();
+
+            var now = DateTime.UtcNow;
+
+            foreach (var token in activeTokens)
+            {
+                token.RevokedAt = now;
+            }
+
+            user.SessionVersion++;
             _dbContext.SaveChanges();
         }
     }

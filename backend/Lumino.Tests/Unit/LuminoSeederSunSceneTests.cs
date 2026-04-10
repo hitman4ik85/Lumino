@@ -61,7 +61,7 @@ public class LuminoSeederSunSceneTests
 
         var sun = sunScenes[0];
         Assert.Equal("Cafe order", sun.Title);
-        Assert.Equal(1000 + topic.Order, sun.Order);
+        Assert.Equal(topic.Order, sun.Order);
 
         // No other scenes should be linked to this topic/course by seeder (avoid duplicates).
         var allLinkedToTopic = dbContext.Scenes
@@ -152,7 +152,7 @@ public class LuminoSeederSunSceneTests
         Assert.NotEqual(100, secondCourseScenes[0].Id);
         Assert.Equal("Buy clothes - Sun", secondCourseScenes[0].Title);
         Assert.Equal("Sun", secondCourseScenes[0].SceneType);
-        Assert.Equal(1001, secondCourseScenes[0].Order);
+        Assert.Equal(secondTopic.Order, secondCourseScenes[0].Order);
     }
 
 
@@ -252,4 +252,67 @@ public class LuminoSeederSunSceneTests
         Assert.Equal("Order a coffee in a cafe", secondCourseScene.Description);
     }
 
+    [Fact]
+    public void EnsureFinalSceneForTopic_WhenTopicSceneOrderConflicts_ShouldReleaseConflictingOrder()
+    {
+        using var dbContext = TestDbContextFactory.Create();
+
+        var course = new Course
+        {
+            Id = 1,
+            Title = "English A1",
+            Description = "Desc",
+            IsPublished = true,
+            LanguageCode = "en"
+        };
+
+        var topic = new Topic
+        {
+            Id = 10,
+            CourseId = 1,
+            Title = "Basic words",
+            Order = 1
+        };
+
+        var topicDialogScene = new Scene
+        {
+            Id = 100,
+            CourseId = 1,
+            TopicId = 10,
+            Order = 5,
+            Title = "Topic dialog",
+            Description = "Dialog scene",
+            SceneType = "Dialog"
+        };
+
+        var conflictingScene = new Scene
+        {
+            Id = 200,
+            CourseId = 1,
+            TopicId = null,
+            Order = 1,
+            Title = "Conflicting",
+            Description = "Other scene",
+            SceneType = "Sun"
+        };
+
+        dbContext.Courses.Add(course);
+        dbContext.Topics.Add(topic);
+        dbContext.Scenes.AddRange(topicDialogScene, conflictingScene);
+        dbContext.SaveChanges();
+
+        var method = typeof(LuminoSeeder).GetMethod("EnsureFinalSceneForTopic", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        method!.Invoke(null, new object[] { dbContext, course, topic });
+
+        dbContext.SaveChanges();
+
+        var updatedTopicScene = dbContext.Scenes.First(x => x.Id == 100);
+        var releasedScene = dbContext.Scenes.First(x => x.Id == 200);
+
+        Assert.Equal("Sun", updatedTopicScene.SceneType);
+        Assert.Equal(1, updatedTopicScene.Order);
+        Assert.Equal(0, releasedScene.Order);
+    }
 }

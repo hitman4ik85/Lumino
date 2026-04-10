@@ -41,7 +41,7 @@ public class EmailVerificationHttpIntegrationTests : IClassFixture<ApiWebApplica
         var response = await client.PostAsJsonAsync("/api/auth/register", new
         {
             email = "verify@lumino.com",
-            password = "123456",
+            password = "abc12345",
             username = "verifier"
         });
 
@@ -99,7 +99,7 @@ public class EmailVerificationHttpIntegrationTests : IClassFixture<ApiWebApplica
         var response = await client.PostAsJsonAsync("/api/auth/register", new
         {
             email = "existing@lumino.com",
-            password = "123456",
+            password = "abc12345",
             username = "existing_user_2"
         });
 

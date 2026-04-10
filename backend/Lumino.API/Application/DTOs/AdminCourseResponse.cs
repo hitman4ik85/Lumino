@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Lumino.Api.Application.DTOs
 {
     public class AdminCourseResponse
@@ -17,5 +19,11 @@ namespace Lumino.Api.Application.DTOs
         public int Order { get; set; }
 
         public int? PrerequisiteCourseId { get; set; }
+
+        public bool CanPublish { get; set; }
+
+        public string PublishHint { get; set; } = string.Empty;
+
+        public List<string> PublishIssues { get; set; } = new();
     }
 }

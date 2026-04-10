@@ -1,5 +1,6 @@
 using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
+using Lumino.Api.Utils;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using System;
@@ -119,23 +120,54 @@ namespace Lumino.Api.Application.Services
                 .OrderByDescending(x => x.LastWriteTimeUtc)
                 .Skip(skip)
                 .Take(take)
-                .Select(x =>
-                {
-                    var relativePath = Path.GetRelativePath(uploadsPath, x.FullName)
-                        .Replace('\\', '/');
-
-                    return new MediaFileResponse
-                    {
-                        FileName = relativePath,
-                        Url = $"{baseUrl}/uploads/{relativePath}",
-                        SizeBytes = x.Length,
-                        LastModifiedUtc = x.LastWriteTimeUtc,
-                        Extension = x.Extension
-                    };
-                })
+                .Select(x => BuildMediaFileResponse(x, uploadsPath, baseUrl))
                 .ToList();
 
             return files;
+        }
+
+        public void Delete(string path)
+        {
+            var relativePath = NormalizeRelativePath(path);
+            var fullPath = ResolveMediaFilePath(relativePath);
+
+            if (!File.Exists(fullPath))
+            {
+                throw new KeyNotFoundException("Файл не знайдено");
+            }
+
+            File.Delete(fullPath);
+        }
+
+        public MediaFileResponse Rename(string path, string newFileName, string baseUrl)
+        {
+            var relativePath = NormalizeRelativePath(path);
+            var fullPath = ResolveMediaFilePath(relativePath);
+
+            if (!File.Exists(fullPath))
+            {
+                throw new KeyNotFoundException("Файл не знайдено");
+            }
+
+            var currentExtension = Path.GetExtension(fullPath);
+            var normalizedFileName = NormalizeTargetFileName(newFileName, currentExtension);
+            var currentDirectory = Path.GetDirectoryName(fullPath) ?? Path.Combine(ResolveWebRootPath(), "uploads");
+            var targetFullPath = Path.Combine(currentDirectory, normalizedFileName);
+
+            if (!string.Equals(fullPath, targetFullPath, StringComparison.OrdinalIgnoreCase) && File.Exists(targetFullPath))
+            {
+                throw new ConflictException("Файл з такою назвою вже існує");
+            }
+
+            if (!string.Equals(fullPath, targetFullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                File.Move(fullPath, targetFullPath);
+            }
+
+            var uploadsPath = Path.Combine(ResolveWebRootPath(), "uploads");
+            var fileInfo = new FileInfo(targetFullPath);
+
+            return BuildMediaFileResponse(fileInfo, uploadsPath, baseUrl);
         }
 
         private string BuildUploadsPath(string? folder)
@@ -191,6 +223,120 @@ namespace Lumino.Api.Application.Services
                 .ToArray();
 
             return string.Join('/', segments);
+        }
+
+        private string ResolveMediaFilePath(string relativePath)
+        {
+            var uploadsPath = Path.GetFullPath(Path.Combine(ResolveWebRootPath(), "uploads"));
+            var segments = relativePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var combinedPath = segments.Aggregate(uploadsPath, Path.Combine);
+            var fullPath = Path.GetFullPath(combinedPath);
+            var uploadsPathWithSeparator = uploadsPath.EndsWith(Path.DirectorySeparatorChar)
+                ? uploadsPath
+                : uploadsPath + Path.DirectorySeparatorChar;
+
+            if (!fullPath.Equals(uploadsPath, StringComparison.OrdinalIgnoreCase)
+                && !fullPath.StartsWith(uploadsPathWithSeparator, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Некоректний шлях до файлу");
+            }
+
+            return fullPath;
+        }
+
+        private static string NormalizeRelativePath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new ArgumentException("Шлях до файлу обов'язковий");
+            }
+
+            var normalized = path
+                .Replace('\\', '/')
+                .Trim();
+
+            normalized = normalized.TrimStart('/');
+
+            if (normalized.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = normalized.Substring("uploads/".Length);
+            }
+
+            normalized = normalized.Trim('/');
+
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                throw new ArgumentException("Шлях до файлу обов'язковий");
+            }
+
+            var segments = normalized
+                .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .ToArray();
+
+            if (segments.Length == 0 || segments.Any(x => x == "." || x == ".."))
+            {
+                throw new ArgumentException("Некоректний шлях до файлу");
+            }
+
+            return string.Join('/', segments);
+        }
+
+        private static string NormalizeTargetFileName(string newFileName, string currentExtension)
+        {
+            if (string.IsNullOrWhiteSpace(newFileName))
+            {
+                throw new ArgumentException("Вкажіть нову назву файлу");
+            }
+
+            var trimmed = newFileName.Trim();
+
+            if (trimmed.Contains('/') || trimmed.Contains('\\'))
+            {
+                throw new ArgumentException("Назва файлу не повинна містити шлях");
+            }
+
+            var onlyFileName = Path.GetFileName(trimmed);
+
+            if (string.IsNullOrWhiteSpace(onlyFileName))
+            {
+                throw new ArgumentException("Вкажіть нову назву файлу");
+            }
+
+            if (onlyFileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            {
+                throw new ArgumentException("Назва файлу містить недопустимі символи");
+            }
+
+            var baseName = Path.GetFileNameWithoutExtension(onlyFileName).Trim();
+
+            if (string.IsNullOrWhiteSpace(baseName))
+            {
+                throw new ArgumentException("Вкажіть коректну назву файлу");
+            }
+
+            var requestedExtension = Path.GetExtension(onlyFileName);
+
+            if (!string.IsNullOrWhiteSpace(requestedExtension) && !string.Equals(requestedExtension, currentExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Не можна змінювати розширення файлу");
+            }
+
+            return $"{baseName}{currentExtension}";
+        }
+
+        private static MediaFileResponse BuildMediaFileResponse(FileInfo fileInfo, string uploadsPath, string baseUrl)
+        {
+            var relativePath = Path.GetRelativePath(uploadsPath, fileInfo.FullName)
+                .Replace('\\', '/');
+
+            return new MediaFileResponse
+            {
+                FileName = relativePath,
+                Url = $"{baseUrl}/uploads/{relativePath}",
+                SizeBytes = fileInfo.Length,
+                LastModifiedUtc = fileInfo.LastWriteTimeUtc,
+                Extension = fileInfo.Extension
+            };
         }
     }
 }

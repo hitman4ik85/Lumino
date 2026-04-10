@@ -1,4 +1,4 @@
-﻿using Lumino.Api.Application.DTOs;
+using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Services;
 using Lumino.Api.Domain.Entities;
 using Xunit;
@@ -354,6 +354,41 @@ public class AdminLessonServiceTests
     }
 
     [Fact]
+    public void Copy_WhenTargetTopicHasGap_UsesFirstFreeOrder()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var topic1 = new Topic { CourseId = 1, Title = "Topic 1", Order = 1 };
+        var topic2 = new Topic { CourseId = 1, Title = "Topic 2", Order = 2 };
+        dbContext.Topics.AddRange(topic1, topic2);
+        dbContext.SaveChanges();
+
+        var sourceLesson = new Lesson
+        {
+            TopicId = topic1.Id,
+            Title = "Source",
+            Theory = "T",
+            Order = 1
+        };
+
+        dbContext.Lessons.Add(sourceLesson);
+        dbContext.Lessons.AddRange(
+            new Lesson { TopicId = topic2.Id, Title = "L1", Theory = "T", Order = 1 },
+            new Lesson { TopicId = topic2.Id, Title = "L3", Theory = "T", Order = 3 }
+        );
+        dbContext.SaveChanges();
+
+        var service = new AdminLessonService(dbContext);
+
+        var copied = service.Copy(sourceLesson.Id, new CopyItemRequest
+        {
+            TargetTopicId = topic2.Id
+        });
+
+        Assert.Equal(2, copied.Order);
+    }
+
+    [Fact]
     public void ExportExercises_ReturnsExercisesOrdered()
     {
         var dbContext = TestDbContextFactory.Create();
@@ -445,6 +480,107 @@ public class AdminLessonServiceTests
         Assert.Equal("/uploads/new1.png", saved[0].ImageUrl);
         Assert.Equal("New2", saved[1].Question);
         Assert.Equal("/uploads/new2.png", saved[1].ImageUrl);
+    }
+
+
+    [Fact]
+    public void Create_WhenTopicAlreadyHasEightLessons_Throws()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var topic = new Topic { CourseId = 1, Title = "Topic", Order = 1 };
+        dbContext.Topics.Add(topic);
+        dbContext.SaveChanges();
+
+        for (int i = 1; i <= 8; i++)
+        {
+            dbContext.Lessons.Add(new Lesson
+            {
+                TopicId = topic.Id,
+                Title = $"L{i}",
+                Theory = "T",
+                Order = i
+            });
+        }
+
+        dbContext.SaveChanges();
+
+        var service = new AdminLessonService(dbContext);
+
+        var ex = Assert.Throws<ArgumentException>(() => service.Create(new CreateLessonRequest
+        {
+            TopicId = topic.Id,
+            Title = "L9",
+            Theory = "T",
+            Order = 0
+        }));
+
+        Assert.Contains("at most 8 lessons", ex.Message);
+    }
+
+    [Fact]
+    public void Copy_WhenTargetTopicAlreadyHasEightLessons_Throws()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var topic1 = new Topic { CourseId = 1, Title = "Topic 1", Order = 1 };
+        var topic2 = new Topic { CourseId = 1, Title = "Topic 2", Order = 2 };
+        dbContext.Topics.AddRange(topic1, topic2);
+        dbContext.SaveChanges();
+
+        var sourceLesson = new Lesson
+        {
+            TopicId = topic1.Id,
+            Title = "Source",
+            Theory = "T",
+            Order = 1
+        };
+
+        dbContext.Lessons.Add(sourceLesson);
+
+        for (int i = 1; i <= 8; i++)
+        {
+            dbContext.Lessons.Add(new Lesson
+            {
+                TopicId = topic2.Id,
+                Title = $"L{i}",
+                Theory = "T",
+                Order = i
+            });
+        }
+
+        dbContext.SaveChanges();
+
+        var service = new AdminLessonService(dbContext);
+
+        var ex = Assert.Throws<ArgumentException>(() => service.Copy(sourceLesson.Id, new CopyItemRequest
+        {
+            TargetTopicId = topic2.Id
+        }));
+
+        Assert.Contains("at most 8 lessons", ex.Message);
+    }
+
+    [Fact]
+    public void Create_WhenOrderGreaterThanEight_Throws()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var topic = new Topic { CourseId = 1, Title = "Topic", Order = 1 };
+        dbContext.Topics.Add(topic);
+        dbContext.SaveChanges();
+
+        var service = new AdminLessonService(dbContext);
+
+        var ex = Assert.Throws<ArgumentException>(() => service.Create(new CreateLessonRequest
+        {
+            TopicId = topic.Id,
+            Title = "L9",
+            Theory = "T",
+            Order = 9
+        }));
+
+        Assert.Contains("between 1 and 8", ex.Message);
     }
 
 }

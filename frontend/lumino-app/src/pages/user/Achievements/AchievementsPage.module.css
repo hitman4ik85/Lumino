@@ -86,6 +86,11 @@
   background:#071B3A;
 }
 
+.cardImageLocked{
+  object-fit:contain;
+  background:transparent;
+}
+
 .cardImagePlaceholder{
   background:var(--achievements-placeholder);
 }
@@ -125,7 +130,7 @@
 }
 
 .cardTitleLocked{
-  color:#26415E;
+  color:transparent;
 }
 
 .cardDescription,
@@ -143,7 +148,7 @@
 }
 
 .cardDescriptionLocked{
-  color:#26415E;
+  color:transparent;
 }
 
 .footerNote{

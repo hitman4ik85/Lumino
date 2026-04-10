@@ -413,12 +413,56 @@ function getWeekProgress(days) {
   };
 }
 
+function getComputedNextPointers(topics, scenes) {
+  const safeTopics = Array.isArray(topics) ? topics : [];
+  const safeScenes = Array.isArray(scenes) ? scenes : [];
+
+  let nextLessonId = null;
+
+  for (const topic of safeTopics) {
+    const lessons = Array.isArray(topic?.lessons) ? topic.lessons : [];
+
+    for (const lesson of lessons) {
+      if (lesson?.isUnlocked && !lesson?.isPassed) {
+        nextLessonId = Number(lesson?.id || 0) || null;
+        break;
+      }
+    }
+
+    if (nextLessonId) {
+      break;
+    }
+  }
+
+  let nextSceneId = null;
+
+  for (const scene of safeScenes) {
+    if (scene?.isUnlocked && !scene?.isCompleted) {
+      nextSceneId = Number(scene?.id || 0) || null;
+      break;
+    }
+  }
+
+  return {
+    nextLessonId,
+    nextSceneId,
+  };
+}
+
 function normalizeCoursePath(data) {
   if (!data) return null;
 
+  const topics = Array.isArray(data.topics) ? data.topics : [];
+  const scenes = Array.isArray(data.scenes) ? data.scenes : [];
+  const computedNextPointers = getComputedNextPointers(topics, scenes);
+
   return {
-    topics: Array.isArray(data.topics) ? data.topics : [],
-    scenes: Array.isArray(data.scenes) ? data.scenes : [],
+    topics,
+    scenes,
+    nextPointers: {
+      nextLessonId: Number(data?.nextPointers?.nextLessonId ?? data?.nextPointers?.NextLessonId ?? data?.NextPointers?.NextLessonId ?? 0) || computedNextPointers.nextLessonId,
+      nextSceneId: Number(data?.nextPointers?.nextSceneId ?? data?.nextPointers?.NextSceneId ?? data?.NextPointers?.NextSceneId ?? 0) || computedNextPointers.nextSceneId,
+    },
   };
 }
 
@@ -437,6 +481,10 @@ function cloneCoursePath(path) {
         : [],
     })),
     scenes: normalizedPath.scenes.map((scene) => ({ ...scene })),
+    nextPointers: {
+      nextLessonId: Number(normalizedPath?.nextPointers?.nextLessonId || 0) || null,
+      nextSceneId: Number(normalizedPath?.nextPointers?.nextSceneId || 0) || null,
+    },
   };
 }
 
@@ -493,6 +541,8 @@ function applyOptimisticLessonCompletion(path, lessonId, isPassed) {
     changed = true;
   }
 
+  nextPath.nextPointers = getComputedNextPointers(nextPath.topics, nextPath.scenes);
+
   return changed ? nextPath : nextPath;
 }
 
@@ -538,6 +588,8 @@ function applyOptimisticSceneCompletion(path, sceneId) {
       changed = true;
     }
   }
+
+  nextPath.nextPointers = getComputedNextPointers(nextPath.topics, nextPath.scenes);
 
   return changed ? nextPath : nextPath;
 }
@@ -817,6 +869,38 @@ function normalizeUser(data) {
   };
 }
 
+function getPreferredCurrentCourse(items, fallbackCourse = null) {
+  const sourceItems = Array.isArray(items) ? items.filter(Boolean) : [];
+
+  if (!sourceItems.length) {
+    return fallbackCourse || null;
+  }
+
+  const sortedItems = [...sourceItems].sort((a, b) => Number(a?.order || 0) - Number(b?.order || 0));
+  const firstUnlockedIncompleteCourse = sortedItems.find((item) => !item?.isLocked && !item?.isCompleted);
+
+  if (firstUnlockedIncompleteCourse) {
+    return firstUnlockedIncompleteCourse;
+  }
+
+  const firstUnlockedCourse = sortedItems.find((item) => !item?.isLocked);
+
+  if (firstUnlockedCourse) {
+    return firstUnlockedCourse;
+  }
+
+  if (fallbackCourse) {
+    const fallbackId = Number(fallbackCourse?.id || 0);
+    const existingFallback = sortedItems.find((item) => Number(item?.id || 0) === fallbackId);
+
+    if (existingFallback) {
+      return existingFallback;
+    }
+  }
+
+  return sortedItems[0] || null;
+}
+
 function HeaderIcon({ src, alt = "" }) {
   return <img className={styles.headerSvg} src={src} alt={alt} aria-hidden="true" />;
 }
@@ -830,6 +914,8 @@ function OrbitSection({
   index,
   course,
   isGuest,
+  nextLessonId,
+  nextSceneId,
   onTitleClick,
   onSceneButtonClick,
   onSceneSunClick,
@@ -842,6 +928,8 @@ function OrbitSection({
   const isTopicUnlocked = isGuest
     ? index === 0
     : Boolean(item?.lessons?.some((lesson) => lesson?.isUnlocked) || item?.scene?.isUnlocked);
+  const nextLessonPointer = Number(nextLessonId || 0);
+  const nextScenePointer = Number(nextSceneId || 0);
 
   return (
     <section className={styles.section} style={{ left: `${SECTION_WIDTH * index}px` }}>
@@ -882,13 +970,18 @@ function OrbitSection({
           const isPassed = Boolean(lesson?.isPassed);
           const lessonLayout = layout.lessons[lessonIndex];
           const lessonImageSrc = isUnlocked ? (bundle.lessonsActive?.[lessonIndex] || lessonImage) : lessonImage;
+          const lessonMinSize = Math.min(lessonLayout.width, lessonLayout.height);
+          const lessonOrbitInset = Math.max(7, Math.round(lessonMinSize * 0.24));
+          const lessonOrbitRadius = Math.max(lessonMinSize / 2, Math.round((lessonMinSize / 2) + (lessonOrbitInset * 0.68)));
+          const lessonSatelliteSize = Math.max(8, Math.round(lessonMinSize * 0.22));
+          const isNextLesson = Number(lesson?.id || 0) === nextLessonPointer && isUnlocked && !isPassed;
 
           return (
             <button
               key={`${item?.id || index}-lesson-${lessonIndex + 1}`}
               type="button"
               disabled={!isGuest && !isUnlocked}
-              className={`${styles.lessonButton} ${isUnlocked ? styles.lessonButtonOpen : styles.lessonButtonLocked}`}
+              className={`${styles.lessonButton} ${isUnlocked ? styles.lessonButtonOpen : styles.lessonButtonLocked} ${isNextLesson ? styles.lessonButtonTarget : ""}`}
               style={{
                 left: `${lessonLayout.left}px`,
                 top: `${lessonLayout.top}px`,
@@ -898,6 +991,20 @@ function OrbitSection({
               onMouseDown={(event) => event.stopPropagation()}
               onClick={() => onLessonClick(item, lesson, !isUnlocked)}
             >
+              {isNextLesson ? (
+                <span
+                  className={styles.lessonTargetOrbit}
+                  style={{
+                    "--lesson-orbit-inset": `-${lessonOrbitInset}px`,
+                    "--lesson-orbit-radius": `${lessonOrbitRadius}px`,
+                    "--lesson-satellite-size": `${lessonSatelliteSize}px`,
+                    "--lesson-satellite-glow": `${Math.max(16, Math.round(lessonSatelliteSize * 2.5))}px`,
+                  }}
+                  aria-hidden="true"
+                >
+                  <span className={styles.lessonTargetSatellite} />
+                </span>
+              ) : null}
               <img className={styles.lessonImage} src={lessonImageSrc} alt="" aria-hidden="true" />
               {isPassed ? <span className={styles.lessonPassedDot} /> : null}
             </button>
@@ -907,7 +1014,7 @@ function OrbitSection({
         <button
           type="button"
           disabled={!isGuest && !item?.scene?.isUnlocked}
-          className={`${styles.sunButton} ${item?.scene?.isUnlocked ? styles.sunButtonOpen : styles.sunButtonLocked}`}
+          className={`${styles.sunButton} ${item?.scene?.isUnlocked ? styles.sunButtonOpen : styles.sunButtonLocked} ${Number(item?.scene?.id || 0) === nextScenePointer && item?.scene?.isUnlocked && !item?.scene?.isCompleted ? styles.sunButtonTarget : ""}`}
           style={{
             left: `${layout.sun.left}px`,
             top: `${layout.sun.top}px`,
@@ -917,6 +1024,16 @@ function OrbitSection({
           onMouseDown={(event) => event.stopPropagation()}
           onClick={() => onSceneSunClick(item, item?.scene, !item?.scene?.isUnlocked)}
         >
+          {Number(item?.scene?.id || 0) === nextScenePointer && item?.scene?.isUnlocked && !item?.scene?.isCompleted ? (
+            <span
+              className={styles.sunTargetGlow}
+              style={{
+                "--sun-glow-inset": `-${Math.max(12, Math.round(Math.min(layout.sun.width, layout.sun.height) * 0.18))}px`,
+                "--sun-glow-blur": `${Math.max(12, Math.round(Math.min(layout.sun.width, layout.sun.height) * 0.12))}px`,
+              }}
+              aria-hidden="true"
+            />
+          ) : null}
           <img className={styles.sunImage} src={item?.scene?.isUnlocked ? (bundle.sunActive || bundle.sun) : bundle.sun} alt="" aria-hidden="true" />
         </button>
       </div>
@@ -973,6 +1090,7 @@ export default function HomePage() {
   const scenesRequestRef = useRef(0);
   const loadHomeRequestRef = useRef(0);
   const loadHomeStartedRef = useRef(false);
+  const noPublishedCoursesWarningRef = useRef("");
 
   useStageScale(stageRef, { mode: "absolute" });
 
@@ -1072,6 +1190,17 @@ export default function HomePage() {
     return [];
   }, [isGuest, path]);
 
+  const nextPathPointers = useMemo(() => {
+    if (isGuest) {
+      return {
+        nextLessonId: 1,
+        nextSceneId: null,
+      };
+    }
+
+    return path?.nextPointers || getComputedNextPointers(path?.topics, path?.scenes);
+  }, [isGuest, path]);
+
   useEffect(() => {
     const handleEscClose = (e) => {
       if (e.key !== "Escape") {
@@ -1161,6 +1290,20 @@ export default function HomePage() {
 
     return [...items].sort((a, b) => Number(a?.order || 0) - Number(b?.order || 0));
   }, [course, courses]);
+  const currentCourseForScenes = useMemo(() => {
+    const selectedCourseId = Number(course?.id || 0);
+
+    if (selectedCourseId > 0) {
+      const existingSelectedCourse = courseItemsForView.find((item) => Number(item?.id || 0) === selectedCourseId);
+
+      if (existingSelectedCourse) {
+        return existingSelectedCourse;
+      }
+    }
+
+    return getPreferredCurrentCourse(courseItemsForView, course);
+  }, [course, courseItemsForView]);
+  const hasPublishedCoursesForActiveLanguage = courseItemsForView.length > 0;
 
   const guestPrompt = useCallback(() => {
     setModal({
@@ -1180,6 +1323,24 @@ export default function HomePage() {
     setModal((prev) => ({ ...prev, open: false }));
   }, []);
 
+  useEffect(() => {
+    if (!isLanguageWarningModal) {
+      return undefined;
+    }
+
+    const handleModalEscape = (event) => {
+      if (event.key === "Escape") {
+        closeModal();
+      }
+    };
+
+    window.addEventListener("keydown", handleModalEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleModalEscape);
+    };
+  }, [closeModal, isLanguageWarningModal]);
+
   const showInfo = useCallback((title, message) => {
     setModal({
       open: true,
@@ -1193,6 +1354,15 @@ export default function HomePage() {
       illustrationSrc: "",
     });
   }, []);
+
+  const showNoPublishedCoursesWarning = useCallback((languageCode) => {
+    const languageLabel = getLanguageLabel(languageCode);
+
+    showInfo(
+      `Для мови «${languageLabel}» зараз немає опублікованих курсів`,
+      "Курс для цієї мови тимчасово знято з публікації або ще не опубліковано. Твій прогрес не видаляється: після повторної публікації він знову відобразиться у проходженні."
+    );
+  }, [showInfo]);
 
   const loadHome = useCallback(async (preferredLanguageCode = "", showBlocking = true) => {
     const requestId = loadHomeRequestRef.current + 1;
@@ -1261,7 +1431,51 @@ export default function HomePage() {
 
       const myCoursesRes = await coursesService.getMyCourses(targetCode);
       const nextCourses = myCoursesRes.items || [];
-      const activeCourse = nextCourses.find((item) => !item?.isLocked) || nextCourses[0] || null;
+
+      if (nextCourses.length === 0) {
+        const availabilityRes = await onboardingService.getLanguageAvailability(targetCode);
+
+        if (loadHomeRequestRef.current !== requestId) {
+          return { hasCourses: false, activeTargetLanguageCode: targetCode };
+        }
+
+        setCourses([]);
+        setCourse(null);
+        setPath(null);
+        setSelectedTopic(null);
+        setSelectedLesson(null);
+        setScenesOverview([]);
+
+        if (availabilityRes.ok && !availabilityRes.hasPublishedCourses && noPublishedCoursesWarningRef.current !== targetCode) {
+          noPublishedCoursesWarningRef.current = targetCode;
+          showNoPublishedCoursesWarning(targetCode);
+        }
+
+        setCachedHomeSnapshot({
+          user: nextUser,
+          languageState: languagesRes?.ok ? {
+            activeTargetLanguageCode: targetCode,
+            learningLanguages: languagesRes.learningLanguages || [],
+          } : {
+            activeTargetLanguageCode: targetCode,
+            learningLanguages: [{ code: targetCode, title: getLanguageLabel(targetCode), isActive: true }],
+          },
+          courses: [],
+          course: null,
+          path: null,
+          calendarDates,
+          calendarRegistrationDates,
+          calendarDaysSinceJoined,
+          calendarCurrentKyivDateTimeText,
+          calendarMonth,
+        });
+
+        return { hasCourses: false, activeTargetLanguageCode: targetCode };
+      }
+
+      noPublishedCoursesWarningRef.current = "";
+
+      const activeCourse = getPreferredCurrentCourse(nextCourses, course);
       const cachedPath = activeCourse?.id && shouldUseCoursePathCache
         ? getCachedCoursePath(targetCode, activeCourse.id)
         : null;
@@ -1389,7 +1603,7 @@ export default function HomePage() {
         setLoading(false);
       }
     }
-  }, [calendarCurrentKyivDateTimeText, calendarMonth.month, calendarMonth.year, courses.length, guestTargetLanguageCode, isGuest, languageState.activeTargetLanguageCode, shouldUseCoursePathCache]);
+  }, [calendarCurrentKyivDateTimeText, calendarMonth.month, calendarMonth.year, courses.length, guestTargetLanguageCode, isGuest, languageState.activeTargetLanguageCode, shouldUseCoursePathCache, showNoPublishedCoursesWarning]);
 
   useEffect(() => {
     const hasCache = initialHomeCacheRef.current != null;
@@ -1707,7 +1921,16 @@ export default function HomePage() {
     const requestId = scenesRequestRef.current + 1;
     scenesRequestRef.current = requestId;
 
-    const sourceCourses = [...courseItemsForView].sort((a, b) => Number(a?.order || 0) - Number(b?.order || 0));
+    const sourceCourses = [currentCourseForScenes].filter(Boolean);
+
+    if (!sourceCourses.length) {
+      setScenesOverview([]);
+      setSelectedTopic(null);
+      setOpenDropdown("");
+      setBodyView("scenes");
+      return;
+    }
+
     const cachedScenes = getCachedScenesOverview(activeLanguageCode, sourceCourses);
 
     setSelectedTopic(null);
@@ -1759,7 +1982,7 @@ export default function HomePage() {
         setLoading(false);
       }
     }
-  }, [activeLanguageCode, courseItemsForView, guestPrompt, isGuest]);
+  }, [activeLanguageCode, currentCourseForScenes, guestPrompt, isGuest]);
 
   const handleTitleClick = useCallback((topic, disabled = false, index = 0) => {
     if (isGuest) {
@@ -1929,6 +2152,15 @@ export default function HomePage() {
     }
   }, [calendarMonth.month, calendarMonth.year, isGuest]);
 
+  const renderNoPublishedCoursesState = (title, message) => (
+    <div className={styles.emptyCoursesStateWrap}>
+      <div className={styles.emptyCoursesStateCard}>
+        <div className={styles.emptyCoursesStateTitle}>{title}</div>
+        <div className={styles.emptyCoursesStateText}>{message}</div>
+      </div>
+    </div>
+  );
+
   const renderLearningView = () => (
     <div
       ref={trackRef}
@@ -1938,21 +2170,28 @@ export default function HomePage() {
       onMouseUp={handleTrackMouseUp}
       onMouseLeave={handleTrackMouseUp}
     >
-      <div className={styles.learningTrack}>
-        {topics.map((item, index) => (
-          <OrbitSection
-            key={item.id || index}
-            item={item}
-            index={index}
-            course={course}
-            isGuest={isGuest}
-            onTitleClick={handleTitleClick}
-            onSceneButtonClick={handleSceneButtonClick}
-            onSceneSunClick={handleSceneSunClick}
-            onLessonClick={handleLessonClick}
-          />
-        ))}
-      </div>
+      {hasPublishedCoursesForActiveLanguage ? (
+        <div className={styles.learningTrack}>
+          {topics.map((item, index) => (
+            <OrbitSection
+              key={item.id || index}
+              item={item}
+              index={index}
+              course={course}
+              isGuest={isGuest}
+              nextLessonId={nextPathPointers?.nextLessonId}
+              nextSceneId={nextPathPointers?.nextSceneId}
+              onTitleClick={handleTitleClick}
+              onSceneButtonClick={handleSceneButtonClick}
+              onSceneSunClick={handleSceneSunClick}
+              onLessonClick={handleLessonClick}
+            />
+          ))}
+        </div>
+      ) : renderNoPublishedCoursesState(
+        "Для цієї мови зараз немає опублікованих курсів",
+        "Коли курс знову опублікують, твій збережений прогрес повернеться автоматично. Поки що можна обрати іншу мову у профілі або через кнопку мови зверху."
+      )}
     </div>
   );
 
@@ -1965,37 +2204,42 @@ export default function HomePage() {
       <div className={styles.coursesDivider} />
 
       <div className={styles.coursesListWrap}>
-        <div className={styles.coursesList}>
-          {courseItemsForView.map((item, index) => {
-            const isSelectedCourse = Number(item?.id || 0) === Number(course?.id || 0);
-            const isUnlocked = isGuest ? index === 0 : !item?.isLocked;
-            const progressPercent = getCourseProgressPercent(item, path, isSelectedCourse);
+        {hasPublishedCoursesForActiveLanguage ? (
+          <div className={styles.coursesList}>
+            {courseItemsForView.map((item, index) => {
+              const isSelectedCourse = Number(item?.id || 0) === Number(course?.id || 0);
+              const isUnlocked = isGuest ? index === 0 : !item?.isLocked;
+              const progressPercent = getCourseProgressPercent(item, path, isSelectedCourse);
 
-            return (
-              <button
-                key={item?.id || `${getCourseLevel(item)}-${index}`}
-                type="button"
-                className={styles.courseStageCard}
-                onClick={() => handleCourseSelect(item)}
-              >
-                <div className={styles.courseStageLevel}>{getCourseLevel(item)}</div>
+              return (
+                <button
+                  key={item?.id || `${getCourseLevel(item)}-${index}`}
+                  type="button"
+                  className={styles.courseStageCard}
+                  onClick={() => handleCourseSelect(item)}
+                >
+                  <div className={styles.courseStageLevel}>{getCourseLevel(item)}</div>
 
-                <div className={styles.courseStageTrack}>
-                  <div className={styles.courseStageTrackBase} />
-                  <div className={styles.courseStageTrackFill} style={{ width: `${progressPercent}%` }} />
-                  {!isUnlocked ? <div className={styles.courseStageTrackCutout} /> : null}
-                </div>
+                  <div className={styles.courseStageTrack}>
+                    <div className={styles.courseStageTrackBase} />
+                    <div className={styles.courseStageTrackFill} style={{ width: `${progressPercent}%` }} />
+                    {!isUnlocked ? <div className={styles.courseStageTrackCutout} /> : null}
+                  </div>
 
-                <img
-                  className={`${styles.courseStageIcon} ${isUnlocked ? styles.courseStageIconProgress : styles.courseStageIconLock}`}
-                  src={isUnlocked ? ProgressTrackIcon : HOME_SHARED_ASSETS.lock}
-                  alt=""
-                  aria-hidden="true"
-                />
-              </button>
-            );
-          })}
-        </div>
+                  <img
+                    className={`${styles.courseStageIcon} ${isUnlocked ? styles.courseStageIconProgress : styles.courseStageIconLock}`}
+                    src={isUnlocked ? ProgressTrackIcon : HOME_SHARED_ASSETS.lock}
+                    alt=""
+                    aria-hidden="true"
+                  />
+                </button>
+              );
+            })}
+          </div>
+        ) : renderNoPublishedCoursesState(
+          "Список курсів поки порожній",
+          "Для вибраної мови зараз немає жодного опублікованого курсу. Прогрес за раніше пройденими курсами збережений і знову з’явиться після повторної публікації."
+        )}
       </div>
     </div>
   );
@@ -2054,56 +2298,61 @@ export default function HomePage() {
       </div>
 
       <div className={styles.scenesGridWrap}>
-        <div className={styles.scenesGrid}>
-          {scenesOverview.map((scene, index) => {
-            const locked = !scene?.isUnlocked;
-            const shouldRenderPreviewImage = scenePreviewsEnabled && !locked && scene?.previewUrl;
+        {hasPublishedCoursesForActiveLanguage ? (
+          <div className={styles.scenesGrid}>
+            {scenesOverview.map((scene, index) => {
+              const locked = !scene?.isUnlocked;
+              const shouldRenderPreviewImage = scenePreviewsEnabled && !locked && scene?.previewUrl;
 
-            return (
-              <button
-                key={scene.key || scene.id || index}
-                type="button"
-                className={`${styles.scenesCard} ${locked ? styles.scenesCardLocked : styles.scenesCardOpen}`}
-                onClick={() => {
-                  if (locked) {
-                    setModal({
-                      open: true,
-                      title: "",
-                      message: getSceneLockedMessage(scene),
-                      primaryText: "",
-                      secondaryText: "",
-                      onPrimary: null,
-                      onSecondary: null,
-                      variant: "sceneLocked",
-                      illustrationSrc: MascotModal,
+              return (
+                <button
+                  key={scene.key || scene.id || index}
+                  type="button"
+                  className={`${styles.scenesCard} ${locked ? styles.scenesCardLocked : styles.scenesCardOpen}`}
+                  onClick={() => {
+                    if (locked) {
+                      setModal({
+                        open: true,
+                        title: "",
+                        message: getSceneLockedMessage(scene),
+                        primaryText: "",
+                        secondaryText: "",
+                        onPrimary: null,
+                        onSecondary: null,
+                        variant: "sceneLocked",
+                        illustrationSrc: MascotModal,
+                      });
+                      return;
+                    }
+
+                    navigate(PATHS.scene(scene?.id), {
+                      state: {
+                        scene,
+                      },
                     });
-                    return;
-                  }
-
-                  navigate(PATHS.scene(scene?.id), {
-                    state: {
-                      scene,
-                    },
-                  });
-                }}
-              >
-                <span className={`${styles.scenesCardPreview} ${locked ? styles.scenesCardPreviewLocked : styles.scenesCardPreviewOpen}`}>
-                  {shouldRenderPreviewImage ? (
-                    <img
-                      className={styles.scenesCardPreviewImage}
-                      src={scene.previewUrl}
-                      alt=""
-                      aria-hidden="true"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  ) : null}
-                </span>
-                <span className={styles.scenesCardLabel}>{getSceneCardLabel(scene, index)}</span>
-              </button>
-            );
-          })}
-        </div>
+                  }}
+                >
+                  <span className={`${styles.scenesCardPreview} ${locked ? styles.scenesCardPreviewLocked : styles.scenesCardPreviewOpen}`}>
+                    {shouldRenderPreviewImage ? (
+                      <img
+                        className={styles.scenesCardPreviewImage}
+                        src={scene.previewUrl}
+                        alt=""
+                        aria-hidden="true"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : null}
+                  </span>
+                  <span className={styles.scenesCardLabel}>{getSceneCardLabel(scene, index)}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : renderNoPublishedCoursesState(
+          "Сцени тимчасово недоступні",
+          "Для вибраної мови зараз немає опублікованих курсів, тому і сцени не відображаються. Після повторної публікації все повернеться разом із твоїм прогресом."
+        )}
       </div>
 
       <div className={styles.scenesBottomDivider} />
@@ -2223,7 +2472,7 @@ export default function HomePage() {
 
         {isLanguageWarningModal && stageRef.current ? createPortal(
           <div className={styles.homeWarningOverlay}>
-            <div className={styles.homeWarningBackdrop} onClick={closeModal} role="presentation" />
+            <div className={styles.homeWarningBackdrop} role="presentation" />
             <div className={styles.homeWarningModal} role="dialog" aria-modal="true" aria-labelledby="home-warning-title" onClick={(e) => e.stopPropagation()}>
               <button type="button" className={styles.homeWarningClose} onClick={closeModal} aria-label="Закрити" />
 

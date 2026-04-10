@@ -94,3 +94,42 @@ body {
 .links a {
   color: inherit;
 }
+
+html,
+body,
+#root {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button,
+a,
+[role="button"],
+label,
+img,
+svg {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+button *,
+a *,
+[role="button"] *,
+label *,
+svg text {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+[contenteditable="plaintext-only"] {
+  -webkit-user-select: text;
+  user-select: text;
+}

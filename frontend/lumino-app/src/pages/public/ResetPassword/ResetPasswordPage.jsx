@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { authService } from "../../../services/authService.js";
+import { validateNewPassword } from "../../../utils/validation.js";
 import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
 import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import styles from "./ResetPasswordPage.module.css";
@@ -50,12 +51,10 @@ export default function ResetPasswordPage() {
 
   const token = searchParams.get("token") || "";
 
-  const passwordError = useMemo(() => {
-    if (!password) return "Введіть новий пароль.";
-    if (password.length < 6) return "Пароль має містити щонайменше 6 символів.";
-    if (password.length > 64) return "Пароль має містити не більше 64 символів.";
-    return "";
-  }, [password]);
+  const passwordError = useMemo(() => validateNewPassword(password, {
+    required: true,
+    emptyMessage: "Введіть новий пароль.",
+  }), [password]);
 
   const repeatError = useMemo(() => {
     if (!repeatPassword) return "Повторіть пароль.";
@@ -88,12 +87,20 @@ export default function ResetPasswordPage() {
       return "Це посилання вже було використане.";
     }
 
-    if (text.includes("newpassword must be at least 6 characters")) {
-      return "Пароль має містити щонайменше 6 символів.";
+    if (text.includes("newpassword must be at least 8 characters")) {
+      return "Пароль має містити щонайменше 8 символів.";
     }
 
     if (text.includes("newpassword must be at most 64 characters")) {
       return "Пароль має містити не більше 64 символів.";
+    }
+
+    if (text.includes("newpassword must contain at least one letter")) {
+      return "Пароль має містити хоча б одну літеру.";
+    }
+
+    if (text.includes("newpassword must contain at least one digit")) {
+      return "Пароль має містити хоча б одну цифру.";
     }
 
     return errorText || "Не вдалося змінити пароль.";

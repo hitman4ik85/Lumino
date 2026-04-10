@@ -1,5 +1,6 @@
 ﻿using System;
 using Lumino.Api.Application.Services;
+using Lumino.Api.Utils;
 using Microsoft.AspNetCore.Http;
 using Xunit;
 
@@ -141,6 +142,130 @@ public class MediaServiceTests
         }
     }
 
+
+    [Fact]
+    public void Delete_WhenFileExists_ShouldRemoveFile()
+    {
+        var originalDir = Directory.GetCurrentDirectory();
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), "LuminoMediaTests", Guid.NewGuid().ToString("N"));
+        var service = CreateService(tempRoot);
+        var uploadsPath = Path.Combine(tempRoot, "wwwroot", "uploads", "achievements");
+        Directory.CreateDirectory(uploadsPath);
+
+        try
+        {
+            Directory.SetCurrentDirectory(tempRoot);
+
+            var filePath = Path.Combine(uploadsPath, "badge.png");
+            File.WriteAllBytes(filePath, new byte[] { 1, 2, 3 });
+
+            service.Delete("achievements/badge.png");
+
+            Assert.False(File.Exists(filePath));
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalDir);
+
+            try
+            {
+                if (Directory.Exists(tempRoot))
+                {
+                    Directory.Delete(tempRoot, recursive: true);
+                }
+            }
+            catch
+            {
+                // cleanup intentionally ignored
+            }
+        }
+    }
+
+    [Fact]
+    public void Rename_WithoutExtension_ShouldKeepOriginalExtension_AndReturnUpdatedFileInfo()
+    {
+        var originalDir = Directory.GetCurrentDirectory();
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), "LuminoMediaTests", Guid.NewGuid().ToString("N"));
+        var service = CreateService(tempRoot);
+        var uploadsPath = Path.Combine(tempRoot, "wwwroot", "uploads", "achievements");
+        Directory.CreateDirectory(uploadsPath);
+
+        try
+        {
+            Directory.SetCurrentDirectory(tempRoot);
+
+            var sourceFilePath = Path.Combine(uploadsPath, "welcome_back.png");
+            File.WriteAllBytes(sourceFilePath, new byte[] { 1, 2, 3, 4 });
+
+            var result = service.Rename("achievements/welcome_back.png", "welcome_back_short", "http://localhost");
+
+            Assert.False(File.Exists(sourceFilePath));
+            Assert.True(File.Exists(Path.Combine(uploadsPath, "welcome_back_short.png")));
+            Assert.Equal("achievements/welcome_back_short.png", result.FileName);
+            Assert.Equal(".png", result.Extension);
+            Assert.Equal("http://localhost/uploads/achievements/welcome_back_short.png", result.Url);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalDir);
+
+            try
+            {
+                if (Directory.Exists(tempRoot))
+                {
+                    Directory.Delete(tempRoot, recursive: true);
+                }
+            }
+            catch
+            {
+                // cleanup intentionally ignored
+            }
+        }
+    }
+
+    [Fact]
+    public void Rename_WhenTargetFileAlreadyExists_ShouldThrowConflictException()
+    {
+        var originalDir = Directory.GetCurrentDirectory();
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), "LuminoMediaTests", Guid.NewGuid().ToString("N"));
+        var service = CreateService(tempRoot);
+        var uploadsPath = Path.Combine(tempRoot, "wwwroot", "uploads", "achievements");
+        Directory.CreateDirectory(uploadsPath);
+
+        try
+        {
+            Directory.SetCurrentDirectory(tempRoot);
+
+            File.WriteAllBytes(Path.Combine(uploadsPath, "old_name.png"), new byte[] { 1 });
+            File.WriteAllBytes(Path.Combine(uploadsPath, "new_name.png"), new byte[] { 2 });
+
+            var ex = Assert.Throws<ConflictException>(() =>
+            {
+                service.Rename("achievements/old_name.png", "new_name.png", "http://localhost");
+            });
+
+            Assert.Equal("Файл з такою назвою вже існує", ex.Message);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalDir);
+
+            try
+            {
+                if (Directory.Exists(tempRoot))
+                {
+                    Directory.Delete(tempRoot, recursive: true);
+                }
+            }
+            catch
+            {
+                // cleanup intentionally ignored
+            }
+        }
+    }
 
     [Fact]
     public void List_WhenUploadsFolderMissing_ShouldReturnEmpty()

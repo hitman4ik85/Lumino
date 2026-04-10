@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
+import { validateChangePasswordForm, validatePassword, validateUsername } from "../../../utils/validation.js";
 import { authStorage } from "../../../services/authStorage.js";
 import { authService } from "../../../services/authService.js";
 import { userService } from "../../../services/userService.js";
@@ -326,6 +327,31 @@ export default function ProfileContent({ onProfileChange = null }) {
     setModal({ open: false });
   }, []);
 
+  useEffect(() => {
+    if (!isLanguageWarningModal && !isDeleteAccountModal && !avatarModalOpen) {
+      return undefined;
+    }
+
+    const handleModalEscape = (event) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (avatarModalOpen) {
+        setAvatarModalOpen(false);
+        return;
+      }
+
+      closeModal();
+    };
+
+    window.addEventListener("keydown", handleModalEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleModalEscape);
+    };
+  }, [avatarModalOpen, closeModal, isDeleteAccountModal, isLanguageWarningModal]);
+
   const showInfo = useCallback((title, message) => {
     setModal({
       open: true,
@@ -457,8 +483,10 @@ export default function ProfileContent({ onProfileChange = null }) {
 
     const nextName = String(nameDraft || "").trim();
 
-    if (!nextName) {
-      showInfo("Увага", "Введіть ім'я користувача.");
+    const usernameError = validateUsername(nextName, { required: true });
+
+    if (usernameError) {
+      showInfo("Увага", usernameError);
       return;
     }
 
@@ -579,9 +607,13 @@ export default function ProfileContent({ onProfileChange = null }) {
     const hasPassword = Boolean(profile?.hasPassword);
     const requiresDeletePassword = !isGoogleAccount && hasPassword;
 
-    if (requiresDeletePassword && !deletePassword.trim()) {
-      showInfo("Увага", "Введіть пароль, щоб видалити акаунт.");
-      return;
+    if (requiresDeletePassword) {
+      const deletePasswordError = validatePassword(deletePassword, { required: true, emptyMessage: "Введіть пароль, щоб видалити акаунт." });
+
+      if (deletePasswordError) {
+        showInfo("Увага", deletePasswordError);
+        return;
+      }
     }
 
     setDeletingAccount(true);
@@ -602,8 +634,10 @@ export default function ProfileContent({ onProfileChange = null }) {
   }, [deletePassword, navigate, profile?.hasPassword, profile?.isGoogleAccount, showInfo]);
 
   const handleChangePassword = useCallback(async () => {
-    if (!passwordForm.oldPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
-      showInfo("Увага", "Заповніть усі поля для зміни пароля.");
+    const passwordError = validateChangePasswordForm(passwordForm);
+
+    if (passwordError) {
+      showInfo("Увага", passwordError);
       return;
     }
 
@@ -891,7 +925,7 @@ export default function ProfileContent({ onProfileChange = null }) {
 
       {isDeleteAccountModal && stageNode ? createPortal(
         <div className={styles.profileWarningOverlay}>
-          <div className={styles.profileWarningBackdrop} onClick={closeModal} role="presentation" />
+          <div className={styles.profileWarningBackdrop} role="presentation" />
           <div className={styles.deleteAccountModal} role="dialog" aria-modal="true" aria-labelledby="delete-account-title" onClick={(e) => e.stopPropagation()}>
             <button type="button" className={styles.deleteAccountClose} onClick={closeModal} aria-label="Закрити" />
 
@@ -925,7 +959,7 @@ export default function ProfileContent({ onProfileChange = null }) {
 
       {isLanguageWarningModal && stageNode ? createPortal(
         <div className={styles.profileWarningOverlay}>
-          <div className={styles.profileWarningBackdrop} onClick={closeModal} role="presentation" />
+          <div className={styles.profileWarningBackdrop} role="presentation" />
           <div className={styles.profileWarningModal} role="dialog" aria-modal="true" aria-labelledby="profile-warning-title" onClick={(e) => e.stopPropagation()}>
             <button type="button" className={styles.profileWarningClose} onClick={closeModal} aria-label="Закрити" />
 

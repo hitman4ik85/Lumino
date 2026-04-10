@@ -151,4 +151,240 @@ public class CourseStructureValidatorTests
         Assert.Contains("topics order must be unique", ex.Message);
     }
 
+
+    [Fact]
+    public void ValidateOrThrow_ShouldThrow_WhenLessonsCountIsWrong()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var course = new Course
+        {
+            Title = "English A1",
+            Description = "Test",
+            LanguageCode = "en",
+            IsPublished = false
+        };
+
+        dbContext.Courses.Add(course);
+        dbContext.SaveChanges();
+
+        for (int t = 1; t <= 10; t++)
+        {
+            var topic = new Topic
+            {
+                CourseId = course.Id,
+                Title = $"Topic {t}",
+                Order = t
+            };
+
+            dbContext.Topics.Add(topic);
+            dbContext.SaveChanges();
+
+            var lessonsCount = t == 1 ? 7 : 8;
+
+            for (int l = 1; l <= lessonsCount; l++)
+            {
+                var lesson = new Lesson
+                {
+                    TopicId = topic.Id,
+                    Title = $"Lesson {l}",
+                    Theory = "Theory",
+                    Order = l
+                };
+
+                dbContext.Lessons.Add(lesson);
+                dbContext.SaveChanges();
+
+                for (int e = 1; e <= 9; e++)
+                {
+                    dbContext.Exercises.Add(new Exercise
+                    {
+                        LessonId = lesson.Id,
+                        Type = ExerciseType.MultipleChoice,
+                        Question = "Q",
+                        Data = "[]",
+                        CorrectAnswer = "A",
+                        Order = e
+                    });
+                }
+
+                dbContext.SaveChanges();
+            }
+
+            dbContext.Scenes.Add(new Scene
+            {
+                CourseId = course.Id,
+                TopicId = topic.Id,
+                Order = 10000 + t,
+                Title = "Final",
+                Description = "Final",
+                SceneType = "Sun"
+            });
+
+            dbContext.SaveChanges();
+        }
+
+        var validator = new CourseStructureValidator(dbContext);
+
+        var ex = Assert.Throws<ArgumentException>(() => validator.ValidateOrThrow(course.Id));
+        Assert.Contains("exactly 8 lessons", ex.Message);
+    }
+
+    [Fact]
+    public void ValidateOrThrow_ShouldThrow_WhenExercisesCountIsWrong()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var course = new Course
+        {
+            Title = "English A1",
+            Description = "Test",
+            LanguageCode = "en",
+            IsPublished = false
+        };
+
+        dbContext.Courses.Add(course);
+        dbContext.SaveChanges();
+
+        for (int t = 1; t <= 10; t++)
+        {
+            var topic = new Topic
+            {
+                CourseId = course.Id,
+                Title = $"Topic {t}",
+                Order = t
+            };
+
+            dbContext.Topics.Add(topic);
+            dbContext.SaveChanges();
+
+            for (int l = 1; l <= 8; l++)
+            {
+                var lesson = new Lesson
+                {
+                    TopicId = topic.Id,
+                    Title = $"Lesson {l}",
+                    Theory = "Theory",
+                    Order = l
+                };
+
+                dbContext.Lessons.Add(lesson);
+                dbContext.SaveChanges();
+
+                var exercisesCount = t == 1 && l == 1 ? 8 : 9;
+
+                for (int e = 1; e <= exercisesCount; e++)
+                {
+                    dbContext.Exercises.Add(new Exercise
+                    {
+                        LessonId = lesson.Id,
+                        Type = ExerciseType.MultipleChoice,
+                        Question = "Q",
+                        Data = "[]",
+                        CorrectAnswer = "A",
+                        Order = e
+                    });
+                }
+
+                dbContext.SaveChanges();
+            }
+
+            dbContext.Scenes.Add(new Scene
+            {
+                CourseId = course.Id,
+                TopicId = topic.Id,
+                Order = 10000 + t,
+                Title = "Final",
+                Description = "Final",
+                SceneType = "Sun"
+            });
+
+            dbContext.SaveChanges();
+        }
+
+        var validator = new CourseStructureValidator(dbContext);
+
+        var ex = Assert.Throws<ArgumentException>(() => validator.ValidateOrThrow(course.Id));
+        Assert.Contains("exactly 9 exercises", ex.Message);
+    }
+
+    [Fact]
+    public void ValidateOrThrow_ShouldThrow_WhenFinalScenesCountIsWrong()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        var course = new Course
+        {
+            Title = "English A1",
+            Description = "Test",
+            LanguageCode = "en",
+            IsPublished = false
+        };
+
+        dbContext.Courses.Add(course);
+        dbContext.SaveChanges();
+
+        for (int t = 1; t <= 10; t++)
+        {
+            var topic = new Topic
+            {
+                CourseId = course.Id,
+                Title = $"Topic {t}",
+                Order = t
+            };
+
+            dbContext.Topics.Add(topic);
+            dbContext.SaveChanges();
+
+            for (int l = 1; l <= 8; l++)
+            {
+                var lesson = new Lesson
+                {
+                    TopicId = topic.Id,
+                    Title = $"Lesson {l}",
+                    Theory = "Theory",
+                    Order = l
+                };
+
+                dbContext.Lessons.Add(lesson);
+                dbContext.SaveChanges();
+
+                for (int e = 1; e <= 9; e++)
+                {
+                    dbContext.Exercises.Add(new Exercise
+                    {
+                        LessonId = lesson.Id,
+                        Type = ExerciseType.MultipleChoice,
+                        Question = "Q",
+                        Data = "[]",
+                        CorrectAnswer = "A",
+                        Order = e
+                    });
+                }
+
+                dbContext.SaveChanges();
+            }
+
+            if (t != 1)
+            {
+                dbContext.Scenes.Add(new Scene
+                {
+                    CourseId = course.Id,
+                    TopicId = topic.Id,
+                    Order = 10000 + t,
+                    Title = "Final",
+                    Description = "Final",
+                    SceneType = "Sun"
+                });
+            }
+
+            dbContext.SaveChanges();
+        }
+
+        var validator = new CourseStructureValidator(dbContext);
+
+        var ex = Assert.Throws<ArgumentException>(() => validator.ValidateOrThrow(course.Id));
+        Assert.Contains("exactly 1 final scene", ex.Message);
+    }
+
 }

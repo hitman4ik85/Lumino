@@ -1,4 +1,5 @@
 using Lumino.Api.Application.DTOs;
+using Lumino.Api.Utils;
 
 namespace Lumino.Api.Application.Validators
 {
@@ -11,22 +12,7 @@ namespace Lumino.Api.Application.Validators
                 throw new ArgumentException("Request is required");
             }
 
-            if (string.IsNullOrWhiteSpace(request.Email))
-            {
-                throw new ArgumentException("Email is required");
-            }
-
-            var email = request.Email.Trim();
-
-            if (email.Length > 256)
-            {
-                throw new ArgumentException("Email is too long");
-            }
-
-            if (!email.Contains('@') || !email.Contains('.'))
-            {
-                throw new ArgumentException("Invalid email");
-            }
+            AccountValidationRules.ValidateEmail(request.Email);
         }
     }
 }

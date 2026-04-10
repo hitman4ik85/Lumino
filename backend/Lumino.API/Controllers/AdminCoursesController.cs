@@ -26,7 +26,14 @@ namespace Lumino.Api.Controllers
         [HttpGet("{id}")]
         public IActionResult GetById(int id)
         {
-            return Ok(_adminCourseService.GetById(id));
+            try
+            {
+                return Ok(_adminCourseService.GetById(id));
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
         }
 
         [HttpPost]
@@ -46,8 +53,15 @@ namespace Lumino.Api.Controllers
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
-            _adminCourseService.Delete(id);
-            return NoContent();
+            try
+            {
+                _adminCourseService.Delete(id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
         }
     }
 }

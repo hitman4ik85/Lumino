@@ -1,5 +1,7 @@
+using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace Lumino.Api.Application.Services
@@ -15,7 +17,35 @@ namespace Lumino.Api.Application.Services
             _configuration = configuration;
         }
 
-        public int Cleanup()
+        public List<AdminRefreshTokenResponse> GetAll()
+        {
+            var now = DateTime.UtcNow;
+
+            return _dbContext.RefreshTokens
+                .AsNoTracking()
+                .Include(x => x.User)
+                .OrderByDescending(x => x.CreatedAt)
+                .ThenByDescending(x => x.Id)
+                .Select(x => new AdminRefreshTokenResponse
+                {
+                    Id = x.Id,
+                    UserId = x.UserId,
+                    Username = x.User.Username,
+                    Email = x.User.Email,
+                    Role = x.User.Role.ToString(),
+                    TokenHash = x.TokenHash,
+                    CreatedAt = x.CreatedAt,
+                    ExpiresAt = x.ExpiresAt,
+                    RevokedAt = x.RevokedAt,
+                    ReplacedByTokenHash = x.ReplacedByTokenHash,
+                    IsExpired = x.ExpiresAt <= now,
+                    IsRevoked = x.RevokedAt != null,
+                    IsActive = x.RevokedAt == null && x.ExpiresAt > now,
+                })
+                .ToList();
+        }
+
+        public int Cleanup(bool deleteRevokedNow = false)
         {
             var now = DateTime.UtcNow;
 
@@ -38,7 +68,7 @@ namespace Lumino.Api.Application.Services
             var tokensToDelete = _dbContext.RefreshTokens
                 .Where(x =>
                     x.ExpiresAt <= now
-                    || (x.RevokedAt != null && x.RevokedAt <= keepUntil)
+                    || (x.RevokedAt != null && (deleteRevokedNow || x.RevokedAt <= keepUntil))
                 )
                 .ToList();
 

@@ -39,7 +39,7 @@ public class AchievementServiceNewAchievementsTests
     }
 
     [Fact]
-    public void CheckAndGrantAchievements_ShouldGrantFirstTopicCompleted_WhenAllLessonsInTopicAreCompleted()
+    public void CheckAndGrantAchievements_ShouldNotGrantFirstTopicCompleted_WhenOnlyTopicLessonsAreCompleted()
     {
         var dbContext = TestDbContextFactory.Create();
         var userId = 10;
@@ -66,6 +66,50 @@ public class AchievementServiceNewAchievementsTests
             Options.Create(new LearningSettings { PassingScorePercent = 80 }));
 
         service.CheckAndGrantAchievements(userId, 4, 4);
+
+        var achievement = dbContext.Achievements.FirstOrDefault(x => x.Code == "sys.first_topic_completed");
+
+        if (achievement != null)
+        {
+            Assert.DoesNotContain(dbContext.UserAchievements, x => x.UserId == userId && x.AchievementId == achievement.Id);
+        }
+    }
+
+    [Fact]
+    public void CheckAndGrantSceneAchievements_ShouldGrantFirstTopicCompleted_WhenTopicSceneIsCompleted()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var userId = 10;
+
+        dbContext.Topics.Add(new Topic { Id = 1, CourseId = 1, Title = "Basics", Order = 1 });
+        dbContext.Scenes.Add(new Scene
+        {
+            Id = 1,
+            CourseId = 1,
+            TopicId = 1,
+            Title = "Scene 1",
+            Description = "Desc",
+            SceneType = "scene",
+            Order = 1
+        });
+        dbContext.SceneAttempts.Add(new SceneAttempt
+        {
+            UserId = userId,
+            SceneId = 1,
+            IsCompleted = true,
+            Score = 1,
+            TotalQuestions = 1,
+            CompletedAt = new DateTime(2026, 3, 2, 10, 0, 0, DateTimeKind.Utc)
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new AchievementService(
+            dbContext,
+            new FixedDateTimeProvider(new DateTime(2026, 3, 2, 12, 0, 0, DateTimeKind.Utc)),
+            Options.Create(new LearningSettings { PassingScorePercent = 80 }));
+
+        service.CheckAndGrantSceneAchievements(userId);
 
         var achievement = dbContext.Achievements.FirstOrDefault(x => x.Code == "sys.first_topic_completed");
         Assert.NotNull(achievement);

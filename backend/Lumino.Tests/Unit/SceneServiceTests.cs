@@ -92,6 +92,54 @@ public class SceneServiceTests
     }
 
     [Fact]
+    public void MarkCompleted_FirstTime_ShouldRegisterStreakActivity()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Users.Add(new User
+        {
+            Id = 1,
+            Email = "scene-streak@mail.com",
+            PasswordHash = "hash",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        dbContext.Scenes.Add(new Scene
+        {
+            Id = 1,
+            Title = "Scene 1",
+            Description = "Desc",
+            SceneType = "intro"
+        });
+
+        dbContext.SaveChanges();
+
+        var now = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc);
+        var dateTimeProvider = new FixedDateTimeProvider(now);
+        var achievementService = new CountingAchievementService();
+        var settings = Options.Create(new LearningSettings
+        {
+            SceneCompletionScore = 15,
+            SceneUnlockEveryLessons = 1
+        });
+
+        var service = new SceneService(dbContext, dateTimeProvider, achievementService, new FakeUserEconomyService(), settings);
+
+        service.MarkCompleted(userId: 1, sceneId: 1);
+
+        var streak = dbContext.UserStreaks.FirstOrDefault(x => x.UserId == 1);
+        var activity = dbContext.UserDailyActivities.FirstOrDefault(x => x.UserId == 1);
+
+        Assert.NotNull(streak);
+        Assert.Equal(1, streak!.CurrentStreak);
+        Assert.Equal(1, streak.BestStreak);
+        Assert.Equal(KyivDateTimeHelper.GetKyivDate(now), streak.LastActivityDateUtc);
+
+        Assert.NotNull(activity);
+        Assert.Equal(KyivDateTimeHelper.GetKyivDate(now), activity!.DateUtc);
+    }
+
+    [Fact]
     public void MarkCompleted_WhenSceneLocked_ShouldThrow()
     {
         var dbContext = TestDbContextFactory.Create();
@@ -1609,6 +1657,145 @@ public class SceneServiceTests
         var attempt = dbContext.SceneAttempts.FirstOrDefault(x => x.UserId == 1 && x.SceneId == 1);
         Assert.NotNull(attempt);
         Assert.True(attempt!.IsCompleted);
+    }
+
+
+    [Fact]
+    public void MarkCompleted_ReplayOnNextDay_ShouldIncreaseStreak()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Users.Add(new User
+        {
+            Id = 1,
+            Email = "scene-replay-streak@mail.com",
+            PasswordHash = "hash",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        dbContext.Scenes.Add(new Scene
+        {
+            Id = 1,
+            Title = "Scene 1",
+            Description = "Desc",
+            SceneType = "intro"
+        });
+
+        dbContext.SaveChanges();
+
+        var dateTimeProvider = new FixedDateTimeProvider(new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc));
+        var service = new SceneService(
+            dbContext,
+            dateTimeProvider,
+            new FakeAchievementService(),
+            new FakeUserEconomyService(),
+            Options.Create(new LearningSettings { SceneCompletionScore = 15, SceneUnlockEveryLessons = 1 })
+        );
+
+        service.MarkCompleted(userId: 1, sceneId: 1);
+
+        dateTimeProvider.UtcNow = dateTimeProvider.UtcNow.AddDays(1);
+
+        service.MarkCompleted(userId: 1, sceneId: 1);
+
+        var streak = dbContext.UserStreaks.First(x => x.UserId == 1);
+        var activities = dbContext.UserDailyActivities
+            .Where(x => x.UserId == 1)
+            .OrderBy(x => x.DateUtc)
+            .ToList();
+
+        Assert.Equal(2, streak.CurrentStreak);
+        Assert.Equal(2, streak.BestStreak);
+        Assert.Equal(KyivDateTimeHelper.GetKyivDate(dateTimeProvider.UtcNow), streak.LastActivityDateUtc);
+        Assert.Equal(2, activities.Count);
+        Assert.Equal(KyivDateTimeHelper.GetKyivDate(dateTimeProvider.UtcNow.AddDays(-1)), activities[0].DateUtc);
+        Assert.Equal(KyivDateTimeHelper.GetKyivDate(dateTimeProvider.UtcNow), activities[1].DateUtc);
+    }
+
+    [Fact]
+    public void SubmitScene_ReplayCompletedSceneOnNextDay_ShouldIncreaseStreak()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Users.Add(new User
+        {
+            Id = 1,
+            Email = "scene-submit-replay-streak@mail.com",
+            PasswordHash = "hash",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        dbContext.Scenes.Add(new Scene
+        {
+            Id = 1,
+            Title = "Scene 1",
+            Description = "Desc",
+            SceneType = "intro"
+        });
+
+        dbContext.SceneSteps.Add(new SceneStep
+        {
+            Id = 1,
+            SceneId = 1,
+            Order = 1,
+            Speaker = "A",
+            Text = "Choose",
+            StepType = "Choice",
+            MediaUrl = null,
+            ChoicesJson = "[{\"text\":\"Cat\",\"isCorrect\":true},{\"text\":\"Dog\",\"isCorrect\":false}]"
+        });
+
+        dbContext.SaveChanges();
+
+        var dateTimeProvider = new FixedDateTimeProvider(new DateTime(2026, 2, 12, 18, 0, 0, DateTimeKind.Utc));
+        var service = new SceneService(
+            dbContext,
+            dateTimeProvider,
+            new FakeAchievementService(),
+            new FakeUserEconomyService(),
+            Options.Create(new LearningSettings { PassingScorePercent = 80, SceneUnlockEveryLessons = 1, SceneCompletionScore = 5 })
+        );
+
+        var first = service.SubmitScene(
+            userId: 1,
+            sceneId: 1,
+            request: new SubmitSceneRequest
+            {
+                Answers = new List<SubmitSceneAnswerRequest>
+                {
+                    new SubmitSceneAnswerRequest { StepId = 1, Answer = "Cat" }
+                }
+            }
+        );
+
+        dateTimeProvider.UtcNow = dateTimeProvider.UtcNow.AddDays(1);
+
+        var second = service.SubmitScene(
+            userId: 1,
+            sceneId: 1,
+            request: new SubmitSceneRequest
+            {
+                Answers = new List<SubmitSceneAnswerRequest>
+                {
+                    new SubmitSceneAnswerRequest { StepId = 1, Answer = "Cat" }
+                }
+            }
+        );
+
+        var streak = dbContext.UserStreaks.First(x => x.UserId == 1);
+        var activities = dbContext.UserDailyActivities
+            .Where(x => x.UserId == 1)
+            .OrderBy(x => x.DateUtc)
+            .ToList();
+
+        Assert.True(first.IsCompleted);
+        Assert.True(second.IsCompleted);
+        Assert.Equal(2, streak.CurrentStreak);
+        Assert.Equal(2, streak.BestStreak);
+        Assert.Equal(KyivDateTimeHelper.GetKyivDate(dateTimeProvider.UtcNow), streak.LastActivityDateUtc);
+        Assert.Equal(2, activities.Count);
+        Assert.Equal(KyivDateTimeHelper.GetKyivDate(dateTimeProvider.UtcNow.AddDays(-1)), activities[0].DateUtc);
+        Assert.Equal(KyivDateTimeHelper.GetKyivDate(dateTimeProvider.UtcNow), activities[1].DateUtc);
     }
 
     private class ThrowOnceOnSceneAttemptInsertDbContext : LuminoDbContext

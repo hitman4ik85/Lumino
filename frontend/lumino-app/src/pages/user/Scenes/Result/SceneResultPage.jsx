@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStageScale } from "../../../../hooks/useStageScale.js";
 import { PATHS } from "../../../../routes/paths.js";
+import GlassModal from "../../../../components/common/GlassModal/GlassModal.jsx";
 import styles from "./SceneResultPage.module.css";
 
 import BgLeft from "../../../../assets/lesson/backgrounds/bg4-left_finish.webp";
@@ -9,6 +10,40 @@ import BgRight from "../../../../assets/lesson/backgrounds/bg4-right_finish.webp
 import Mascot from "../../../../assets/mascot/mascot1.svg";
 import PointsIcon from "../../../../assets/home/shared/points.svg";
 import CrystalIcon from "../../../../assets/home/header/crystal.svg";
+
+function getAchievementMediaRoot() {
+  const apiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || "/api").trim();
+
+  if (/^https?:\/\//i.test(apiBaseUrl)) {
+    try {
+      return apiBaseUrl.replace(/\/api\/?$/i, "").replace(/\/$/, "");
+    } catch {
+      return typeof window !== "undefined" ? window.location.origin : "";
+    }
+  }
+
+  return typeof window !== "undefined" ? window.location.origin : "";
+}
+
+function resolveAchievementImageUrl(url) {
+  const src = String(url || "").trim();
+
+  if (!src) {
+    return "";
+  }
+
+  if (/^(https?:)?\/\//i.test(src) || src.startsWith("data:") || src.startsWith("blob:")) {
+    return src;
+  }
+
+  const mediaRoot = getAchievementMediaRoot();
+
+  if (src.startsWith("/")) {
+    return `${mediaRoot}${src}`;
+  }
+
+  return `${mediaRoot}/${src.replace(/^\/+/, "")}`;
+}
 
 function StatCard({ label, value, icon, prefix = "", suffix = "" }) {
   return (
@@ -38,6 +73,7 @@ export default function SceneResultPage() {
   const result = location.state?.result || null;
   const scene = location.state?.scene || null;
   const isMistakesMode = location.state?.mode === "mistakes";
+  const newlyEarnedAchievements = Array.isArray(location.state?.newlyEarnedAchievements) ? location.state.newlyEarnedAchievements : [];
 
   const accuracyPercent = useMemo(() => {
     const total = Number(result?.totalQuestions || 0);
@@ -56,6 +92,19 @@ export default function SceneResultPage() {
   const title = useMemo(() => getSceneTitle(scene, sceneId), [scene, sceneId]);
   const [showTitle, setShowTitle] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [achievementModalIndex, setAchievementModalIndex] = useState(0);
+  const [achievementModalOpen, setAchievementModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isMistakesMode && newlyEarnedAchievements.length > 0) {
+      setAchievementModalIndex(0);
+      setAchievementModalOpen(true);
+      return;
+    }
+
+    setAchievementModalOpen(false);
+    setAchievementModalIndex(0);
+  }, [isMistakesMode, newlyEarnedAchievements]);
 
   useEffect(() => {
     setShowTitle(false);
@@ -78,6 +127,36 @@ export default function SceneResultPage() {
       clearTimeout(statsTimer);
     };
   }, [result]);
+
+  const currentAchievement = newlyEarnedAchievements[achievementModalIndex] || null;
+  const achievementIllustrationSrc = useMemo(
+    () => resolveAchievementImageUrl(currentAchievement?.imageUrl || ""),
+    [currentAchievement]
+  );
+  const achievementTitle = useMemo(
+    () => String(currentAchievement?.title || "Нова нагорода!").trim() || "Нова нагорода!",
+    [currentAchievement]
+  );
+  const achievementMessage = useMemo(() => {
+    const description = String(currentAchievement?.description || "").trim();
+
+    if (description) {
+      return description;
+    }
+
+    return "Ти отримав нову нагороду за проходження сцени.";
+  }, [currentAchievement]);
+
+  const handleCloseAchievementModal = () => {
+    const nextIndex = achievementModalIndex + 1;
+
+    if (nextIndex < newlyEarnedAchievements.length) {
+      setAchievementModalIndex(nextIndex);
+      return;
+    }
+
+    setAchievementModalOpen(false);
+  };
 
   const handleContinue = () => {
     navigate(PATHS.home, {
@@ -126,6 +205,17 @@ export default function SceneResultPage() {
             </div>
 
             <div className={styles.bottomLine} />
+
+            <GlassModal
+              open={achievementModalOpen}
+              title={achievementTitle}
+              message={achievementMessage}
+              onClose={handleCloseAchievementModal}
+              primaryText="Добре"
+              variant="achievement"
+              illustrationSrc={achievementIllustrationSrc}
+              stageTargetId="scene-result-stage-root"
+            />
 
             <div className={styles.actionsRow}>
               {!isMistakesMode && mistakesCount > 0 ? (

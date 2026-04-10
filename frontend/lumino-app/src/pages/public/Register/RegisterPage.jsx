@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
+import { validateEmail, validateNewPassword, validateUsername } from "../../../utils/validation.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { authService } from "../../../services/authService.js";
 import { authStorage } from "../../../services/authStorage.js";
@@ -39,8 +40,6 @@ function GoogleIcon() {
     </span>
   );
 }
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -194,33 +193,11 @@ export default function RegisterPage() {
     };
   }, [navigate, form.username]);
 
-  const usernameError = useMemo(() => {
-    const value = form.username.trim();
+  const usernameError = useMemo(() => validateUsername(form.username, { required: true }), [form.username]);
 
-    if (!value) return "Введіть ім'я.";
-    if (value.length < 2) return "Ім'я має містити щонайменше 2 символи.";
-    if (value.length > 32) return "Ім'я має містити не більше 32 символів.";
+  const emailError = useMemo(() => validateEmail(form.email, { required: true }), [form.email]);
 
-    return "";
-  }, [form.username]);
-
-  const emailError = useMemo(() => {
-    const value = form.email.trim();
-
-    if (!value) return "Введіть електронну адресу.";
-    if (!EMAIL_RE.test(value)) return "Введіть коректну електронну адресу.";
-
-    return "";
-  }, [form.email]);
-
-  const passwordError = useMemo(() => {
-    const value = form.password;
-
-    if (!value) return "Введіть пароль.";
-    if (value.length < 6) return "Пароль має містити щонайменше 6 символів.";
-
-    return "";
-  }, [form.password]);
+  const passwordError = useMemo(() => validateNewPassword(form.password, { required: true }), [form.password]);
 
   const isValid = !usernameError && !emailError && !passwordError;
   const canSubmit = isValid && !submitting;

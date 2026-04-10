@@ -1,3 +1,4 @@
+using Lumino.Api.Application.Achievements;
 using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
@@ -20,6 +21,7 @@ namespace Lumino.Api.Application.Services
         {
             var list = _dbContext.Achievements
                 .OrderBy(x => x.Id)
+                .ToList()
                 .Select(x => new AdminAchievementResponse
                 {
                     Id = x.Id,
@@ -28,7 +30,9 @@ namespace Lumino.Api.Application.Services
                     Description = x.Description,
                     IsSystem = IsSystemAchievement(x.Code),
                     CanEditDescription = !IsSystemAchievement(x.Code),
-                    ImageUrl = x.ImageUrl
+                    ImageUrl = x.ImageUrl,
+                    ConditionType = AchievementConditionTypes.Normalize(x.ConditionType),
+                    ConditionThreshold = NormalizeConditionThreshold(x.ConditionThreshold)
                 })
                 .ToList();
 
@@ -52,7 +56,9 @@ namespace Lumino.Api.Application.Services
                 Description = a.Description,
                 IsSystem = IsSystemAchievement(a.Code),
                 CanEditDescription = !IsSystemAchievement(a.Code),
-                ImageUrl = a.ImageUrl
+                ImageUrl = a.ImageUrl,
+                ConditionType = AchievementConditionTypes.Normalize(a.ConditionType),
+                ConditionThreshold = NormalizeConditionThreshold(a.ConditionThreshold)
             };
         }
 
@@ -82,12 +88,16 @@ namespace Lumino.Api.Application.Services
                 throw new ArgumentException("Achievement code already exists");
             }
 
+            var normalizedCondition = NormalizeCondition(request.ConditionType, request.ConditionThreshold);
+
             var a = new Achievement
             {
                 Code = code,
                 Title = request.Title.Trim(),
                 Description = request.Description.Trim(),
-                ImageUrl = NormalizeImageUrl(request.ImageUrl)
+                ImageUrl = NormalizeImageUrl(request.ImageUrl),
+                ConditionType = normalizedCondition.Type,
+                ConditionThreshold = normalizedCondition.Threshold
             };
 
             _dbContext.Achievements.Add(a);
@@ -127,6 +137,10 @@ namespace Lumino.Api.Application.Services
             if (!isSystem)
             {
                 a.Description = request.Description!.Trim();
+
+                var normalizedCondition = NormalizeCondition(request.ConditionType, request.ConditionThreshold);
+                a.ConditionType = normalizedCondition.Type;
+                a.ConditionThreshold = normalizedCondition.Threshold;
             }
 
             a.ImageUrl = NormalizeImageUrl(request.ImageUrl);
@@ -201,6 +215,43 @@ namespace Lumino.Api.Application.Services
             }
 
             return $"custom.{Guid.NewGuid():N}";
+        }
+
+        private static int? NormalizeConditionThreshold(int? threshold)
+        {
+            return threshold.HasValue && threshold.Value > 0
+                ? threshold.Value
+                : null;
+        }
+
+        private static (string? Type, int? Threshold) NormalizeCondition(string? conditionType, int? conditionThreshold)
+        {
+            bool hasRawType = !string.IsNullOrWhiteSpace(conditionType);
+            bool hasRawThreshold = conditionThreshold.HasValue;
+            var normalizedType = AchievementConditionTypes.Normalize(conditionType);
+            var normalizedThreshold = NormalizeConditionThreshold(conditionThreshold);
+
+            if (hasRawType && normalizedType == null)
+            {
+                throw new ArgumentException("Achievement condition type is invalid");
+            }
+
+            if (!hasRawType && !hasRawThreshold)
+            {
+                return (null, null);
+            }
+
+            if (normalizedType == null)
+            {
+                throw new ArgumentException("Achievement condition type is required");
+            }
+
+            if (normalizedThreshold == null)
+            {
+                throw new ArgumentException("Achievement condition threshold must be greater than 0");
+            }
+
+            return (normalizedType, normalizedThreshold);
         }
     }
 }

@@ -465,7 +465,7 @@ function getExerciseTitle(exercise) {
   }
 
   if (exercise.type === "Input") {
-    return "Введіть правильне слово";
+    return "Введіть правильну відповідь";
   }
 
   if (exercise.type === "Match") {
@@ -1357,6 +1357,24 @@ export default function LessonPage() {
     setLessonModal({ open: false, type: "" });
   }, []);
 
+  useEffect(() => {
+    if (!lessonModal.open) {
+      return undefined;
+    }
+
+    const handleLessonModalEscape = (event) => {
+      if (event.key === "Escape") {
+        closeLessonModal();
+      }
+    };
+
+    window.addEventListener("keydown", handleLessonModalEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleLessonModalEscape);
+    };
+  }, [closeLessonModal, lessonModal.open]);
+
   const handleOpenRestoreModal = useCallback(() => {
     setLessonModal({ open: true, type: "restoreEnergy" });
   }, []);
@@ -1745,7 +1763,7 @@ export default function LessonPage() {
             </div>
 
             {lessonModal.open ? (
-              <div className={styles.lessonModalOverlay} role="presentation" onClick={lessonModal.type === "emptyEnergy" ? undefined : closeLessonModal}>
+              <div className={styles.lessonModalOverlay} role="presentation">
                 {lessonModal.type === "leaveLesson" ? (
                   <div className={`${styles.lessonModalCard} ${styles.lessonLeaveModalCard}`} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
                     <button type="button" className={styles.lessonModalCloseButton} onClick={closeLessonModal} aria-label="Закрити" />

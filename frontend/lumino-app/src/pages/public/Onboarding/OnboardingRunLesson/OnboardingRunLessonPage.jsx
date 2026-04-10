@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../../routes/paths.js";
 import { demoLessonService } from "../../../../services/demoLessonService.js";
+import { authStorage } from "../../../../services/authStorage.js";
 import { useStageScale } from "../../../../hooks/useStageScale.js";
 import styles from "./OnboardingRunLessonPage.module.css";
 
@@ -60,6 +61,7 @@ export default function OnboardingRunLessonPage() {
     }
 
     setLoading(true);
+    authStorage.enableGuestPreview();
 
     const languageCode = localStorage.getItem("targetLanguage") || "en";
     const level = localStorage.getItem("lumino_course_level") || "a1";

@@ -19,5 +19,11 @@ namespace Lumino.Api.Application.Interfaces
         void UnlinkFromLesson(int lessonId, int vocabularyItemId);
 
         List<AdminVocabularyItemResponse> GetByLesson(int lessonId);
+
+        List<AdminVocabularyItemResponse> GetByCourseLanguage(int courseId);
+
+        AdminVocabularyExportResponse Export(AdminVocabularyExportRequest request);
+
+        AdminVocabularyImportResponse Import(AdminVocabularyImportRequest request);
     }
 }

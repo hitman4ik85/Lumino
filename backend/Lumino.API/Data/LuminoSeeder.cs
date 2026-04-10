@@ -466,17 +466,6 @@ namespace Lumino.Api.Data
                     .Where(x => !remove.Contains(x))
                     .ToList();
 
-                // ВАЖЛИВО:
-                // У нас є унікальні індекси:
-                // 1) (VocabularyItemId, Order)
-                // 2) (VocabularyItemId, Translation)
-                // Якщо переклад "переїжджає" на інший Order (або міняється порядок),
-                // то оновлення "по позиції" може на одну мить створити дублікати і впасти на SaveChanges().
-                // Тому робимо безпечний 2-фазний апдейт:
-                // - спочатку даємо всім існуючим перекладам тимчасові унікальні Order (негативні)
-                // - зберігаємо
-                // - потім виставляємо фінальні Order 1..N для desired і додаємо відсутні
-
                 foreach (var row in active)
                 {
                     // -Id гарантує унікальність в межах одного item
@@ -570,6 +559,35 @@ namespace Lumino.Api.Data
             EnsureFixedCourseStructureForDesign(dbContext, courseEnglishB1);
             EnsureFixedCourseStructureForDesign(dbContext, courseEnglishB2);
             EnsureFixedCourseStructureForDesign(dbContext, courseEnglishC1);
+
+            EnsureOnboardingDemoExercisesForCourse(dbContext, courseEnglishA2);
+            EnsureOnboardingDemoExercisesForCourse(dbContext, courseEnglishB1);
+            EnsureOnboardingDemoExercisesForCourse(dbContext, courseEnglishB2);
+            EnsureOnboardingDemoExercisesForCourse(dbContext, courseEnglishC1);
+        }
+
+        private static void EnsureOnboardingDemoExercisesForCourse(LuminoDbContext dbContext, Course course)
+        {
+            var onboardingExercisesByCourseTitle = LessonSeederData.GetOnboardingExercisesByCourseTitle();
+
+            if (!onboardingExercisesByCourseTitle.TryGetValue(course.Title, out var exercises))
+            {
+                return;
+            }
+
+            var topic = dbContext.Topics.FirstOrDefault(x => x.CourseId == course.Id && x.Order == 1);
+            if (topic == null)
+            {
+                return;
+            }
+
+            var lesson = dbContext.Lessons.FirstOrDefault(x => x.TopicId == topic.Id && x.Order == 1);
+            if (lesson == null)
+            {
+                return;
+            }
+
+            UpsertExercises(dbContext, lesson.Id, exercises);
         }
 
 
@@ -584,21 +602,10 @@ namespace Lumino.Api.Data
             // 1 course = 10 topics
             // 1 topic = 8 lessons + 1 final scene (sun)
             // 1 lesson = 9 exercises
-            // This method is safe to call multiple times: it only adds missing items.
+            // This method is safe to call multiple times: it adds missing items,
+            // and only renames seeded placeholder titles when they still match the default seed data.
 
-            var topicTitlesByOrder = new Dictionary<int, string>
-            {
-                [1] = "Basic words",
-                [2] = "Simple sentences",
-                [3] = "Travel",
-                [4] = "Food & Cafe",
-                [5] = "Topic 5",
-                [6] = "Topic 6",
-                [7] = "Topic 7",
-                [8] = "Topic 8",
-                [9] = "Topic 9",
-                [10] = "Topic 10"
-            };
+            var topicTitlesByOrder = GetSeedTopicTitlesByOrder(course);
 
             var topics = dbContext.Topics
                 .Where(x => x.CourseId == course.Id)
@@ -613,12 +620,10 @@ namespace Lumino.Api.Data
             {
                 if (byOrder.TryGetValue(topicOrder, out var fromDb))
                 {
-                    if (topicTitlesByOrder.TryGetValue(topicOrder, out var desiredTitle))
+                    if (topicTitlesByOrder.TryGetValue(topicOrder, out var desiredTitle) &&
+                        ShouldReplaceSeededTopicTitle(fromDb.Title, topicOrder))
                     {
-                        if (!string.Equals(fromDb.Title, desiredTitle, StringComparison.Ordinal))
-                        {
-                            fromDb.Title = desiredTitle;
-                        }
+                        fromDb.Title = desiredTitle;
                     }
 
                     continue;
@@ -650,12 +655,139 @@ namespace Lumino.Api.Data
             dbContext.SaveChanges();
         }
 
+        private static Dictionary<int, string> GetSeedTopicTitlesByOrder(Course course)
+        {
+            var level = string.IsNullOrWhiteSpace(course?.Level)
+                ? string.Empty
+                : course.Level.Trim().ToUpperInvariant();
+
+            return level switch
+            {
+                "A2" => new Dictionary<int, string>
+                {
+                    [1] = "Everyday Life",
+                    [2] = "Home & Hobbies",
+                    [3] = "City & Transport",
+                    [4] = "Food & Shopping",
+                    [5] = "Friends & Communication",
+                    [6] = "Travel Plans",
+                    [7] = "Study & Work",
+                    [8] = "Health & Care",
+                    [9] = "Nature & Weather",
+                    [10] = "Culture & Free Time"
+                },
+                "B1" => new Dictionary<int, string>
+                {
+                    [1] = "Communication Skills",
+                    [2] = "Work & Career",
+                    [3] = "Travel Experiences",
+                    [4] = "Food & Lifestyle",
+                    [5] = "Relationships",
+                    [6] = "Home & Society",
+                    [7] = "Daily Challenges",
+                    [8] = "Shopping & Services",
+                    [9] = "Environment & Weather",
+                    [10] = "Health & Wellbeing"
+                },
+                "B2" => new Dictionary<int, string>
+                {
+                    [1] = "Advanced Communication",
+                    [2] = "Professional Life",
+                    [3] = "Global Travel",
+                    [4] = "Food Culture",
+                    [5] = "People & Behaviour",
+                    [6] = "Modern Living",
+                    [7] = "Productivity & Routine",
+                    [8] = "Consumer World",
+                    [9] = "Climate & Nature",
+                    [10] = "Health & Science"
+                },
+                "C1" => new Dictionary<int, string>
+                {
+                    [1] = "Critical Communication",
+                    [2] = "Leadership & Career",
+                    [3] = "International Mobility",
+                    [4] = "Culture & Gastronomy",
+                    [5] = "Social Dynamics",
+                    [6] = "Contemporary Life",
+                    [7] = "Strategic Planning",
+                    [8] = "Economy & Consumption",
+                    [9] = "Global Environment",
+                    [10] = "Medicine & Research"
+                },
+                _ => GetLegacySharedSeedTopicTitlesByOrder(),
+            };
+        }
+
+        private static Dictionary<int, string> GetLegacySharedSeedTopicTitlesByOrder()
+        {
+            return new Dictionary<int, string>
+            {
+                [1] = "Basic words",
+                [2] = "Simple sentences",
+                [3] = "Travel",
+                [4] = "Food & Cafe",
+                [5] = "Family & Friends",
+                [6] = "Home",
+                [7] = "Daily Routine",
+                [8] = "Shopping & Clothes",
+                [9] = "Weather & Seasons",
+                [10] = "Health & Body"
+            };
+        }
+
+        private static bool ShouldReplaceSeededTopicTitle(string? currentTitle, int topicOrder)
+        {
+            if (string.IsNullOrWhiteSpace(currentTitle))
+            {
+                return true;
+            }
+
+            var knownTitles = GetAllSeedTopicTitlesByOrder();
+
+            return knownTitles.TryGetValue(topicOrder, out var titles) && titles.Contains(currentTitle.Trim());
+        }
+
+        private static Dictionary<int, HashSet<string>> GetAllSeedTopicTitlesByOrder()
+        {
+            var result = new Dictionary<int, HashSet<string>>();
+            var seededSets = new[]
+            {
+                GetLegacySharedSeedTopicTitlesByOrder(),
+                GetSeedTopicTitlesByOrder(new Course { Level = "A2" }),
+                GetSeedTopicTitlesByOrder(new Course { Level = "B1" }),
+                GetSeedTopicTitlesByOrder(new Course { Level = "B2" }),
+                GetSeedTopicTitlesByOrder(new Course { Level = "C1" })
+            };
+
+            foreach (var seededSet in seededSets)
+            {
+                foreach (var pair in seededSet)
+                {
+                    if (!result.TryGetValue(pair.Key, out var titles))
+                    {
+                        titles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        result[pair.Key] = titles;
+                    }
+
+                    titles.Add(pair.Value);
+                }
+            }
+
+            return result;
+        }
+
         private static void EnsureLessonsForTopic(LuminoDbContext dbContext, Topic topic)
         {
             var lessons = dbContext.Lessons
                 .Where(x => x.TopicId == topic.Id)
                 .OrderBy(x => x.Order)
                 .ToList();
+
+            foreach (var lesson in lessons)
+            {
+                SyncSeededLessonTitle(topic, lesson);
+            }
 
             var lessonOrders = lessons
                 .Select(x => x.Order)
@@ -691,6 +823,56 @@ namespace Lumino.Api.Data
             {
                 EnsureExercisesForLesson(dbContext, lesson);
             }
+        }
+
+        private static void SyncSeededLessonTitle(Topic topic, Lesson lesson)
+        {
+            if (topic == null || lesson == null)
+            {
+                return;
+            }
+
+            if (!string.Equals(lesson.Theory, "TBD", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (lesson.Order <= 0)
+            {
+                return;
+            }
+
+            var currentTitle = string.IsNullOrWhiteSpace(lesson.Title)
+                ? string.Empty
+                : lesson.Title.Trim();
+
+            if (!ShouldReplaceSeededLessonTitle(currentTitle, lesson.Order))
+            {
+                return;
+            }
+
+            lesson.Title = $"{topic.Title} - Lesson {lesson.Order}";
+        }
+
+        private static bool ShouldReplaceSeededLessonTitle(string currentTitle, int lessonOrder)
+        {
+            if (string.IsNullOrWhiteSpace(currentTitle))
+            {
+                return true;
+            }
+
+            foreach (var titles in GetAllSeedTopicTitlesByOrder().Values)
+            {
+                foreach (var title in titles)
+                {
+                    if (string.Equals(currentTitle, $"{title} - Lesson {lessonOrder}", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private static void EnsureExercisesForLesson(LuminoDbContext dbContext, Lesson lesson)
@@ -731,33 +913,18 @@ namespace Lumino.Api.Data
         private static void EnsureFinalSceneForTopic(LuminoDbContext dbContext, Course course, Topic topic)
         {
             // One final scene ("Sun") per topic. It is used by LearningPath rules (TopicId != null).
-            // IMPORTANT: We check exactly Sun, not "any scene", to avoid duplicates like:
-            // - linked dialog scene (not Sun) + additionally created Sun.
-            var existingForTopic = dbContext.Scenes.FirstOrDefault(x => x.CourseId == course.Id && x.TopicId == topic.Id);
+            var existingSunForTopic = dbContext.Scenes.FirstOrDefault(x =>
+                x.CourseId == course.Id &&
+                x.TopicId == topic.Id &&
+                x.SceneType == "Sun");
+
+            var existingForTopic = existingSunForTopic ?? dbContext.Scenes.FirstOrDefault(x =>
+                x.CourseId == course.Id &&
+                x.TopicId == topic.Id);
+
             if (existingForTopic != null)
             {
-                var desiredOrder = 1000 + topic.Order;
-
-                if (!string.Equals(existingForTopic.SceneType, "Sun", StringComparison.Ordinal))
-                {
-                    existingForTopic.SceneType = "Sun";
-                }
-
-                if (existingForTopic.Order != desiredOrder)
-                {
-                    existingForTopic.Order = desiredOrder;
-                }
-
-                if (string.IsNullOrWhiteSpace(existingForTopic.Title))
-                {
-                    existingForTopic.Title = $"{topic.Title} - Sun";
-                }
-
-                if (string.IsNullOrWhiteSpace(existingForTopic.Description))
-                {
-                    existingForTopic.Description = "Final topic scene (sun)";
-                }
-
+                PrepareSceneForTopicSun(dbContext, existingForTopic, course, topic);
                 PopulateSunSceneFromTemplateIfNeeded(dbContext, existingForTopic, topic.Order);
                 return;
             }
@@ -772,31 +939,21 @@ namespace Lumino.Api.Data
                     x.TopicId == null);
                 if (fromDb != null)
                 {
-                    if (fromDb.CourseId != course.Id)
-                    {
-                        fromDb.CourseId = course.Id;
-                    }
-
-                    if (fromDb.TopicId != topic.Id)
-                    {
-                        fromDb.TopicId = topic.Id;
-                    }
-
-                    if (!string.Equals(fromDb.SceneType, "Sun", StringComparison.Ordinal))
-                    {
-                        fromDb.SceneType = "Sun";
-                    }
-
-                    // IMPORTANT: Scene.Order is unique per course (unique index CourseId + Order), so it must be unique across topics.
-                    var desiredOrder = 1000 + topic.Order;
-                    if (fromDb.Order != desiredOrder)
-                    {
-                        fromDb.Order = desiredOrder;
-                    }
-
+                    PrepareSceneForTopicSun(dbContext, fromDb, course, topic);
                     PopulateSunSceneFromTemplateIfNeeded(dbContext, fromDb, topic.Order);
                     return;
                 }
+            }
+
+            var existingForOrder = dbContext.Scenes.FirstOrDefault(x =>
+                x.CourseId == course.Id &&
+                x.Order == topic.Order);
+
+            if (existingForOrder != null)
+            {
+                PrepareSceneForTopicSun(dbContext, existingForOrder, course, topic);
+                PopulateSunSceneFromTemplateIfNeeded(dbContext, existingForOrder, topic.Order);
+                return;
             }
 
             var scene = new Scene
@@ -810,12 +967,97 @@ namespace Lumino.Api.Data
                 AudioUrl = null,
                 // IMPORTANT: Scene.Order is unique per course (unique index CourseId + Order),
                 // so we must keep it unique across topics.
-                Order = 1000 + topic.Order
+                Order = topic.Order
             };
 
+            EnsureSeederSceneOrderAvailable(dbContext, course.Id, topic.Order, 0);
             dbContext.Scenes.Add(scene);
             dbContext.SaveChanges();
             PopulateSunSceneFromTemplateIfNeeded(dbContext, scene, topic.Order);
+        }
+
+        private static void PrepareSceneForTopicSun(LuminoDbContext dbContext, Scene scene, Course course, Topic topic)
+        {
+            if (scene.CourseId != course.Id)
+            {
+                scene.CourseId = course.Id;
+            }
+
+            if (scene.TopicId != topic.Id)
+            {
+                scene.TopicId = topic.Id;
+            }
+
+            if (!string.Equals(scene.SceneType, "Sun", StringComparison.Ordinal))
+            {
+                scene.SceneType = "Sun";
+            }
+
+            EnsureSeederSceneOrderAvailable(dbContext, course.Id, topic.Order, scene.Id);
+
+            if (scene.Order != topic.Order)
+            {
+                scene.Order = topic.Order;
+            }
+
+            if (ShouldReplaceSeededSunSceneTitle(scene.Title, scene.Description))
+            {
+                scene.Title = $"{topic.Title} - Sun";
+            }
+            else if (string.IsNullOrWhiteSpace(scene.Title))
+            {
+                scene.Title = $"{topic.Title} - Sun";
+            }
+
+            if (string.IsNullOrWhiteSpace(scene.Description))
+            {
+                scene.Description = "Final topic scene (sun)";
+            }
+        }
+
+        private static bool ShouldReplaceSeededSunSceneTitle(string? title, string? description)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                return true;
+            }
+
+            if (!string.Equals(description, "Final topic scene (sun)", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var normalizedTitle = title.Trim();
+
+            foreach (var titles in GetAllSeedTopicTitlesByOrder().Values)
+            {
+                foreach (var topicTitle in titles)
+                {
+                    if (string.Equals(normalizedTitle, $"{topicTitle} - Sun", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static void EnsureSeederSceneOrderAvailable(LuminoDbContext dbContext, int courseId, int desiredOrder, int ignoreSceneId)
+        {
+            if (desiredOrder <= 0)
+            {
+                return;
+            }
+
+            var conflictingScenes = dbContext.Scenes
+                .Where(x => x.CourseId == courseId && x.Order == desiredOrder && x.Id != ignoreSceneId)
+                .ToList();
+
+            foreach (var conflictingScene in conflictingScenes)
+            {
+                conflictingScene.Order = 0;
+            }
         }
 
         private static string? GetSceneTemplateTitleByTopicOrder(int topicOrder)
@@ -1002,29 +1244,27 @@ namespace Lumino.Api.Data
                         continue;
                     }
 
-                    var word = NormalizeWord(parts[0]);
-                    var translation = NormalizeWord(parts[1]);
+                    var pairs = ExtractTheoryVocabularyPairs(parts[0], parts[1]);
+                    CleanupLegacyLessonVocabularyLinks(dbContext, lesson.Id, parts[0], pairs.Select(x => x.Word).ToList());
 
-                    if (string.IsNullOrWhiteSpace(word) || string.IsNullOrWhiteSpace(translation))
+                    foreach (var pair in pairs)
                     {
-                        continue;
+                        var item = EnsureVocabularyItem(dbContext, vocabMap, pair.Word, pair.Translation);
+
+                        var exists = dbContext.LessonVocabularies
+                            .Any(x => x.LessonId == lesson.Id && x.VocabularyItemId == item.Id);
+
+                        if (exists)
+                        {
+                            continue;
+                        }
+
+                        dbContext.LessonVocabularies.Add(new LessonVocabulary
+                        {
+                            LessonId = lesson.Id,
+                            VocabularyItemId = item.Id
+                        });
                     }
-
-                    var item = EnsureVocabularyItem(dbContext, vocabMap, word, translation);
-
-                    var exists = dbContext.LessonVocabularies
-                        .Any(x => x.LessonId == lesson.Id && x.VocabularyItemId == item.Id);
-
-                    if (exists)
-                    {
-                        continue;
-                    }
-
-                    dbContext.LessonVocabularies.Add(new LessonVocabulary
-                    {
-                        LessonId = lesson.Id,
-                        VocabularyItemId = item.Id
-                    });
                 }
 
             }
@@ -1383,14 +1623,19 @@ namespace Lumino.Api.Data
                 && !q.Contains("—")
                 && !q.Contains(" - ")
                 && !q.Contains(" = ")
+                && !q.Contains('?')
                 && q.Length <= 80)
             {
-                var translationPrompt = q.Trim().TrimEnd('?', '!', '.', ':');
+                var translationPrompt = NormalizeVocabularyDisplayText(q, trimTrailingPunctuation: true);
+                var promptWordCount = translationPrompt
+                    .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Length;
                 var word = NormalizeWord(correctAnswer);
                 var translation = NormalizeWord(translationPrompt);
 
                 if (!string.IsNullOrWhiteSpace(word)
                     && !string.IsNullOrWhiteSpace(translation)
+                    && promptWordCount <= 3
                     && !string.Equals(word, translation, StringComparison.OrdinalIgnoreCase))
                 {
                     pair = (word, translation);
@@ -1399,6 +1644,213 @@ namespace Lumino.Api.Data
             }
 
             return false;
+        }
+
+        private static List<(string Word, string Translation)> ExtractTheoryVocabularyPairs(string rawWord, string rawTranslation)
+        {
+            var result = new List<(string Word, string Translation)>();
+            var normalizedRawWord = NormalizeVocabularyDisplayText(rawWord, trimTrailingPunctuation: true);
+            var normalizedRawTranslation = NormalizeVocabularyDisplayText(rawTranslation, trimTrailingPunctuation: true);
+
+            if (string.IsNullOrWhiteSpace(normalizedRawWord) || string.IsNullOrWhiteSpace(normalizedRawTranslation))
+            {
+                return result;
+            }
+
+            if (ShouldSkipAutoVocabularyPair(rawWord, normalizedRawWord))
+            {
+                return result;
+            }
+
+            var wordVariants = ExpandSlashVariants(normalizedRawWord);
+            var translationVariants = ExpandSlashVariants(normalizedRawTranslation);
+
+            if (wordVariants.Count > 1 && wordVariants.Count == translationVariants.Count)
+            {
+                for (int i = 0; i < wordVariants.Count; i++)
+                {
+                    var word = NormalizeWord(wordVariants[i]);
+                    var translation = NormalizeWord(translationVariants[i]);
+
+                    if (string.IsNullOrWhiteSpace(word) || string.IsNullOrWhiteSpace(translation))
+                    {
+                        continue;
+                    }
+
+                    result.Add((word, translation));
+                }
+
+                return result;
+            }
+
+            var normalizedWord = NormalizeWord(normalizedRawWord);
+            var normalizedTranslation = NormalizeWord(normalizedRawTranslation);
+
+            if (string.IsNullOrWhiteSpace(normalizedWord) || string.IsNullOrWhiteSpace(normalizedTranslation))
+            {
+                return result;
+            }
+
+            result.Add((normalizedWord, normalizedTranslation));
+            return result;
+        }
+
+        private static bool ShouldSkipAutoVocabularyPair(string rawWord, string cleanedWord)
+        {
+            if (string.IsNullOrWhiteSpace(cleanedWord))
+            {
+                return true;
+            }
+
+            if ((rawWord ?? string.Empty).Contains("..."))
+            {
+                return true;
+            }
+
+            var wordCount = cleanedWord
+                .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                .Length;
+
+            return wordCount > 3;
+        }
+
+        private static List<string> ExpandSlashVariants(string value)
+        {
+            value = NormalizeVocabularyDisplayText(value, trimTrailingPunctuation: true);
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return new List<string>();
+            }
+
+            if (!value.Contains('/') && !value.Contains('|'))
+            {
+                return new List<string> { value };
+            }
+
+            var separator = value.Contains('/') ? '/' : '|';
+            var parts = value
+                .Split(new[] { separator }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => NormalizeVocabularyDisplayText(x, trimTrailingPunctuation: true))
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .ToList();
+
+            if (parts.Count == 2)
+            {
+                var left = parts[0];
+                var right = parts[1];
+
+                if (left.Contains(' ') && !right.Contains(' '))
+                {
+                    var lastSpaceIndex = left.LastIndexOf(' ');
+
+                    if (lastSpaceIndex > 0)
+                    {
+                        var prefix = left.Substring(0, lastSpaceIndex).Trim();
+                        var second = string.IsNullOrWhiteSpace(prefix) ? right : $"{prefix} {right}";
+                        return new List<string> { left, NormalizeVocabularyDisplayText(second, trimTrailingPunctuation: true) };
+                    }
+                }
+            }
+
+            return parts;
+        }
+
+        private static string NormalizeVocabularyDisplayText(string value, bool trimTrailingPunctuation = false)
+        {
+            var normalized = (value ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                return string.Empty;
+            }
+
+            normalized = string.Join(' ', normalized
+                .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
+
+            if (!trimTrailingPunctuation)
+            {
+                return normalized;
+            }
+
+            return normalized.TrimEnd('.', ',', ';', ':', '!', '?', '…');
+        }
+
+        private static void CleanupLegacyLessonVocabularyLinks(LuminoDbContext dbContext, int lessonId, string rawWord, List<string> keptWords)
+        {
+            var legacyWord = NormalizeWord(rawWord);
+
+            if (string.IsNullOrWhiteSpace(legacyWord))
+            {
+                return;
+            }
+
+            var keptWordSet = new HashSet<string>((keptWords ?? new List<string>()).Select(NormalizeWord), StringComparer.OrdinalIgnoreCase);
+
+            if (keptWordSet.Contains(legacyWord))
+            {
+                return;
+            }
+
+            var legacyLinks = dbContext.LessonVocabularies
+                .Where(x => x.LessonId == lessonId)
+                .ToList();
+
+            if (legacyLinks.Count == 0)
+            {
+                return;
+            }
+
+            var vocabularyItemIds = legacyLinks.Select(x => x.VocabularyItemId).Distinct().ToList();
+            var vocabularyItems = dbContext.VocabularyItems
+                .Where(x => vocabularyItemIds.Contains(x.Id))
+                .ToList();
+
+            foreach (var link in legacyLinks)
+            {
+                var vocabularyItem = vocabularyItems.FirstOrDefault(x => x.Id == link.VocabularyItemId);
+
+                if (vocabularyItem == null)
+                {
+                    continue;
+                }
+
+                if (!string.Equals(NormalizeWord(vocabularyItem.Word), legacyWord, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                dbContext.LessonVocabularies.Remove(link);
+                CleanupVocabularyItemIfUnused(dbContext, vocabularyItem.Id);
+            }
+        }
+
+        private static void CleanupVocabularyItemIfUnused(LuminoDbContext dbContext, int vocabularyItemId)
+        {
+            var hasLessonLinks = dbContext.LessonVocabularies.Any(x => x.VocabularyItemId == vocabularyItemId);
+            var hasExerciseLinks = dbContext.ExerciseVocabularies.Any(x => x.VocabularyItemId == vocabularyItemId);
+            var hasUserLinks = dbContext.UserVocabularies.Any(x => x.VocabularyItemId == vocabularyItemId);
+
+            if (hasLessonLinks || hasExerciseLinks || hasUserLinks)
+            {
+                return;
+            }
+
+            var translations = dbContext.VocabularyItemTranslations
+                .Where(x => x.VocabularyItemId == vocabularyItemId)
+                .ToList();
+
+            if (translations.Count > 0)
+            {
+                dbContext.VocabularyItemTranslations.RemoveRange(translations);
+            }
+
+            var item = dbContext.VocabularyItems.FirstOrDefault(x => x.Id == vocabularyItemId);
+
+            if (item != null)
+            {
+                dbContext.VocabularyItems.Remove(item);
+            }
         }
 
         private static string NormalizeWord(string value)

@@ -63,6 +63,10 @@
   padding:34px 18px 31px;
 }
 
+.achievementModal{
+  min-height:381px;
+}
+
 .closeButton{
   position:absolute;
   left:20px;
@@ -150,6 +154,10 @@
   background:#D3E1F0;
   padding:27px 28px 23px;
   margin-top:36px;
+}
+
+.achievementContentBox{
+  padding:24px 20px 28px;
 }
 
 .title{
@@ -327,6 +335,12 @@
   width:320px;
   height:265px;
   margin:0 auto 44px;
+}
+
+.achievementIllustration{
+  width:180px;
+  height:180px;
+  margin:0 auto 20px;
 }
 
 .sceneLockedTitle{

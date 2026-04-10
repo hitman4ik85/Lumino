@@ -217,7 +217,7 @@
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  width:max-content;
+  width:fit-content;
   max-width:821px;
   min-height:82px;
   margin-top:75px;
@@ -260,8 +260,12 @@
   position:relative;
   z-index:1;
   display:block;
+  width:100%;
+  max-width:100%;
   text-align:left;
-  white-space:nowrap;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:break-word;
   font-family:'Montserrat', sans-serif;
   font-size:27px;
   line-height:33px;
@@ -271,12 +275,16 @@
 
 .optionsGrid{
   position:absolute;
-  left:395px;
+  left:50%;
   top:418px;
-  width:430px;
-  height:240px;
+  width:820px;
+  max-width:calc(100% - 160px);
   display:grid;
+  justify-items:center;
+  align-content:start;
+  grid-auto-rows:minmax(70px, auto);
   gap:15px;
+  transform:translateX(-50%);
 }
 
 .sentenceHeroRow + .optionsGrid{
@@ -284,18 +292,28 @@
 }
 
 .optionButton{
-  width:430px;
-  height:70px;
+  width:max-content;
+  min-width:430px;
+  max-width:100%;
+  min-height:70px;
+  padding:12px 20px;
+  box-sizing:border-box;
   border:2px solid #D8E1EA;
   border-radius:18px;
   background:rgba(255,255,255,.96);
   color:#26415E;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   font-family:'Montserrat', sans-serif;
   font-style:normal;
   font-size:32px;
   line-height:39px;
   font-weight:600;
   text-align:center;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:break-word;
   cursor:pointer;
   box-shadow:0 3px 10px rgba(38,65,94,.05);
   text-transform:none;
@@ -602,7 +620,7 @@
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  width:max-content;
+  width:fit-content;
   max-width:821px;
   min-height:82px;
   margin-top:42px;

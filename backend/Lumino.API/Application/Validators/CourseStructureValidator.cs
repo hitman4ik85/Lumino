@@ -1,16 +1,11 @@
 using Lumino.Api.Data;
+using Lumino.Api.Utils;
 using Microsoft.EntityFrameworkCore;
 
 namespace Lumino.Api.Application.Validators
 {
     public class CourseStructureValidator : ICourseStructureValidator
     {
-        private const int TopicsPerCourse = 10;
-        private const int LessonsPerTopic = 8;
-        private const int ExercisesPerLesson = 9;
-
-        private const string FinalSceneType = "Sun";
-
         private readonly LuminoDbContext _dbContext;
 
         public CourseStructureValidator(LuminoDbContext dbContext)
@@ -36,18 +31,18 @@ namespace Lumino.Api.Application.Validators
                 .ThenBy(x => x.Id)
                 .ToList();
 
-            if (topics.Count != TopicsPerCourse)
+            if (topics.Count != CourseStructureLimits.TopicsPerCourse)
             {
-                throw new ArgumentException($"Course structure error: course must have exactly {TopicsPerCourse} topics, but found {topics.Count}");
+                throw new ArgumentException($"Course structure error: course must have exactly {CourseStructureLimits.TopicsPerCourse} topics, but found {topics.Count}");
             }
 
             var topicOrders = topics
                 .Select(x => x.Order)
                 .ToList();
 
-            if (topicOrders.Distinct().Count() != TopicsPerCourse || topicOrders.Min() != 1 || topicOrders.Max() != TopicsPerCourse)
+            if (topicOrders.Distinct().Count() != CourseStructureLimits.TopicsPerCourse || topicOrders.Min() != 1 || topicOrders.Max() != CourseStructureLimits.TopicsPerCourse)
             {
-                throw new ArgumentException($"Course structure error: topics order must be unique and exactly 1..{TopicsPerCourse}");
+                throw new ArgumentException($"Course structure error: topics order must be unique and exactly 1..{CourseStructureLimits.TopicsPerCourse}");
             }
 
             foreach (var topic in topics)
@@ -59,27 +54,27 @@ namespace Lumino.Api.Application.Validators
                     .ThenBy(x => x.Id)
                     .ToList();
 
-                if (lessons.Count != LessonsPerTopic)
+                if (lessons.Count != CourseStructureLimits.LessonsPerTopic)
                 {
-                    throw new ArgumentException($"Course structure error: topic #{topic.Order} must have exactly {LessonsPerTopic} lessons, but found {lessons.Count}");
+                    throw new ArgumentException($"Course structure error: topic #{topic.Order} must have exactly {CourseStructureLimits.LessonsPerTopic} lessons, but found {lessons.Count}");
                 }
 
                 var lessonOrders = lessons
                     .Select(x => x.Order)
                     .ToList();
 
-                if (lessonOrders.Distinct().Count() != LessonsPerTopic || lessonOrders.Min() != 1 || lessonOrders.Max() != LessonsPerTopic)
+                if (lessonOrders.Distinct().Count() != CourseStructureLimits.LessonsPerTopic || lessonOrders.Min() != 1 || lessonOrders.Max() != CourseStructureLimits.LessonsPerTopic)
                 {
-                    throw new ArgumentException($"Course structure error: lessons order in topic #{topic.Order} must be unique and exactly 1..{LessonsPerTopic}");
+                    throw new ArgumentException($"Course structure error: lessons order in topic #{topic.Order} must be unique and exactly 1..{CourseStructureLimits.LessonsPerTopic}");
                 }
 
                 var finalScenesCount = _dbContext.Scenes
                     .AsNoTracking()
-                    .Count(x => x.TopicId == topic.Id && x.SceneType == FinalSceneType);
+                    .Count(x => x.TopicId == topic.Id && x.SceneType == CourseStructureLimits.FinalSceneType);
 
                 if (finalScenesCount != 1)
                 {
-                    throw new ArgumentException($"Course structure error: topic #{topic.Order} must have exactly 1 final scene with SceneType='{FinalSceneType}', but found {finalScenesCount}");
+                    throw new ArgumentException($"Course structure error: topic #{topic.Order} must have exactly 1 final scene with SceneType='{CourseStructureLimits.FinalSceneType}', but found {finalScenesCount}");
                 }
 
                 foreach (var lesson in lessons)
@@ -91,18 +86,18 @@ namespace Lumino.Api.Application.Validators
                         .ThenBy(x => x.Id)
                         .ToList();
 
-                    if (exercises.Count != ExercisesPerLesson)
+                    if (exercises.Count != CourseStructureLimits.ExercisesPerLesson)
                     {
-                        throw new ArgumentException($"Course structure error: lesson #{lesson.Order} in topic #{topic.Order} must have exactly {ExercisesPerLesson} exercises, but found {exercises.Count}");
+                        throw new ArgumentException($"Course structure error: lesson #{lesson.Order} in topic #{topic.Order} must have exactly {CourseStructureLimits.ExercisesPerLesson} exercises, but found {exercises.Count}");
                     }
 
                     var exerciseOrders = exercises
                         .Select(x => x.Order)
                         .ToList();
 
-                    if (exerciseOrders.Distinct().Count() != ExercisesPerLesson || exerciseOrders.Min() != 1 || exerciseOrders.Max() != ExercisesPerLesson)
+                    if (exerciseOrders.Distinct().Count() != CourseStructureLimits.ExercisesPerLesson || exerciseOrders.Min() != 1 || exerciseOrders.Max() != CourseStructureLimits.ExercisesPerLesson)
                     {
-                        throw new ArgumentException($"Course structure error: exercises order in lesson #{lesson.Order} (topic #{topic.Order}) must be unique and exactly 1..{ExercisesPerLesson}");
+                        throw new ArgumentException($"Course structure error: exercises order in lesson #{lesson.Order} (topic #{topic.Order}) must be unique and exactly 1..{CourseStructureLimits.ExercisesPerLesson}");
                     }
                 }
             }

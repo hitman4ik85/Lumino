@@ -3,6 +3,7 @@ using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Lumino.Api.Domain.Entities;
+using Lumino.Api.Utils;
 
 namespace Lumino.Api.Application.Services
 {
@@ -114,10 +115,12 @@ namespace Lumino.Api.Application.Services
 
             try
             {
-                var courseId = GetCourseIdOrDefault(request.CourseId);
-                var sceneOrder = NormalizeOrder(request.Order);
+                var courseId = NormalizeCourseIdOrNull(request.CourseId);
+                var sceneOrder = NormalizeSceneOrder(courseId, request.Order);
 
+                ValidateSceneOrderRange(sceneOrder);
                 ValidateUniqueSceneOrder(courseId, sceneOrder, null);
+                ValidateScenePlacement(request.TopicId, courseId, null);
 
                 var scene = new Scene
                 {
@@ -169,6 +172,7 @@ namespace Lumino.Api.Application.Services
                     _dbContext.SaveChanges();
                 }
 
+                CoursePublicationGuard.UnpublishIfStructureIncomplete(_dbContext, courseId);
                 transaction?.Commit();
 
                 return GetById(scene.Id);
@@ -190,6 +194,7 @@ namespace Lumino.Api.Application.Services
             }
 
             int? targetCourseId = request?.TargetCourseId ?? source.CourseId;
+            int? targetTopicId = request?.TargetTopicId ?? source.TopicId;
 
             if (targetCourseId.HasValue && targetCourseId.Value > 0)
             {
@@ -201,10 +206,8 @@ namespace Lumino.Api.Application.Services
                 }
             }
 
-            var maxOrder = _dbContext.Scenes
-                .Where(x => x.CourseId == targetCourseId)
-                .Select(x => (int?)x.Order)
-                .Max() ?? 0;
+            ValidateScenePlacement(targetTopicId, targetCourseId, null);
+
 
             var suffix = string.IsNullOrWhiteSpace(request?.TitleSuffix)
                 ? " (Copy)"
@@ -229,7 +232,8 @@ namespace Lumino.Api.Application.Services
                     BackgroundUrl = source.BackgroundUrl,
                     AudioUrl = source.AudioUrl,
                     CourseId = targetCourseId,
-                    Order = maxOrder > 0 ? maxOrder + 1 : 0
+                    TopicId = targetTopicId,
+                    Order = GetNextAvailableSceneOrder(targetCourseId)
                 };
 
                 _dbContext.Scenes.Add(newScene);
@@ -257,6 +261,8 @@ namespace Lumino.Api.Application.Services
 
                 _dbContext.SaveChanges();
 
+                CoursePublicationGuard.UnpublishIfStructureIncomplete(_dbContext, targetCourseId);
+
                 transaction?.Commit();
 
                 return GetById(newScene.Id);
@@ -278,9 +284,11 @@ namespace Lumino.Api.Application.Services
             NormalizeStepsOrders(request.Steps);
             ValidateStepsOrders(request.Steps);
 
-            var courseId = GetCourseIdOrDefault(request.CourseId);
-            var sceneOrder = NormalizeOrder(request.Order);
+            var courseId = NormalizeCourseIdOrNull(request.CourseId);
+            var sceneOrder = NormalizeSceneOrder(courseId, request.Order);
 
+            ValidateSceneOrderRange(sceneOrder);
+            ValidateScenePlacement(request.TopicId, courseId, null);
             ValidateUniqueSceneOrder(courseId, sceneOrder, null);
 
             var scene = new Scene
@@ -318,6 +326,8 @@ namespace Lumino.Api.Application.Services
                 _dbContext.SaveChanges();
             }
 
+            CoursePublicationGuard.UnpublishIfStructureIncomplete(_dbContext, courseId);
+
             return GetById(scene.Id);
         }
 
@@ -335,9 +345,12 @@ namespace Lumino.Api.Application.Services
                 throw new KeyNotFoundException("Scene not found");
             }
 
-            var courseId = GetCourseIdOrDefault(request.CourseId);
-            var sceneOrder = NormalizeOrder(request.Order);
+            var previousCourseId = scene.CourseId;
+            var courseId = NormalizeCourseIdOrNull(request.CourseId);
+            var sceneOrder = NormalizeSceneOrder(courseId, request.Order);
 
+            ValidateSceneOrderRange(sceneOrder);
+            ValidateScenePlacement(request.TopicId, courseId, id);
             ValidateUniqueSceneOrder(courseId, sceneOrder, id);
 
             scene.Title = request.Title;
@@ -350,6 +363,89 @@ namespace Lumino.Api.Application.Services
             scene.TopicId = request.TopicId;
 
             _dbContext.SaveChanges();
+
+            CoursePublicationGuard.UnpublishIfStructureIncomplete(_dbContext, previousCourseId, courseId);
+        }
+
+        public AdminSceneDetailsResponse AssignSceneToTopic(int sceneId, AssignSceneToTopicRequest request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentException("Request is required");
+            }
+
+            if (request.TopicId <= 0)
+            {
+                throw new ArgumentException("TopicId is required");
+            }
+
+            var scene = _dbContext.Scenes.FirstOrDefault(x => x.Id == sceneId);
+
+            if (scene == null)
+            {
+                throw new KeyNotFoundException("Scene not found");
+            }
+
+            var topic = _dbContext.Topics.FirstOrDefault(x => x.Id == request.TopicId);
+
+            if (topic == null)
+            {
+                throw new KeyNotFoundException("Topic not found");
+            }
+
+            if (!string.Equals(scene.SceneType, CourseStructureLimits.FinalSceneType, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException($"Only scenes with SceneType='{CourseStructureLimits.FinalSceneType}' can be assigned to a topic");
+            }
+
+            var previousCourseId = scene.CourseId;
+            var useTransaction = _dbContext.Database.ProviderName == null ||
+                                 !_dbContext.Database.ProviderName.Contains("InMemory", StringComparison.OrdinalIgnoreCase);
+
+            using var transaction = useTransaction ? _dbContext.Database.BeginTransaction() : null;
+
+            try
+            {
+                var currentTopicScene = _dbContext.Scenes.FirstOrDefault(x => x.TopicId == topic.Id && x.Id != scene.Id);
+
+                if (currentTopicScene != null)
+                {
+                    currentTopicScene.TopicId = null;
+
+                    if (currentTopicScene.CourseId == topic.CourseId && currentTopicScene.Order == topic.Order)
+                    {
+                        currentTopicScene.Order = 0;
+                    }
+                }
+
+                scene.CourseId = topic.CourseId;
+                scene.TopicId = topic.Id;
+
+                if (topic.Order > 0)
+                {
+                    var sceneWithSameOrder = _dbContext.Scenes.FirstOrDefault(x =>
+                        x.CourseId == topic.CourseId &&
+                        x.Order == topic.Order &&
+                        x.Id != scene.Id &&
+                        (currentTopicScene == null || x.Id != currentTopicScene.Id));
+
+                    if (sceneWithSameOrder == null)
+                    {
+                        scene.Order = topic.Order;
+                    }
+                }
+
+                _dbContext.SaveChanges();
+                CoursePublicationGuard.UnpublishIfStructureIncomplete(_dbContext, previousCourseId, topic.CourseId);
+                transaction?.Commit();
+
+                return GetById(scene.Id);
+            }
+            catch
+            {
+                transaction?.Rollback();
+                throw;
+            }
         }
 
         public void Delete(int id)
@@ -374,8 +470,12 @@ namespace Lumino.Api.Application.Services
                 _dbContext.SceneAttempts.RemoveRange(attempts);
             }
 
+            var courseId = scene.CourseId;
+
             _dbContext.Scenes.Remove(scene);
             _dbContext.SaveChanges();
+
+            CoursePublicationGuard.UnpublishIfStructureIncomplete(_dbContext, courseId);
         }
 
         public List<AdminSceneStepResponse> GetSteps(int sceneId)
@@ -512,25 +612,74 @@ namespace Lumino.Api.Application.Services
                 .ToList();
         }
 
-        private int? GetCourseIdOrDefault(int? requestCourseId)
+        private void ValidateSceneOrderRange(int order)
         {
-            if (requestCourseId.HasValue && requestCourseId.Value > 0)
+            if (order <= 0)
             {
-                var exists = _dbContext.Courses.Any(x => x.Id == requestCourseId.Value);
-                if (exists)
+                return;
+            }
+
+            if (order > CourseStructureLimits.TopicsPerCourse)
+            {
+                throw new ArgumentException($"Scene Order must be between 1 and {CourseStructureLimits.TopicsPerCourse}");
+            }
+        }
+
+        private void ValidateScenePlacement(int? topicId, int? courseId, int? ignoreSceneId)
+        {
+            if (topicId.HasValue && topicId.Value > 0 && (!courseId.HasValue || courseId.Value <= 0))
+            {
+                throw new ArgumentException("Scene CourseId is required for a topic scene");
+            }
+
+            if (courseId.HasValue && courseId.Value > 0)
+            {
+                if (!topicId.HasValue || topicId.Value <= 0)
                 {
-                    return requestCourseId.Value;
+                    throw new ArgumentException("Scene TopicId is required for a course scene");
                 }
+
+                var topic = _dbContext.Topics.FirstOrDefault(x => x.Id == topicId.Value);
+
+                if (topic == null)
+                {
+                    throw new KeyNotFoundException("Topic not found");
+                }
+
+                if (topic.CourseId != courseId.Value)
+                {
+                    throw new ArgumentException("Scene topic must belong to the selected course");
+                }
+
+                var topicScenesCount = _dbContext.Scenes.Count(x =>
+                    x.TopicId == topicId.Value &&
+                    (ignoreSceneId == null || x.Id != ignoreSceneId.Value));
+
+                if (topicScenesCount >= CourseStructureLimits.ScenesPerTopic)
+                {
+                    throw new ArgumentException($"Topic can contain only {CourseStructureLimits.ScenesPerTopic} scene");
+                }
+
+                return;
             }
 
-            var published = _dbContext.Courses.FirstOrDefault(x => x.IsPublished);
-            if (published != null)
+        }
+
+        private int? NormalizeCourseIdOrNull(int? requestCourseId)
+        {
+            if (!requestCourseId.HasValue || requestCourseId.Value <= 0)
             {
-                return published.Id;
+                return null;
             }
 
-            var any = _dbContext.Courses.FirstOrDefault();
-            return any?.Id;
+            var exists = _dbContext.Courses.Any(x => x.Id == requestCourseId.Value);
+
+            if (!exists)
+            {
+                throw new KeyNotFoundException("Course not found");
+            }
+
+            return requestCourseId.Value;
         }
 
         private void ValidateUniqueSceneOrder(int? courseId, int order, int? ignoreSceneId)
@@ -552,6 +701,30 @@ namespace Lumino.Api.Application.Services
             {
                 throw new ArgumentException("Scene with this Order already exists in this course");
             }
+        }
+
+        private int GetNextAvailableSceneOrder(int? courseId)
+        {
+            if (!courseId.HasValue || courseId.Value <= 0)
+            {
+                return 0;
+            }
+
+            var usedOrders = _dbContext.Scenes
+                .Where(x => x.CourseId == courseId.Value && x.Order > 0)
+                .Select(x => x.Order)
+                .Distinct()
+                .ToHashSet();
+
+            for (int order = 1; order <= CourseStructureLimits.TopicsPerCourse; order++)
+            {
+                if (!usedOrders.Contains(order))
+                {
+                    return order;
+                }
+            }
+
+            return 0;
         }
 
         private void NormalizeStepsOrders(List<CreateSceneStepRequest> steps)
@@ -595,6 +768,16 @@ namespace Lumino.Api.Application.Services
         private int NormalizeOrder(int order)
         {
             return order < 0 ? 0 : order;
+        }
+
+        private int NormalizeSceneOrder(int? courseId, int order)
+        {
+            if (!courseId.HasValue || courseId.Value <= 0)
+            {
+                return 0;
+            }
+
+            return NormalizeOrder(order);
         }
     }
 }

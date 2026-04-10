@@ -36,7 +36,7 @@ public class AuthServiceIntegrationTests
         var registerResponse = service.Register(new RegisterRequest
         {
             Email = "integration@mail.com",
-            Password = "123456"
+            Password = "abc12345"
         });
 
         Assert.True(registerResponse.RequiresEmailVerification);
@@ -55,7 +55,7 @@ public class AuthServiceIntegrationTests
         var loginResponse = service.Login(new LoginRequest
         {
             Email = "integration@mail.com",
-            Password = "123456"
+            Password = "abc12345"
         });
 
         Assert.False(string.IsNullOrWhiteSpace(loginResponse.Token));

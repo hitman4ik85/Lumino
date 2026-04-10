@@ -1,3 +1,4 @@
+using Lumino.Api.Application.Achievements;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
@@ -66,6 +67,8 @@ namespace Lumino.Api.Application.Services
 
             // Daily goal
             GrantDailyGoal(userId);
+
+            GrantCustomAchievements(userId);
         }
 
         public void CheckAndGrantSceneAchievements(int userId)
@@ -88,6 +91,8 @@ namespace Lumino.Api.Application.Services
 
             // Daily goal
             GrantDailyGoal(userId);
+
+            GrantCustomAchievements(userId);
         }
 
         private void GrantFirstDayLearning(int userId)
@@ -108,17 +113,7 @@ namespace Lumino.Api.Application.Services
 
         private void GrantFirstLesson(int userId)
         {
-            int passingScorePercent = LessonPassingRules.NormalizePassingPercent(_learningSettings.PassingScorePercent);
-
-            int passedDistinctLessons = _dbContext.LessonResults
-                .Where(x =>
-                    x.UserId == userId &&
-                    x.TotalQuestions > 0 &&
-                    x.Score * 100 >= x.TotalQuestions * passingScorePercent
-                )
-                .Select(x => x.LessonId)
-                .Distinct()
-                .Count();
+            int passedDistinctLessons = CountPassedDistinctLessons(userId);
 
             if (passedDistinctLessons < 1) return;
 
@@ -133,17 +128,7 @@ namespace Lumino.Api.Application.Services
 
         private void GrantFiveLessons(int userId)
         {
-            int passingScorePercent = LessonPassingRules.NormalizePassingPercent(_learningSettings.PassingScorePercent);
-
-            int passedDistinctLessons = _dbContext.LessonResults
-                .Where(x =>
-                    x.UserId == userId &&
-                    x.TotalQuestions > 0 &&
-                    x.Score * 100 >= x.TotalQuestions * passingScorePercent
-                )
-                .Select(x => x.LessonId)
-                .Distinct()
-                .Count();
+            int passedDistinctLessons = CountPassedDistinctLessons(userId);
 
             if (passedDistinctLessons < 5) return;
 
@@ -192,21 +177,7 @@ namespace Lumino.Api.Application.Services
                 "Earn 500 total score"
             );
 
-            int lessonsScore = _dbContext.LessonResults
-                .Where(x => x.UserId == userId)
-                .GroupBy(x => x.LessonId)
-                .Select(g => g.Max(x => x.Score))
-                .AsEnumerable()
-                .Sum(GetLessonPoints);
-
-            int completedDistinctScenes = _dbContext.SceneAttempts
-                .Where(x => x.UserId == userId && x.IsCompleted)
-                .Select(x => x.SceneId)
-                .Distinct()
-                .Count();
-
-            int scenesScore = completedDistinctScenes * _learningSettings.SceneCompletionScore;
-            int totalScore = lessonsScore + scenesScore;
+            int totalScore = CalculateTotalXp(userId);
 
             if (totalScore < 500)
             {
@@ -227,11 +198,7 @@ namespace Lumino.Api.Application.Services
 
         private void GrantFirstScene(int userId)
         {
-            int completedDistinctScenes = _dbContext.SceneAttempts
-                .Where(x => x.UserId == userId && x.IsCompleted)
-                .Select(x => x.SceneId)
-                .Distinct()
-                .Count();
+            int completedDistinctScenes = CountCompletedDistinctScenes(userId);
 
             if (completedDistinctScenes < 1) return;
 
@@ -246,11 +213,7 @@ namespace Lumino.Api.Application.Services
 
         private void GrantFiveScenes(int userId)
         {
-            int completedDistinctScenes = _dbContext.SceneAttempts
-                .Where(x => x.UserId == userId && x.IsCompleted)
-                .Select(x => x.SceneId)
-                .Distinct()
-                .Count();
+            int completedDistinctScenes = CountCompletedDistinctScenes(userId);
 
             if (completedDistinctScenes < 5) return;
 
@@ -384,25 +347,124 @@ namespace Lumino.Api.Application.Services
             GrantToUserIfNotExists(userId, achievement.Id);
         }
 
-        private int CalculateCompletedTopicsCount(int userId)
+        private void GrantCustomAchievements(int userId)
         {
-            var completedLessonIds = _dbContext.UserLessonProgresses
-                .Where(x => x.UserId == userId && x.IsCompleted)
-                .Select(x => x.LessonId)
-                .ToHashSet();
-
-            if (completedLessonIds.Count == 0)
-            {
-                return 0;
-            }
-
-            var topicLessonData = _dbContext.Lessons
-                .Select(x => new { x.TopicId, x.Id })
+            var automaticAchievements = _dbContext.Achievements
+                .Where(x => x.ConditionType != null && x.ConditionThreshold != null)
                 .ToList();
 
-            return topicLessonData
-                .GroupBy(x => x.TopicId)
-                .Count(g => g.All(x => completedLessonIds.Contains(x.Id)));
+            foreach (var achievement in automaticAchievements)
+            {
+                string? normalizedType = AchievementConditionTypes.Normalize(achievement.ConditionType);
+                int? threshold = NormalizeConditionThreshold(achievement.ConditionThreshold);
+
+                if (normalizedType == null || threshold == null)
+                {
+                    continue;
+                }
+
+                int progress = GetConditionProgress(userId, normalizedType);
+
+                if (progress < threshold.Value)
+                {
+                    continue;
+                }
+
+                GrantToUserIfNotExists(userId, achievement.Id);
+            }
+        }
+
+        private int GetConditionProgress(int userId, string conditionType)
+        {
+            return conditionType switch
+            {
+                AchievementConditionTypes.LessonPassCount => CountPassedLessons(userId),
+                AchievementConditionTypes.UniqueLessonPassCount => CountPassedDistinctLessons(userId),
+                AchievementConditionTypes.SceneCompletionCount => CountCompletedScenes(userId),
+                AchievementConditionTypes.UniqueSceneCompletionCount => CountCompletedDistinctScenes(userId),
+                AchievementConditionTypes.TopicCompletionCount => CalculateCompletedTopicsCount(userId),
+                AchievementConditionTypes.PerfectLessonCount => CountPerfectLessons(userId),
+                AchievementConditionTypes.StudyDayStreak => CalculateUserMaxStreak(userId),
+                AchievementConditionTypes.TotalXp => CalculateTotalXp(userId),
+                _ => 0
+            };
+        }
+
+        private int CalculateCompletedTopicsCount(int userId)
+        {
+            return _dbContext.SceneAttempts
+                .Where(x => x.UserId == userId && x.IsCompleted)
+                .Join(
+                    _dbContext.Scenes.Where(x => x.TopicId != null),
+                    attempt => attempt.SceneId,
+                    scene => scene.Id,
+                    (attempt, scene) => scene.TopicId!.Value
+                )
+                .Distinct()
+                .Count();
+        }
+
+        private int CountPassedLessons(int userId)
+        {
+            int passingScorePercent = LessonPassingRules.NormalizePassingPercent(_learningSettings.PassingScorePercent);
+
+            return _dbContext.LessonResults
+                .Count(x =>
+                    x.UserId == userId &&
+                    x.TotalQuestions > 0 &&
+                    x.Score * 100 >= x.TotalQuestions * passingScorePercent
+                );
+        }
+
+        private int CountPassedDistinctLessons(int userId)
+        {
+            int passingScorePercent = LessonPassingRules.NormalizePassingPercent(_learningSettings.PassingScorePercent);
+
+            return _dbContext.LessonResults
+                .Where(x =>
+                    x.UserId == userId &&
+                    x.TotalQuestions > 0 &&
+                    x.Score * 100 >= x.TotalQuestions * passingScorePercent
+                )
+                .Select(x => x.LessonId)
+                .Distinct()
+                .Count();
+        }
+
+        private int CountPerfectLessons(int userId)
+        {
+            return _dbContext.LessonResults
+                .Count(x => x.UserId == userId && x.TotalQuestions > 0 && x.Score == x.TotalQuestions);
+        }
+
+        private int CountCompletedScenes(int userId)
+        {
+            return _dbContext.SceneAttempts
+                .Count(x => x.UserId == userId && x.IsCompleted);
+        }
+
+        private int CountCompletedDistinctScenes(int userId)
+        {
+            return _dbContext.SceneAttempts
+                .Where(x => x.UserId == userId && x.IsCompleted)
+                .Select(x => x.SceneId)
+                .Distinct()
+                .Count();
+        }
+
+        private int CalculateTotalXp(int userId)
+        {
+            int lessonsScore = _dbContext.LessonResults
+                .Where(x => x.UserId == userId)
+                .GroupBy(x => x.LessonId)
+                .Select(g => g.Max(x => x.Score))
+                .AsEnumerable()
+                .Sum(GetLessonPoints);
+
+            int completedDistinctScenes = CountCompletedDistinctScenes(userId);
+            int scenesScore = completedDistinctScenes * _learningSettings.SceneCompletionScore;
+
+            return lessonsScore + scenesScore;
         }
 
         private int CalculateMaxPerfectLessonStreak(int userId)
@@ -587,6 +649,13 @@ namespace Lumino.Api.Application.Services
             }
 
             return correctAnswers * lessonCorrectAnswerScore;
+        }
+
+        private static int? NormalizeConditionThreshold(int? threshold)
+        {
+            return threshold.HasValue && threshold.Value > 0
+                ? threshold.Value
+                : null;
         }
     }
 }

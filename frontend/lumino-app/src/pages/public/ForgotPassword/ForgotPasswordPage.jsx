@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
+import { validateEmail } from "../../../utils/validation.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { authService } from "../../../services/authService.js";
 import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
@@ -9,8 +10,6 @@ import styles from "./ForgotPasswordPage.module.css";
 
 import BgLeft from "../../../assets/backgrounds/bg2-left.webp";
 import BgRight from "../../../assets/backgrounds/bg2-right.webp";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function CloseIcon() {
   return (
@@ -34,14 +33,7 @@ export default function ForgotPasswordPage() {
   const [inlineError, setInlineError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
 
-  const emailError = useMemo(() => {
-    const value = email.trim();
-
-    if (!value) return "Введіть електронну адресу.";
-    if (!EMAIL_RE.test(value)) return "Введіть дійсну адресу ел. пошти.";
-
-    return "";
-  }, [email]);
+  const emailError = useMemo(() => validateEmail(email, { required: true }), [email]);
 
   const canSubmit = !emailError && !submitting;
 

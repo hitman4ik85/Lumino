@@ -3,6 +3,7 @@ using System.Text.Json;
 using Lumino.Api.Utils;
 using Microsoft.AspNetCore.Hosting;
 using System.Diagnostics;
+using Microsoft.EntityFrameworkCore;
 
 namespace Lumino.Api.Middleware
 {
@@ -113,6 +114,16 @@ namespace Lumino.Api.Middleware
             if (ex is ConflictException)
             {
                 return ((int)HttpStatusCode.Conflict, "conflict", ex.Message);
+            }
+
+            if (ex is DbUpdateException dbUpdateException && DbUpdateExceptionMapper.TryMap(dbUpdateException, out var dbStatusCode, out var dbType, out var dbMessage))
+            {
+                return (dbStatusCode, dbType, dbMessage);
+            }
+
+            if (ex is JsonException)
+            {
+                return ((int)HttpStatusCode.BadRequest, "bad_request", "Invalid JSON payload");
             }
 
             if (ex is KeyNotFoundException)

@@ -128,10 +128,8 @@ namespace Lumino.Api.Application.Services
                 throw new KeyNotFoundException("Target topic not found");
             }
 
-            var maxOrder = _dbContext.Lessons
-                .Where(x => x.TopicId == targetTopicId)
-                .Select(x => (int?)x.Order)
-                .Max() ?? 0;
+            EnsureTopicHasLessonSlot(targetTopicId);
+
 
             var suffix = string.IsNullOrWhiteSpace(request?.TitleSuffix)
                 ? " (Copy)"
@@ -153,7 +151,7 @@ namespace Lumino.Api.Application.Services
                     TopicId = targetTopicId,
                     Title = source.Title + suffix,
                     Theory = source.Theory,
-                    Order = maxOrder > 0 ? maxOrder + 1 : 0
+                    Order = GetNextAvailableLessonOrder(targetTopicId)
                 };
 
                 _dbContext.Lessons.Add(newLesson);
@@ -193,6 +191,9 @@ namespace Lumino.Api.Application.Services
                 }
 
                 _dbContext.SaveChanges();
+
+                var courseId = GetCourseIdByTopicId(targetTopicId);
+                CoursePublicationGuard.UnpublishIfStructureIncomplete(_dbContext, courseId);
 
                 transaction?.Commit();
 
@@ -267,6 +268,17 @@ namespace Lumino.Api.Application.Services
                     }
                 }
 
+                var existingExercisesCount = request.ReplaceExisting
+                    ? 0
+                    : _dbContext.Exercises.Count(x => x.LessonId == lessonId);
+
+                var incomingExercisesCount = request.Exercises.Count(x => x != null);
+
+                if (existingExercisesCount + incomingExercisesCount > CourseStructureLimits.ExercisesPerLesson)
+                {
+                    throw new ArgumentException($"Lesson can contain at most {CourseStructureLimits.ExercisesPerLesson} exercises");
+                }
+
                 var usedOrders = new HashSet<int>();
 
                 foreach (var ex in request.Exercises)
@@ -278,6 +290,7 @@ namespace Lumino.Api.Application.Services
 
                     int order = NormalizeOrder(ex.Order);
 
+                    ValidateExerciseOrderRange(order);
                     ValidateExercise(ex.Type, ex.Question, ex.Data, ex.CorrectAnswer);
 
                     if (order > 0)
@@ -316,6 +329,9 @@ namespace Lumino.Api.Application.Services
 
                 _dbContext.SaveChanges();
 
+                var courseId = GetCourseIdByLessonId(lessonId);
+                CoursePublicationGuard.UnpublishIfStructureIncomplete(_dbContext, courseId);
+
                 transaction?.Commit();
 
                 return GetById(lessonId);
@@ -334,8 +350,11 @@ namespace Lumino.Api.Application.Services
                 throw new ArgumentException("Request is required");
             }
 
+            EnsureTopicHasLessonSlot(request.TopicId);
+
             var order = NormalizeOrder(request.Order);
 
+            ValidateLessonOrderRange(order);
             ValidateUniqueLessonOrder(request.TopicId, order, ignoreLessonId: null);
 
             var lesson = new Lesson
@@ -348,6 +367,9 @@ namespace Lumino.Api.Application.Services
 
             _dbContext.Lessons.Add(lesson);
             _dbContext.SaveChanges();
+
+            var courseId = GetCourseIdByTopicId(lesson.TopicId);
+            CoursePublicationGuard.UnpublishIfStructureIncomplete(_dbContext, courseId);
 
             return new AdminLessonResponse
             {
@@ -375,6 +397,7 @@ namespace Lumino.Api.Application.Services
 
             var order = NormalizeOrder(request.Order);
 
+            ValidateLessonOrderRange(order);
             ValidateUniqueLessonOrder(lesson.TopicId, order, ignoreLessonId: lesson.Id);
 
             lesson.Title = request.Title;
@@ -382,6 +405,9 @@ namespace Lumino.Api.Application.Services
             lesson.Order = order;
 
             _dbContext.SaveChanges();
+
+            var courseId = GetCourseIdByTopicId(lesson.TopicId);
+            CoursePublicationGuard.UnpublishIfStructureIncomplete(_dbContext, courseId);
         }
 
         public void Delete(int id)
@@ -393,8 +419,36 @@ namespace Lumino.Api.Application.Services
                 throw new KeyNotFoundException("Lesson not found");
             }
 
+            var courseId = GetCourseIdByTopicId(lesson.TopicId);
+
             _dbContext.Lessons.Remove(lesson);
             _dbContext.SaveChanges();
+
+            CoursePublicationGuard.UnpublishIfStructureIncomplete(_dbContext, courseId);
+        }
+
+
+        private int? GetCourseIdByLessonId(int lessonId)
+        {
+            var topicId = _dbContext.Lessons
+                .Where(x => x.Id == lessonId)
+                .Select(x => (int?)x.TopicId)
+                .FirstOrDefault();
+
+            if (!topicId.HasValue)
+            {
+                return null;
+            }
+
+            return GetCourseIdByTopicId(topicId.Value);
+        }
+
+        private int? GetCourseIdByTopicId(int topicId)
+        {
+            return _dbContext.Topics
+                .Where(x => x.Id == topicId)
+                .Select(x => (int?)x.CourseId)
+                .FirstOrDefault();
         }
 
         private static string? NormalizeImageUrl(string? imageUrl)
@@ -405,6 +459,29 @@ namespace Lumino.Api.Application.Services
         private int NormalizeOrder(int order)
         {
             return order < 0 ? 0 : order;
+        }
+
+        private void EnsureTopicHasLessonSlot(int topicId)
+        {
+            var lessonsCount = _dbContext.Lessons.Count(x => x.TopicId == topicId);
+
+            if (lessonsCount >= CourseStructureLimits.LessonsPerTopic)
+            {
+                throw new ArgumentException($"Topic can contain at most {CourseStructureLimits.LessonsPerTopic} lessons");
+            }
+        }
+
+        private void ValidateLessonOrderRange(int order)
+        {
+            if (order <= 0)
+            {
+                return;
+            }
+
+            if (order > CourseStructureLimits.LessonsPerTopic)
+            {
+                throw new ArgumentException($"Lesson Order must be between 1 and {CourseStructureLimits.LessonsPerTopic}");
+            }
         }
 
         private void ValidateUniqueLessonOrder(int topicId, int order, int? ignoreLessonId)
@@ -422,6 +499,38 @@ namespace Lumino.Api.Application.Services
             if (hasDuplicate)
             {
                 throw new ArgumentException("Order is already used in this topic");
+            }
+        }
+
+        private int GetNextAvailableLessonOrder(int topicId)
+        {
+            var usedOrders = _dbContext.Lessons
+                .Where(x => x.TopicId == topicId && x.Order > 0)
+                .Select(x => x.Order)
+                .Distinct()
+                .ToHashSet();
+
+            for (int order = 1; order <= CourseStructureLimits.LessonsPerTopic; order++)
+            {
+                if (!usedOrders.Contains(order))
+                {
+                    return order;
+                }
+            }
+
+            return 0;
+        }
+
+        private void ValidateExerciseOrderRange(int order)
+        {
+            if (order <= 0)
+            {
+                return;
+            }
+
+            if (order > CourseStructureLimits.ExercisesPerLesson)
+            {
+                throw new ArgumentException($"Exercise Order must be between 1 and {CourseStructureLimits.ExercisesPerLesson}");
             }
         }
 
@@ -478,6 +587,11 @@ namespace Lumino.Api.Application.Services
             if (options.Count < 2)
             {
                 throw new ArgumentException("MultipleChoice requires at least 2 options");
+            }
+
+            if (options.Count > 3)
+            {
+                throw new ArgumentException("MultipleChoice allows at most 3 options");
             }
 
             if (options.Any(x => string.IsNullOrWhiteSpace(x)))
@@ -576,6 +690,11 @@ namespace Lumino.Api.Application.Services
                 if (count < 2)
                 {
                     throw new ArgumentException("Match requires at least 2 pairs");
+                }
+
+                if (count > 4)
+                {
+                    throw new ArgumentException("Match allows at most 4 pairs");
                 }
             }
             catch (JsonException)

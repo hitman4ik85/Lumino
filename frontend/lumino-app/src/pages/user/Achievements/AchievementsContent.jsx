@@ -4,6 +4,7 @@ import { PATHS } from "../../../routes/paths.js";
 import { authStorage } from "../../../services/authStorage.js";
 import { achievementsService } from "../../../services/achievementsService.js";
 import styles from "./AchievementsPage.module.css";
+import AwardCardLocked from "../../../assets/lesson/achievement/award_card_locked.svg";
 
 const PLACEHOLDER_COUNT = 12;
 
@@ -159,39 +160,54 @@ export default function AchievementsContent() {
               return (
                 <div key={`placeholder-${index}`} className={styles.cardLocked}>
                   <div className={styles.cardVisual}>
-                    <div className={styles.cardImagePlaceholder} />
+                    <img
+                      className={`${styles.cardImage} ${styles.cardImageLocked}`}
+                      src={AwardCardLocked}
+                      alt=""
+                      aria-hidden="true"
+                    />
                   </div>
 
-                  <div className={styles.cardTitleLocked}>назва</div>
+                  <div className={styles.cardTitleLocked}>&nbsp;</div>
+                  <div className={styles.cardDescriptionLocked}>&nbsp;</div>
                 </div>
               );
             }
 
             const key = item.id || `achievement-${index}`;
-            const hasImage = item.imageUrl && !imageErrors[key];
+            const hasImage = item.isEarned && item.imageUrl && !imageErrors[key];
             const cardClassName = item.isEarned ? styles.card : styles.cardLocked;
             const titleClassName = item.isEarned ? styles.cardTitle : styles.cardTitleLocked;
             const descriptionClassName = item.isEarned ? styles.cardDescription : styles.cardDescriptionLocked;
+            const lockedTitle = item.isEarned ? item.title : "";
+            const lockedDescription = item.isEarned ? item.description : "";
 
             return (
               <div key={key} className={cardClassName}>
                 <div className={styles.cardVisual}>
-                  {hasImage ? (
-                    <img
-                      className={styles.cardImage}
-                      src={item.imageUrl}
-                      alt={item.title}
-                      onError={() => handleImageError(key)}
-                    />
+                  {item.isEarned ? (
+                    hasImage ? (
+                      <img
+                        className={styles.cardImage}
+                        src={item.imageUrl}
+                        alt={item.title}
+                        onError={() => handleImageError(key)}
+                      />
+                    ) : (
+                      <div className={styles.cardImagePlaceholderEarned} />
+                    )
                   ) : (
-                    <div className={item.isEarned ? styles.cardImagePlaceholderEarned : styles.cardImagePlaceholder} />
+                    <img
+                      className={`${styles.cardImage} ${styles.cardImageLocked}`}
+                      src={AwardCardLocked}
+                      alt=""
+                      aria-hidden="true"
+                    />
                   )}
-
-                  {!item.isEarned && <div className={styles.cardLockedOverlay} />}
                 </div>
 
-                <div className={titleClassName}>{item.title}</div>
-                <div className={descriptionClassName}>{item.description}</div>
+                <div className={titleClassName}>{lockedTitle || " "}</div>
+                <div className={descriptionClassName}>{lockedDescription || " "}</div>
               </div>
             );
           })}

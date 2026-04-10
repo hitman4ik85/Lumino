@@ -39,5 +39,22 @@ namespace Lumino.Api.Controllers
 
             return Ok(_mediaService.List(baseUrl, query, skip, take));
         }
+
+        [HttpDelete]
+        public IActionResult Delete([FromQuery] string path)
+        {
+            _mediaService.Delete(path);
+
+            return NoContent();
+        }
+
+        [HttpPut("rename")]
+        public IActionResult Rename([FromBody] RenameMediaRequest request)
+        {
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";
+            var result = _mediaService.Rename(request.Path, request.NewFileName, baseUrl);
+
+            return Ok(result);
+        }
     }
 }

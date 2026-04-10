@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
 using System.Text;
 using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Services;
@@ -56,6 +57,46 @@ public class AuthServiceRefreshTests
 
         Assert.False(string.IsNullOrWhiteSpace(revoked[0].ReplacedByTokenHash));
         Assert.Equal(active[0].TokenHash, revoked[0].ReplacedByTokenHash);
+    }
+
+
+    [Fact]
+    public void Refresh_BlockedUser_ShouldThrowForbidden()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var configuration = CreateConfiguration(maxActiveTokens: 3, expiresDays: 7);
+
+        var emailSender = new FakeEmailSender();
+
+        var service = new AuthService(
+            dbContext,
+            configuration,
+            new FakeRegisterValidator(),
+            new FakeLoginValidator(),
+            new ForgotPasswordRequestValidator(),
+            new ResetPasswordRequestValidator(),
+            new VerifyEmailRequestValidator(),
+            new ResendVerificationRequestValidator(),
+            emailSender,
+            new FakeOpenIdTokenValidator(),
+            new FakeHostEnvironment(),
+            new PasswordHasher()
+        );
+
+        var register = RegisterAndVerify(service, emailSender, "refresh-blocked@mail.com", "123456");
+        var refreshToken = register.RefreshToken ?? throw new InvalidOperationException("RefreshToken is null");
+
+        var user = dbContext.Users.Single(x => x.Email == "refresh-blocked@mail.com");
+        user.BlockedUntilUtc = DateTime.UtcNow.AddDays(1);
+        dbContext.SaveChanges();
+
+        Assert.Throws<ForbiddenAccessException>(() =>
+        {
+            service.Refresh(new RefreshTokenRequest
+            {
+                RefreshToken = refreshToken
+            });
+        });
     }
 
     [Fact]
@@ -381,4 +422,66 @@ public class AuthServiceRefreshTests
         var hash = sha256.ComputeHash(bytes);
         return Convert.ToBase64String(hash);
     }
+
+    [Fact]
+    public void Login_Twice_ShouldRevokePreviousRefreshToken_AndRotateSessionVersion()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var configuration = CreateConfiguration(maxActiveTokens: 3, expiresDays: 7);
+
+        dbContext.Users.Add(new User
+        {
+            Id = 1,
+            Email = "repeat@mail.com",
+            PasswordHash = new PasswordHasher().Hash("123456"),
+            CreatedAt = DateTime.UtcNow,
+            IsEmailVerified = true,
+            Role = Lumino.Api.Domain.Enums.Role.User,
+            NativeLanguageCode = "uk",
+            TargetLanguageCode = "en"
+        });
+        dbContext.SaveChanges();
+
+        var service = new AuthService(
+            dbContext,
+            configuration,
+            new FakeRegisterValidator(),
+            new FakeLoginValidator(),
+            new ForgotPasswordRequestValidator(),
+            new ResetPasswordRequestValidator(),
+            new VerifyEmailRequestValidator(),
+            new ResendVerificationRequestValidator(),
+            new FakeEmailSender(),
+            new FakeOpenIdTokenValidator(),
+            new FakeHostEnvironment(),
+            new PasswordHasher()
+        );
+
+        var first = service.Login(new LoginRequest
+        {
+            Email = "repeat@mail.com",
+            Password = "123456"
+        });
+
+        var firstJwt = new JwtSecurityTokenHandler().ReadJwtToken(first.Token);
+        Assert.Equal("1", firstJwt.Claims.First(x => x.Type == ClaimsUtils.SessionVersionClaimType).Value);
+
+        var second = service.Login(new LoginRequest
+        {
+            Email = "repeat@mail.com",
+            Password = "123456"
+        });
+
+        var secondJwt = new JwtSecurityTokenHandler().ReadJwtToken(second.Token);
+        Assert.Equal("2", secondJwt.Claims.First(x => x.Type == ClaimsUtils.SessionVersionClaimType).Value);
+
+        var user = dbContext.Users.Single(x => x.Id == 1);
+        Assert.Equal(2, user.SessionVersion);
+
+        var tokens = dbContext.RefreshTokens.Where(x => x.UserId == 1).OrderBy(x => x.CreatedAt).ToList();
+        Assert.Equal(2, tokens.Count);
+        Assert.NotNull(tokens[0].RevokedAt);
+        Assert.Null(tokens[1].RevokedAt);
+    }
+
 }

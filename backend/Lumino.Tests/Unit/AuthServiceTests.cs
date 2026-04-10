@@ -1,4 +1,5 @@
-﻿using Lumino.Api.Application.DTOs;
+﻿using System.IdentityModel.Tokens.Jwt;
+using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Services;
 using Lumino.Api.Application.Validators;
 using Lumino.Api.Domain.Entities;
@@ -202,6 +203,50 @@ public class AuthServiceTests
         });
     }
 
+
+    [Fact]
+    public void Login_BlockedUser_ShouldThrowForbidden()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var configuration = TestConfigurationFactory.Create();
+
+        dbContext.Users.Add(new User
+        {
+            Email = "blocked@mail.com",
+            PasswordHash = new PasswordHasher().Hash("123456"),
+            IsEmailVerified = true,
+            Role = Lumino.Api.Domain.Enums.Role.User,
+            CreatedAt = DateTime.UtcNow,
+            BlockedUntilUtc = DateTime.UtcNow.AddDays(2)
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new AuthService(
+            dbContext,
+            configuration,
+            new FakeRegisterValidator(),
+            new FakeLoginValidator(),
+            new ForgotPasswordRequestValidator(),
+            new ResetPasswordRequestValidator(),
+            new VerifyEmailRequestValidator(),
+            new ResendVerificationRequestValidator(),
+            new FakeEmailSender(),
+            new FakeOpenIdTokenValidator(),
+            new FakeHostEnvironment(),
+            new PasswordHasher()
+        );
+
+        Assert.Throws<ForbiddenAccessException>(() =>
+        {
+            service.Login(new LoginRequest
+            {
+                Email = "blocked@mail.com",
+                Password = "123456"
+            });
+        });
+    }
+
 [Fact]
     public void Login_InvalidPassword_ShouldThrow()
     {
@@ -244,4 +289,74 @@ public class AuthServiceTests
             });
         });
     }
+
+    [Fact]
+    public void Login_Admin_ShouldClearLearningState_AndIssueCurrentSessionVersion()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var configuration = TestConfigurationFactory.Create();
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 10,
+            Title = "English A1",
+            Description = "Desc",
+            LanguageCode = "en",
+            IsPublished = true
+        });
+
+        var admin = new User
+        {
+            Id = 1,
+            Email = "admin@lumino.local",
+            PasswordHash = new PasswordHasher().Hash("123456"),
+            IsEmailVerified = true,
+            Role = Lumino.Api.Domain.Enums.Role.Admin,
+            CreatedAt = DateTime.UtcNow,
+            NativeLanguageCode = "uk",
+            TargetLanguageCode = "en"
+        };
+
+        dbContext.Users.Add(admin);
+        dbContext.UserCourses.Add(new UserCourse
+        {
+            UserId = 1,
+            CourseId = 10,
+            IsActive = true,
+            StartedAt = DateTime.UtcNow,
+            LastOpenedAt = DateTime.UtcNow,
+        });
+        dbContext.SaveChanges();
+
+        var service = new AuthService(
+            dbContext,
+            configuration,
+            new FakeRegisterValidator(),
+            new FakeLoginValidator(),
+            new ForgotPasswordRequestValidator(),
+            new ResetPasswordRequestValidator(),
+            new VerifyEmailRequestValidator(),
+            new ResendVerificationRequestValidator(),
+            new FakeEmailSender(),
+            new FakeOpenIdTokenValidator(),
+            new FakeHostEnvironment(),
+            new PasswordHasher()
+        );
+
+        var response = service.Login(new LoginRequest
+        {
+            Email = "admin@lumino.local",
+            Password = "123456"
+        });
+
+        var refreshedAdmin = dbContext.Users.Single(x => x.Id == 1);
+        Assert.Null(refreshedAdmin.NativeLanguageCode);
+        Assert.Null(refreshedAdmin.TargetLanguageCode);
+        Assert.Empty(dbContext.UserCourses.Where(x => x.UserId == 1).ToList());
+        Assert.Equal(1, refreshedAdmin.SessionVersion);
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(response.Token);
+        Assert.Equal("1", jwt.Claims.First(x => x.Type == ClaimsUtils.SessionVersionClaimType).Value);
+    }
+
 }

@@ -63,7 +63,9 @@ namespace Lumino.Api.Application.Services
         {
             _registerRequestValidator.Validate(request);
 
-            var existingUser = _dbContext.Users.FirstOrDefault(x => x.Email == request.Email);
+            var normalizedEmail = request.Email.Trim();
+
+            var existingUser = _dbContext.Users.FirstOrDefault(x => x.Email == normalizedEmail);
             if (existingUser != null)
             {
                 // Якщо користувач уже існує, але email не підтверджено - просто повторно відправляємо підтвердження.
@@ -100,7 +102,7 @@ namespace Lumino.Api.Application.Services
             var user = new User
             {
                 Username = NormalizeUsernameOrNull(request.Username),
-                Email = request.Email,
+                Email = normalizedEmail,
                 PasswordHash = passwordHash,
                 IsEmailVerified = false,
                 Role = Role.User,
@@ -116,7 +118,7 @@ namespace Lumino.Api.Application.Services
 
             if (string.IsNullOrWhiteSpace(user.Username))
             {
-                user.Username = GenerateUniqueUsernameFromEmail(request.Email);
+                user.Username = GenerateUniqueUsernameFromEmail(normalizedEmail);
             }
             else
             {
@@ -160,7 +162,7 @@ namespace Lumino.Api.Application.Services
                 throw new UnauthorizedAccessException("Invalid credentials");
             }
 
-            EnsureDefaultTargetLanguage(user);
+            EnsureUserIsNotBlocked(user);
 
             if (!user.IsEmailVerified)
             {
@@ -180,7 +182,9 @@ namespace Lumino.Api.Application.Services
                 _dbContext.SaveChanges();
             }
 
-            EnsureDefaultTargetLanguage(user);
+            EnsureUserIsNotBlocked(user);
+            PrepareUserForAuthenticatedSession(user);
+            StartNewUserSession(user);
 
             var accessToken = GenerateJwtToken(user);
 
@@ -297,7 +301,9 @@ namespace Lumino.Api.Application.Services
                 _dbContext.SaveChanges();
             }
 
-            EnsureDefaultTargetLanguage(user);
+            EnsureUserIsNotBlocked(user);
+            PrepareUserForAuthenticatedSession(user);
+            StartNewUserSession(user);
 
             var accessToken = GenerateJwtToken(user);
             var refreshToken = CreateRefreshToken(user.Id);
@@ -395,6 +401,51 @@ namespace Lumino.Api.Application.Services
         }
 
 
+        private void PrepareUserForAuthenticatedSession(User user)
+        {
+            if (user == null)
+            {
+                return;
+            }
+
+            if (user.Role == Role.Admin)
+            {
+                EnsureAdminHasNoLearningState(user);
+                return;
+            }
+
+            EnsureDefaultTargetLanguage(user);
+        }
+
+        private void EnsureAdminHasNoLearningState(User user)
+        {
+            var hasChanges = false;
+
+            if (!string.IsNullOrWhiteSpace(user.NativeLanguageCode))
+            {
+                user.NativeLanguageCode = null;
+                hasChanges = true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(user.TargetLanguageCode))
+            {
+                user.TargetLanguageCode = null;
+                hasChanges = true;
+            }
+
+            var userCourses = _dbContext.UserCourses.Where(x => x.UserId == user.Id).ToList();
+            if (userCourses.Count > 0)
+            {
+                _dbContext.UserCourses.RemoveRange(userCourses);
+                hasChanges = true;
+            }
+
+            if (hasChanges)
+            {
+                _dbContext.SaveChanges();
+            }
+        }
+
         private void EnsureDefaultTargetLanguage(User user)
         {
             if (user == null)
@@ -474,42 +525,17 @@ namespace Lumino.Api.Application.Services
         {
             if (!string.IsNullOrWhiteSpace(requestedUsername))
             {
-                var candidate = requestedUsername.Trim();
-                if (candidate.Length > 32)
-                {
-                    candidate = candidate.Substring(0, 32);
-                }
-
+                var candidate = AccountValidationRules.BuildUsernameCandidate(requestedUsername);
                 return EnsureUniqueUsername(candidate);
             }
 
             if (!string.IsNullOrWhiteSpace(name))
             {
-                var cleaned = new string(name
-                    .Trim()
-                    .Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))
-                    .ToArray());
-
-                cleaned = string.Join(" ", cleaned
-                    .Split(' ', StringSplitOptions.RemoveEmptyEntries));
-
-                if (!string.IsNullOrWhiteSpace(cleaned))
-                {
-                    if (cleaned.Length > 32)
-                    {
-                        cleaned = cleaned.Substring(0, 32).Trim();
-                    }
-
-                    return EnsureUniqueUsername(cleaned);
-                }
+                var cleaned = AccountValidationRules.BuildUsernameCandidate(name);
+                return EnsureUniqueUsername(cleaned);
             }
 
-            var baseName = email.Split('@')[0];
-            if (baseName.Length > 32)
-            {
-                baseName = baseName.Substring(0, 32);
-            }
-
+            var baseName = AccountValidationRules.BuildUsernameFromEmail(email.Split('@')[0]);
             return EnsureUniqueUsername(baseName);
         }
 
@@ -551,7 +577,16 @@ namespace Lumino.Api.Application.Services
                 }
             }
 
-            return baseUsername + Guid.NewGuid().ToString("N").Substring(0, 4);
+            var fallbackSuffix = Guid.NewGuid().ToString("N").Substring(0, 4);
+            var maxBaseLength = AccountValidationRules.UsernameMaxLength - fallbackSuffix.Length;
+            var trimmedBaseUsername = baseUsername.Length > maxBaseLength ? baseUsername.Substring(0, maxBaseLength).Trim(' ', '.', '_', '-') : baseUsername;
+
+            if (trimmedBaseUsername.Length < AccountValidationRules.UsernameMinLength)
+            {
+                trimmedBaseUsername = "user";
+            }
+
+            return trimmedBaseUsername + fallbackSuffix;
         }
 
         private static string GenerateRandomPassword()
@@ -648,7 +683,33 @@ namespace Lumino.Api.Application.Services
             user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
             reset.UsedAt = nowUtc;
 
+            RevokeAllActiveRefreshTokens(user.Id, nowUtc);
+            user.SessionVersion++;
             _dbContext.SaveChanges();
+        }
+
+        private static void EnsureUserIsNotBlocked(User user)
+        {
+            if (!user.BlockedUntilUtc.HasValue)
+            {
+                return;
+            }
+
+            var blockedUntilUtc = user.BlockedUntilUtc.Value;
+
+            if (blockedUntilUtc.Kind == DateTimeKind.Local)
+            {
+                blockedUntilUtc = blockedUntilUtc.ToUniversalTime();
+            }
+            else if (blockedUntilUtc.Kind == DateTimeKind.Unspecified)
+            {
+                blockedUntilUtc = DateTime.SpecifyKind(blockedUntilUtc, DateTimeKind.Utc);
+            }
+
+            if (blockedUntilUtc > DateTime.UtcNow)
+            {
+                throw new ForbiddenAccessException($"User is blocked until {blockedUntilUtc:yyyy-MM-dd HH:mm} UTC.");
+            }
         }
 
         private string? NormalizeUsernameOrNull(string? username)
@@ -674,33 +735,34 @@ namespace Lumino.Api.Application.Services
         private string GenerateUniqueUsernameFromEmail(string email)
         {
             var local = email.Split('@')[0];
+            var baseName = AccountValidationRules.BuildUsernameFromEmail(local);
 
-            var baseName = new string(local
-                .Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '-')
-                .ToArray());
+            if (baseName.Length > 20)
+            {
+                baseName = baseName.Substring(0, 20).Trim(' ', '.', '_', '-');
+            }
 
-            if (string.IsNullOrWhiteSpace(baseName))
+            if (baseName.Length < AccountValidationRules.UsernameMinLength)
             {
                 baseName = "user";
             }
 
-            if (baseName.Length > 20)
-            {
-                baseName = baseName.Substring(0, 20);
-            }
-
             var candidate = baseName;
-            int suffix = 1;
+            var suffix = 1;
 
             while (_dbContext.Users.Any(x => x.Username == candidate))
             {
                 suffix++;
-                candidate = $"{baseName}{suffix}";
+                var suffixValue = suffix.ToString();
+                var maxBaseLength = AccountValidationRules.UsernameMaxLength - suffixValue.Length;
+                var trimmedBaseName = baseName.Length > maxBaseLength ? baseName.Substring(0, maxBaseLength).Trim(' ', '.', '_', '-') : baseName;
 
-                if (candidate.Length > 32)
+                if (trimmedBaseName.Length < AccountValidationRules.UsernameMinLength)
                 {
-                    candidate = candidate.Substring(0, 32);
+                    trimmedBaseName = "user";
                 }
+
+                candidate = $"{trimmedBaseName}{suffixValue}";
             }
 
             return candidate;
@@ -759,6 +821,9 @@ namespace Lumino.Api.Application.Services
             {
                 throw new UnauthorizedAccessException("Invalid refresh token");
             }
+
+            EnsureUserIsNotBlocked(user);
+            PrepareUserForAuthenticatedSession(user);
 
             var newRefreshToken = GenerateRefreshToken();
             var newRefreshTokenHash = HashToken(newRefreshToken);
@@ -831,7 +896,17 @@ namespace Lumino.Api.Application.Services
                 return;
             }
 
-            tokenEntity.RevokedAt = DateTime.UtcNow;
+            var now = DateTime.UtcNow;
+
+            tokenEntity.RevokedAt = now;
+
+            var user = _dbContext.Users.FirstOrDefault(x => x.Id == tokenEntity.UserId);
+            if (user != null)
+            {
+                user.SessionVersion++;
+            }
+
+            RevokeAllActiveRefreshTokens(tokenEntity.UserId, now);
             _dbContext.SaveChanges();
         }
 
@@ -983,6 +1058,32 @@ namespace Lumino.Api.Application.Services
                 .Replace("=", "");
         }
 
+        private void StartNewUserSession(User user)
+        {
+            if (user == null)
+            {
+                throw new ArgumentNullException(nameof(user));
+            }
+
+            RevokeAllActiveRefreshTokens(user.Id, DateTime.UtcNow);
+            user.SessionVersion++;
+            _dbContext.SaveChanges();
+        }
+
+        private void RevokeAllActiveRefreshTokens(int userId, DateTime? nowUtc = null)
+        {
+            var now = nowUtc ?? DateTime.UtcNow;
+
+            var activeTokens = _dbContext.RefreshTokens
+                .Where(x => x.UserId == userId && x.RevokedAt == null)
+                .ToList();
+
+            foreach (var token in activeTokens)
+            {
+                token.RevokedAt = now;
+            }
+        }
+
         private string CreateRefreshToken(int userId)
         {
             var refreshToken = GenerateRefreshToken();
@@ -1040,7 +1141,8 @@ namespace Lumino.Api.Application.Services
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role.ToString())
+                new Claim(ClaimTypes.Role, user.Role.ToString()),
+                new Claim(ClaimsUtils.SessionVersionClaimType, user.SessionVersion.ToString())
             };
 
             var token = new JwtSecurityToken(

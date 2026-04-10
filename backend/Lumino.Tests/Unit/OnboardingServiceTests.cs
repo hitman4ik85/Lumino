@@ -253,4 +253,28 @@ public class OnboardingServiceTests
         Assert.Equal("en", fromDb.TargetLanguageCode);
         Assert.Contains(dbContext.UserCourses, x => x.UserId == user.Id && x.CourseId == 1);
     }
+
+    [Fact]
+    public void GetLanguageAvailability_WhenThereAreNoPublishedCourses_ReturnsFalse()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 1,
+            Title = "English A1",
+            Description = "desc",
+            LanguageCode = "en",
+            IsPublished = false
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new OnboardingService(dbContext);
+        var result = service.GetLanguageAvailability("en");
+
+        Assert.Equal("en", result.LanguageCode);
+        Assert.False(result.HasPublishedCourses);
+    }
+
 }

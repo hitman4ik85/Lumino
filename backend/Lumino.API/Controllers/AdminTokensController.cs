@@ -16,10 +16,16 @@ namespace Lumino.Api.Controllers
             _cleanupService = cleanupService;
         }
 
+        [HttpGet]
+        public IActionResult GetAll()
+        {
+            return Ok(_cleanupService.GetAll());
+        }
+
         [HttpPost("cleanup")]
         public IActionResult Cleanup()
         {
-            var deleted = _cleanupService.Cleanup();
+            var deleted = _cleanupService.Cleanup(deleteRevokedNow: true);
             return Ok(new { deleted });
         }
     }

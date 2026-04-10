@@ -21,7 +21,9 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
     {
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, "10")
+            new Claim(ClaimTypes.NameIdentifier, "10"),
+            new Claim(ClaimTypes.Role, "User"),
+            new Claim(Lumino.Api.Utils.ClaimsUtils.SessionVersionClaimType, "0")
         };
 
         var identity = new ClaimsIdentity(claims, SchemeName);

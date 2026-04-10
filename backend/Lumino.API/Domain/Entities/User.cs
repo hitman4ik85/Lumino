@@ -16,7 +16,7 @@ namespace Lumino.Api.Domain.Entities
 
         public string? AvatarUrl { get; set; }
 
-        public Role Role { get; set; }
+        public Role Role { get; set; } = Role.User;
 
         public DateTime CreatedAt { get; set; }
 
@@ -30,7 +30,11 @@ namespace Lumino.Api.Domain.Entities
 
         public int Crystals { get; set; }
 
+        public DateTime? BlockedUntilUtc { get; set; }
+
         public string Theme { get; set; } = "light";
+
+        public int SessionVersion { get; set; }
 
         public List<RefreshToken> RefreshTokens { get; set; } = new();
     }

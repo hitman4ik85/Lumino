@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../../routes/paths.js";
 import { useStageScale } from "../../../../hooks/useStageScale.js";
+import { authStorage } from "../../../../services/authStorage.js";
 import styles from "./OnboardingCreateProfLaterPage.module.css";
 
 import BgLeft from "../../../../assets/backgrounds/bg-left.webp";
@@ -23,8 +24,8 @@ export default function OnboardingCreateProfLaterPage() {
   };
 
   const handleContinue = () => {
-    localStorage.setItem("lumino_guest_preview", "true");
-    navigate(PATHS.home);
+    authStorage.enableGuestPreview();
+    navigate(PATHS.home, { replace: true });
   };
 
   return (
