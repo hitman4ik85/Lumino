@@ -3,11 +3,14 @@ import { createPortal } from "react-dom";
 import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import { vocabularyService } from "../../../services/vocabularyService.js";
 import { authStorage } from "../../../services/authStorage.js";
+import { readPersistentUserCache, writePersistentUserCache } from "../../../services/userPersistentCache.js";
 import SearchIconAsset from "../../../assets/vocabulare/search.svg";
 import DeleteIconAsset from "../../../assets/vocabulare/cart.svg";
 import styles from "./VocabularyPage.module.css";
 import { formatKyivDateTime, getKyivDayDifference } from "../../../utils/kyivDate.js";
 
+
+const VOCABULARY_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
 
 function getVocabularyCacheKey() {
   const userKey = authStorage.getUserCacheKey();
@@ -20,53 +23,30 @@ function getVocabularyCacheKey() {
 }
 
 function readVocabularyCache() {
-  if (typeof window === "undefined") {
+  const key = getVocabularyCacheKey();
+  const value = readPersistentUserCache(key, { ttlMs: VOCABULARY_CACHE_TTL_MS });
+
+  if (!value || typeof value !== "object") {
     return null;
   }
 
-  try {
-    const key = getVocabularyCacheKey();
-
-    if (!key) {
-      return null;
-    }
-
-    const raw = window.sessionStorage.getItem(key);
-
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw);
-
-    return {
-      items: Array.isArray(parsed?.items) ? parsed.items : [],
-      dueItems: Array.isArray(parsed?.dueItems) ? parsed.dueItems : [],
-    };
-  } catch {
-    return null;
-  }
+  return {
+    items: Array.isArray(value?.items) ? value.items : [],
+    dueItems: Array.isArray(value?.dueItems) ? value.dueItems : [],
+  };
 }
 
 function writeVocabularyCache(items, dueItems) {
-  if (typeof window === "undefined") {
+  const key = getVocabularyCacheKey();
+
+  if (!key) {
     return;
   }
 
-  try {
-    const key = getVocabularyCacheKey();
-
-    if (!key) {
-      return;
-    }
-
-    window.sessionStorage.setItem(key, JSON.stringify({
-      items: Array.isArray(items) ? items : [],
-      dueItems: Array.isArray(dueItems) ? dueItems : [],
-    }));
-  } catch {
-    // ignore cache errors
-  }
+  writePersistentUserCache(key, {
+    items: Array.isArray(items) ? items : [],
+    dueItems: Array.isArray(dueItems) ? dueItems : [],
+  });
 }
 
 const GRAMMAR_TOPICS = [

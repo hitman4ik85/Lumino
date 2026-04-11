@@ -165,6 +165,84 @@ public class AuthServiceTests
 
 
     [Fact]
+    public void Register_ShouldSeedLessonProgress_ForActiveCourse()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var configuration = TestConfigurationFactory.Create();
+
+        dbContext.Courses.Add(new Course
+        {
+            Id = 1,
+            Title = "English A1",
+            Description = "",
+            LanguageCode = "en",
+            IsPublished = true
+        });
+
+        dbContext.Topics.Add(new Topic
+        {
+            Id = 1,
+            CourseId = 1,
+            Title = "Topic 1",
+            Order = 1
+        });
+
+        dbContext.Lessons.AddRange(
+            new Lesson
+            {
+                Id = 1,
+                TopicId = 1,
+                Title = "Lesson 1",
+                Theory = "Theory 1",
+                Order = 1
+            },
+            new Lesson
+            {
+                Id = 2,
+                TopicId = 1,
+                Title = "Lesson 2",
+                Theory = "Theory 2",
+                Order = 2
+            }
+        );
+
+        dbContext.SaveChanges();
+
+        var service = new AuthService(
+            dbContext,
+            configuration,
+            new FakeRegisterValidator(),
+            new FakeLoginValidator(),
+            new ForgotPasswordRequestValidator(),
+            new ResetPasswordRequestValidator(),
+            new VerifyEmailRequestValidator(),
+            new ResendVerificationRequestValidator(),
+            new FakeEmailSender(),
+            new FakeOpenIdTokenValidator(),
+            new FakeHostEnvironment(),
+            new PasswordHasher()
+        );
+
+        service.Register(new RegisterRequest
+        {
+            Email = "progress@mail.com",
+            Password = "123456"
+        });
+
+        var user = dbContext.Users.First(x => x.Email == "progress@mail.com");
+        var progresses = dbContext.UserLessonProgresses
+            .Where(x => x.UserId == user.Id)
+            .OrderBy(x => x.LessonId)
+            .ToList();
+
+        Assert.Equal(2, progresses.Count);
+        Assert.True(progresses[0].IsUnlocked);
+        Assert.False(progresses[0].IsCompleted);
+        Assert.False(progresses[1].IsUnlocked);
+        Assert.False(progresses[1].IsCompleted);
+    }
+
+    [Fact]
     public void Login_EmailNotVerified_ShouldThrow()
     {
         var dbContext = TestDbContextFactory.Create();

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { scenesService } from "../../../services/scenesService.js";
+import { getCachedScenePack, preloadScenePack } from "../../../services/scenePackCache.js";
 import { achievementsService } from "../../../services/achievementsService.js";
 import { userService } from "../../../services/userService.js";
 import { profileService } from "../../../services/profileService.js";
@@ -210,44 +211,61 @@ export default function ScenePage() {
   const [submitting, setSubmitting] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
   const [startAchievements, setStartAchievements] = useState([]);
+  const [sceneModal, setSceneModal] = useState({ open: false, type: "" });
   const isMistakesMode = location.state?.mode === "mistakes";
   const stateScene = location.state?.scene || null;
 
   useEffect(() => {
     let ignore = false;
+    const scenePackMode = isMistakesMode ? "mistakes" : "default";
+    const cachedScenePack = getCachedScenePack(sceneId, { mode: scenePackMode });
+    const hasCachedScenePack = Array.isArray(cachedScenePack?.steps) && cachedScenePack.steps.length > 0;
+
+    setScene((!isMistakesMode ? cachedScenePack?.scene : null) || stateScene || cachedScenePack?.scene || null);
+    setSteps(hasCachedScenePack ? cachedScenePack.steps : []);
+    setLoading(!hasCachedScenePack);
 
     const load = async () => {
-      setLoading(true);
+      setError("");
       setShowIntro(true);
-      const [detailsRes, payloadRes, userRes, weeklyRes] = await Promise.all([
-        scenesService.getById(sceneId),
-        isMistakesMode ? scenesService.getMistakes(sceneId) : scenesService.getContent(sceneId),
-        userService.getMe(),
-        profileService.getWeeklyProgress(),
-      ]);
+      setStepIndex(0);
+      setScreen("content");
+      setAnswers({});
+      setFeedback(null);
+
+      const userRequest = userService.getMe();
+      const weeklyRequest = profileService.getWeeklyProgress();
+      const scenePackRes = await preloadScenePack(sceneId, {
+        mode: scenePackMode,
+        scene: stateScene,
+      });
 
       if (ignore) {
         return;
       }
 
-      if (!detailsRes.ok || !payloadRes.ok) {
-        setError(detailsRes.error || payloadRes.error || "Не вдалося завантажити сцену");
+      if (!scenePackRes.ok) {
+        if (!hasCachedScenePack) {
+          setError(scenePackRes.error || "Не вдалося завантажити сцену");
+          setLoading(false);
+        }
+      } else {
+        setScene((!isMistakesMode ? scenePackRes.data?.scene : null) || stateScene || scenePackRes.data?.scene || null);
+        setSteps(Array.isArray(scenePackRes.data?.steps) ? scenePackRes.data.steps : []);
         setLoading(false);
+      }
+
+      const [userRes, weeklyRes] = await Promise.all([userRequest, weeklyRequest]);
+
+      if (ignore) {
         return;
       }
 
-      setScene((!isMistakesMode ? payloadRes.data : null) || stateScene || detailsRes.data || null);
-      setSteps(Array.isArray(payloadRes.data?.steps) ? payloadRes.data.steps : []);
-      setStepIndex(0);
-      setScreen("content");
-      setAnswers({});
-      setFeedback(null);
       setUser({
-        hearts: Number(userRes.data?.hearts || userRes.data?.heartsCount || 0),
-        crystals: Number(userRes.data?.crystals || userRes.data?.crystalsCount || 0),
-        points: Number(weeklyRes.data?.totalPoints || 0),
+        hearts: Number(userRes?.data?.hearts || userRes?.data?.heartsCount || 0),
+        crystals: Number(userRes?.data?.crystals || userRes?.data?.crystalsCount || 0),
+        points: Number(weeklyRes?.data?.totalPoints || 0),
       });
-      setLoading(false);
     };
 
     load();
@@ -279,6 +297,28 @@ export default function ScenePage() {
       ignore = true;
     };
   }, [isMistakesMode, sceneId]);
+
+  const closeSceneModal = useCallback(() => {
+    setSceneModal({ open: false, type: "" });
+  }, []);
+
+  useEffect(() => {
+    if (!sceneModal.open) {
+      return undefined;
+    }
+
+    const handleSceneModalEscape = (event) => {
+      if (event.key === "Escape") {
+        closeSceneModal();
+      }
+    };
+
+    window.addEventListener("keydown", handleSceneModalEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleSceneModalEscape);
+    };
+  }, [closeSceneModal, sceneModal.open]);
 
   useEffect(() => {
     if (loading || error || !scene || steps.length === 0) {
@@ -320,6 +360,10 @@ export default function ScenePage() {
   );
 
   const handleClose = useCallback(() => {
+    setSceneModal({ open: true, type: "leaveScene" });
+  }, []);
+
+  const leaveScene = useCallback(() => {
     navigate(PATHS.home, { replace: true, state: { refreshLearning: true, refreshScenes: true } });
   }, [navigate]);
 
@@ -528,6 +572,23 @@ export default function ScenePage() {
                 </div>
               </>
             )}
+
+            {sceneModal.open ? (
+              <div className={styles.sceneModalOverlay} role="presentation">
+                {sceneModal.type === "leaveScene" ? (
+                  <div className={`${styles.sceneModalCard} ${styles.sceneLeaveModalCard}`} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+                    <button type="button" className={styles.sceneModalCloseButton} onClick={closeSceneModal} aria-label="Закрити" />
+                    <div className={styles.sceneLeaveTitleBox}>
+                      <div className={styles.sceneLeaveTitle}>Впевнені що хочете покинути сцену?</div>
+                    </div>
+                    <div className={styles.sceneLeaveActions}>
+                      <button type="button" className={`${styles.sceneModalButton} ${styles.sceneModalButtonSecondary}`} onClick={leaveScene}>ТАК</button>
+                      <button type="button" className={`${styles.sceneModalButton} ${styles.sceneModalButtonPrimary}`} onClick={closeSceneModal}>НІ</button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </>
         )}
       </div>

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { validateChangePasswordForm, validatePassword, validateUsername } from "../../../utils/validation.js";
 import { authStorage } from "../../../services/authStorage.js";
+import { readPersistentUserCache, removePersistentUserCache, writePersistentUserCache } from "../../../services/userPersistentCache.js";
 import { authService } from "../../../services/authService.js";
 import { userService } from "../../../services/userService.js";
 import { onboardingService } from "../../../services/onboardingService.js";
@@ -62,6 +63,64 @@ const SETTINGS_ITEMS = [
   { key: "languages", label: "Мови" },
   { key: "linkedAccounts", label: "Зв'язані облікові записи" },
 ];
+
+const PROFILE_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
+
+function getProfileCacheKey() {
+  const userKey = authStorage.getUserCacheKey();
+
+  if (!userKey) {
+    return "";
+  }
+
+  return `lumino-profile-cache:${userKey}`;
+}
+
+function normalizeProfileSnapshot(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const profile = value.profile && typeof value.profile === "object" ? value.profile : null;
+
+  return {
+    profile,
+    languages: Array.isArray(value.languages) ? value.languages : [],
+    activeTargetLanguageCode: String(value.activeTargetLanguageCode || profile?.targetLanguageCode || ""),
+    weeklyProgress: value.weeklyProgress && typeof value.weeklyProgress === "object"
+      ? value.weeklyProgress
+      : { currentWeek: [], previousWeek: [], totalPoints: 0 },
+    externalLogins: Array.isArray(value.externalLogins) ? value.externalLogins : [],
+    avatars: Array.isArray(value.avatars) ? value.avatars : [],
+    myDataForm: {
+      username: String(value.myDataForm?.username || profile?.username || ""),
+      email: String(value.myDataForm?.email || profile?.email || ""),
+    },
+  };
+}
+
+function getCachedProfileSnapshot() {
+  const key = getProfileCacheKey();
+  const value = readPersistentUserCache(key, { ttlMs: PROFILE_CACHE_TTL_MS });
+
+  return normalizeProfileSnapshot(value);
+}
+
+function setCachedProfileSnapshot(value) {
+  const key = getProfileCacheKey();
+  const normalized = normalizeProfileSnapshot(value);
+
+  if (!key) {
+    return;
+  }
+
+  if (!normalized) {
+    removePersistentUserCache(key);
+    return;
+  }
+
+  writePersistentUserCache(key, normalized);
+}
 
 function normalizeCode(code) {
   return String(code || "").trim().toLowerCase();
@@ -246,21 +305,23 @@ function PasswordEyeIcon({ opened = false }) {
 
 export default function ProfileContent({ onProfileChange = null }) {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const initialProfileCacheRef = useRef(getCachedProfileSnapshot());
+  const onProfileChangeRef = useRef(onProfileChange);
+  const [loading, setLoading] = useState(initialProfileCacheRef.current == null);
   const [savingTheme, setSavingTheme] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [modal, setModal] = useState({ open: false });
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
-  const [profile, setProfile] = useState(null);
-  const [languages, setLanguages] = useState([]);
-  const [activeTargetLanguageCode, setActiveTargetLanguageCode] = useState("");
-  const [weeklyProgress, setWeeklyProgress] = useState({ currentWeek: [], previousWeek: [], totalPoints: 0 });
-  const [externalLogins, setExternalLogins] = useState([]);
-  const [avatars, setAvatars] = useState([]);
+  const [profile, setProfile] = useState(initialProfileCacheRef.current?.profile || null);
+  const [languages, setLanguages] = useState(initialProfileCacheRef.current?.languages || []);
+  const [activeTargetLanguageCode, setActiveTargetLanguageCode] = useState(initialProfileCacheRef.current?.activeTargetLanguageCode || "");
+  const [weeklyProgress, setWeeklyProgress] = useState(initialProfileCacheRef.current?.weeklyProgress || { currentWeek: [], previousWeek: [], totalPoints: 0 });
+  const [externalLogins, setExternalLogins] = useState(initialProfileCacheRef.current?.externalLogins || []);
+  const [avatars, setAvatars] = useState(initialProfileCacheRef.current?.avatars || []);
   const [activePanel, setActivePanel] = useState("");
-  const [myDataForm, setMyDataForm] = useState({ username: "", email: "" });
+  const [myDataForm, setMyDataForm] = useState(initialProfileCacheRef.current?.myDataForm || { username: "", email: "" });
   const [passwordForm, setPasswordForm] = useState({ oldPassword: "", newPassword: "", confirmPassword: "" });
   const [showPassword, setShowPassword] = useState({ oldPassword: false, newPassword: false, confirmPassword: false });
   const [deletePassword, setDeletePassword] = useState("");
@@ -322,6 +383,16 @@ export default function ProfileContent({ onProfileChange = null }) {
     setStageNode(document.getElementById("lumino-home-stage"));
   }, []);
 
+  useEffect(() => {
+    onProfileChangeRef.current = onProfileChange;
+  }, [onProfileChange]);
+
+  const notifyProfileChange = useCallback((nextProfile) => {
+    if (typeof onProfileChangeRef.current === "function") {
+      onProfileChangeRef.current(nextProfile);
+    }
+  }, []);
+
   const closeModal = useCallback(() => {
     setDeletePassword("");
     setModal({ open: false });
@@ -366,8 +437,10 @@ export default function ProfileContent({ onProfileChange = null }) {
     });
   }, []);
 
-  const loadProfile = useCallback(async () => {
-    setLoading(true);
+  const loadProfile = useCallback(async (showBlocking = true) => {
+    if (showBlocking) {
+      setLoading(true);
+    }
 
     try {
       const [meRes, languagesRes, weeklyRes, externalLoginsRes, avatarsRes] = await Promise.all([
@@ -379,15 +452,16 @@ export default function ProfileContent({ onProfileChange = null }) {
       ]);
 
       if (!meRes.ok) {
-        showInfo("Помилка", meRes.error || "Не вдалося завантажити профіль.");
+        if (showBlocking || initialProfileCacheRef.current == null) {
+          showInfo("Помилка", meRes.error || "Не вдалося завантажити профіль.");
+        }
+
         return;
       }
 
       const nextProfile = meRes.data || null;
       setProfile(nextProfile);
-      if (typeof onProfileChange === "function") {
-        onProfileChange(nextProfile);
-      }
+      notifyProfileChange(nextProfile);
       setMyDataForm({ username: nextProfile?.username || "", email: nextProfile?.email || "" });
 
       if (languagesRes.ok) {
@@ -416,13 +490,31 @@ export default function ProfileContent({ onProfileChange = null }) {
         setAvatars([]);
       }
     } finally {
-      setLoading(false);
+      if (showBlocking) {
+        setLoading(false);
+      }
     }
-  }, [showInfo]);
+  }, [notifyProfileChange, showInfo]);
 
   useEffect(() => {
-    loadProfile();
+    loadProfile(initialProfileCacheRef.current == null);
   }, [loadProfile]);
+
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    setCachedProfileSnapshot({
+      profile,
+      languages,
+      activeTargetLanguageCode,
+      weeklyProgress,
+      externalLogins,
+      avatars,
+      myDataForm,
+    });
+  }, [activeTargetLanguageCode, avatars, externalLogins, languages, myDataForm, profile, weeklyProgress]);
 
   const chartSeries = useMemo(() => buildChartSeries(weeklyProgress.currentWeek, weeklyProgress.previousWeek), [weeklyProgress]);
   const activeLanguageItem = useMemo(
@@ -507,16 +599,14 @@ export default function ProfileContent({ onProfileChange = null }) {
 
       const nextProfile = res.data || null;
       setProfile(nextProfile);
-      if (typeof onProfileChange === "function") {
-        onProfileChange(nextProfile);
-      }
+      notifyProfileChange(nextProfile);
       setMyDataForm((prev) => ({ ...prev, username: nextProfile?.username || nextName }));
       setNameDraft(nextProfile?.username || nextName);
       setEditingName(false);
     } finally {
       setSavingName(false);
     }
-  }, [myDataForm.username, nameDraft, savingName, showInfo]);
+  }, [myDataForm.username, nameDraft, notifyProfileChange, savingName, showInfo]);
 
   const handleThemeToggle = useCallback(async () => {
     if (!profile || savingTheme) {
@@ -536,13 +626,11 @@ export default function ProfileContent({ onProfileChange = null }) {
 
       const nextProfile = res.data || { ...profile, theme: nextTheme };
       setProfile(nextProfile);
-      if (typeof onProfileChange === "function") {
-        onProfileChange(nextProfile);
-      }
+      notifyProfileChange(nextProfile);
     } finally {
       setSavingTheme(false);
     }
-  }, [profile, savingTheme, showInfo, theme]);
+  }, [notifyProfileChange, profile, savingTheme, showInfo, theme]);
 
   const handleAvatarSelect = useCallback(async (avatarUrl) => {
     if (!avatarUrl || savingAvatar) {
@@ -561,20 +649,19 @@ export default function ProfileContent({ onProfileChange = null }) {
 
       const nextProfile = res.data || { ...profile, avatarUrl };
       setProfile(nextProfile);
-      if (typeof onProfileChange === "function") {
-        onProfileChange(nextProfile);
-      }
+      notifyProfileChange(nextProfile);
       setAvatarModalOpen(false);
     } finally {
       setSavingAvatar(false);
     }
-  }, [profile, savingAvatar, showInfo]);
+  }, [notifyProfileChange, profile, savingAvatar, showInfo]);
 
-  const handleLogout = useCallback(async () => {
+  const handleLogout = useCallback(() => {
     const refreshToken = authStorage.getRefreshToken();
 
     if (refreshToken) {
-      await authService.logout({ refreshToken });
+      authService.logout({ refreshToken }).catch(() => {
+      });
     }
 
     authStorage.clearTokens();

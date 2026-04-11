@@ -181,6 +181,7 @@ namespace Lumino.Api
             builder.Services.AddScoped<IAdminSceneService, AdminSceneService>();
             builder.Services.AddScoped<IMediaService, MediaService>();
             builder.Services.AddScoped<IRefreshTokenCleanupService, RefreshTokenCleanupService>();
+            builder.Services.AddHostedService<RefreshTokenCleanupHostedService>();
             builder.Services.AddScoped<IAdminUserService, AdminUserService>();
             builder.Services.AddScoped<INextActivityService, NextActivityService>();
             builder.Services.AddScoped<ILearningPathService, LearningPathService>();

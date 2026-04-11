@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Lumino.Api.Application.DTOs
 {
     public class MediaFileResponse
@@ -11,5 +13,9 @@ namespace Lumino.Api.Application.DTOs
         public DateTime LastModifiedUtc { get; set; }
 
         public string? Extension { get; set; }
+
+        public List<string> Bindings { get; set; } = new();
+
+        public int BindingCount { get; set; }
     }
 }

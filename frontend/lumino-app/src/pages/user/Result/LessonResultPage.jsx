@@ -174,7 +174,7 @@ export default function LessonResultPage() {
       state: {
         refreshLearning: true,
         completedLessonId: Number(lesson?.id || lessonId || 0),
-        isLessonPassed: Boolean(result?.isPassed),
+        isLessonPassed: Boolean(result?.isPassed ?? result?.isCompleted),
       },
     });
   };

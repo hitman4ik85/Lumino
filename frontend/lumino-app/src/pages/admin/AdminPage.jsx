@@ -4,6 +4,7 @@ import { useStageScale } from "../../hooks/useStageScale.js";
 import { adminService } from "../../services/admin/adminService.js";
 import { authStorage } from "../../services/authStorage.js";
 import { authService } from "../../services/authService.js";
+import { readPersistentUserCache, writePersistentUserCache } from "../../services/userPersistentCache.js";
 import styles from "./AdminPage.module.css";
 import { PATHS } from "../../routes/paths.js";
 import { validateAdminUserForm } from "../../utils/validation.js";
@@ -98,6 +99,37 @@ const ACHIEVEMENT_CONDITION_OPTIONS = [
   { value: "TotalXp", label: "За загальну кількість XP" },
 ];
 
+const ADMIN_BOOT_CACHE_TTL_MS = 30 * 60 * 1000;
+const ADMIN_SERVICE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function getAdminBootCacheKey() {
+  const userKey = authStorage.getUserCacheKey() || "admin";
+
+  return `lumino-admin-boot-cache:${userKey}`;
+}
+
+function getAdminServiceCacheKey(type, suffix = "") {
+  const userKey = authStorage.getUserCacheKey() || "admin";
+
+  return `lumino-admin-service-cache:${userKey}:${type}:${suffix}`;
+}
+
+function readAdminBootCache() {
+  return readPersistentUserCache(getAdminBootCacheKey(), { ttlMs: ADMIN_BOOT_CACHE_TTL_MS });
+}
+
+function writeAdminBootCache(value) {
+  writePersistentUserCache(getAdminBootCacheKey(), value);
+}
+
+function readAdminServiceCache(type, suffix = "") {
+  return readPersistentUserCache(getAdminServiceCacheKey(type, suffix), { ttlMs: ADMIN_SERVICE_CACHE_TTL_MS });
+}
+
+function writeAdminServiceCache(type, suffix = "", value) {
+  writePersistentUserCache(getAdminServiceCacheKey(type, suffix), value);
+}
+
 const MAX_TOPICS_PER_COURSE = 10;
 const MAX_LESSONS_PER_TOPIC = 8;
 const MAX_EXERCISES_PER_LESSON = 9;
@@ -150,7 +182,7 @@ const USER_FORM_FIELD_HINTS = {
   avatarUrl: "Вкажи шлях або повний URL до аватара користувача.",
   points: "Введи кількість балів користувача цілим числом.",
   crystals: "Введи кількість кристалів користувача цілим числом.",
-  hearts: "Введи кількість енергії користувача цілим числом.",
+  hearts: "Введи кількість енергії користувача цілим числом від 0 до 5.",
   blockedUntilLocal: "Оберіть точну дату та час, до яких користувач буде заблокований.",
 };
 
@@ -535,6 +567,59 @@ function buildUserForm(user) {
     blockPreset: isBlocked ? "custom" : "1d",
     blockedUntilLocal: isBlocked ? toDateTimeLocalValue(blockedUntilUtc) : "",
   };
+}
+
+function buildUserRequestDtoFromForm(form) {
+  const normalizedRole = String(form.role || "User").trim() || "User";
+  const isAdminRole = normalizedRole.toLowerCase() === "admin";
+  const courseIds = Array.isArray(form.courseIds)
+    ? form.courseIds.map((item) => Number(item)).filter(Boolean).sort((a, b) => a - b)
+    : [];
+  const activeCourseId = form.activeCourseId ? Number(form.activeCourseId) : null;
+
+  return {
+    username: String(form.username || "").trim() || null,
+    email: String(form.email || "").trim(),
+    password: String(form.password || "").trim() || null,
+    avatarUrl: String(form.avatarUrl || "").trim() || null,
+    nativeLanguageCode: isAdminRole ? null : (String(form.nativeLanguageCode || "").trim() || null),
+    targetLanguageCode: isAdminRole ? null : (String(form.targetLanguageCode || "").trim() || null),
+    role: normalizedRole,
+    isEmailVerified: Boolean(form.isEmailVerified),
+    theme: String(form.theme || "light").trim() || "light",
+    points: isAdminRole ? 0 : Math.max(0, Number(form.points || 0)),
+    crystals: isAdminRole ? 0 : Math.max(0, Number(form.crystals || 0)),
+    hearts: isAdminRole ? 0 : Math.min(5, Math.max(0, Number(form.hearts || 0))),
+    blockedUntilUtc: buildBlockedUntilUtc(form),
+    courseIds: isAdminRole ? [] : courseIds,
+    activeCourseId: isAdminRole ? null : activeCourseId,
+  };
+}
+
+function areAdminUserDtoValuesEqual(left, right) {
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return JSON.stringify(Array.isArray(left) ? left : []) === JSON.stringify(Array.isArray(right) ? right : []);
+  }
+
+  return left === right;
+}
+
+function buildUserRequestPayload(form, mode, user) {
+  const dto = buildUserRequestDtoFromForm(form);
+
+  if (mode !== "edit" || !user) {
+    return dto;
+  }
+
+  const originalDto = buildUserRequestDtoFromForm(buildUserForm(user));
+
+  return Object.keys(dto).reduce((acc, key) => {
+    if (!areAdminUserDtoValuesEqual(dto[key], originalDto[key])) {
+      acc[key] = dto[key];
+    }
+
+    return acc;
+  }, {});
 }
 
 function getCoursePublishMeta(course) {
@@ -2196,9 +2281,12 @@ export default function AdminPage() {
   useStageScale(stageRef, { width: 1920, height: 1080, mode: "absolute" });
 
   const currentAdminUserId = Number(authStorage.getUserId() || 0);
+  const initialAdminBootCacheRef = useRef(readAdminBootCache());
+  const initialAdminBootCache = initialAdminBootCacheRef.current;
+  const hasInitialAdminBootCache = Boolean(initialAdminBootCache);
 
   const [section, setSection] = useState("courses");
-  const [isBootLoading, setIsBootLoading] = useState(true);
+  const [isBootLoading, setIsBootLoading] = useState(!hasInitialAdminBootCache);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [toast, setToast] = useState({ type: "", text: "" });
   const [modal, setModal] = useState(INITIAL_MODAL);
@@ -2213,22 +2301,22 @@ export default function AdminPage() {
   const [activeVocabularyEditField, setActiveVocabularyEditField] = useState("");
   const vocabularyEditFieldRefs = useRef({});
 
-  const [courses, setCourses] = useState([]);
-  const [scenes, setScenes] = useState([]);
-  const [achievements, setAchievements] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [tokens, setTokens] = useState([]);
+  const [courses, setCourses] = useState(() => sortByOrder(initialAdminBootCache?.courses || []));
+  const [scenes, setScenes] = useState(() => sortByOrder(initialAdminBootCache?.scenes || []));
+  const [achievements, setAchievements] = useState(() => initialAdminBootCache?.achievements || []);
+  const [users, setUsers] = useState(() => initialAdminBootCache?.users || []);
+  const [tokens, setTokens] = useState(() => readAdminServiceCache("tokens", "all") || []);
   const [mediaFiles, setMediaFiles] = useState([]);
-  const [allVocabulary, setAllVocabulary] = useState([]);
+  const [allVocabulary, setAllVocabulary] = useState(() => initialAdminBootCache?.allVocabulary || []);
 
   const [selectedCourseId, setSelectedCourseId] = useState(0);
   const [selectedTopicId, setSelectedTopicId] = useState(0);
   const [selectedLessonId, setSelectedLessonId] = useState(0);
   const [selectedExerciseId, setSelectedExerciseId] = useState(0);
   const [selectedVocabularyId, setSelectedVocabularyId] = useState(0);
-  const [selectedSceneId, setSelectedSceneId] = useState(0);
+  const [selectedSceneId, setSelectedSceneId] = useState(() => Number(initialAdminBootCache?.selectedSceneId || initialAdminBootCache?.scenes?.[0]?.id || 0));
   const [selectedSceneStepId, setSelectedSceneStepId] = useState(0);
-  const [selectedAchievementId, setSelectedAchievementId] = useState(0);
+  const [selectedAchievementId, setSelectedAchievementId] = useState(() => Number(initialAdminBootCache?.selectedAchievementId || initialAdminBootCache?.achievements?.[0]?.id || 0));
   const [selectedAdminUserId, setSelectedAdminUserId] = useState(0);
   const [isAchievementPreviewOpen, setIsAchievementPreviewOpen] = useState(false);
   const [coursesViewMode] = useState("landing");
@@ -2306,7 +2394,15 @@ export default function AdminPage() {
   }, []);
 
   const loadTokens = useCallback(async () => {
-    setIsTokensLoading(true);
+    const cacheKey = "all";
+    const cached = readAdminServiceCache("tokens", cacheKey);
+
+    if (Array.isArray(cached) && cached.length > 0) {
+      setTokens(cached);
+      setIsTokensLoading(false);
+    } else {
+      setIsTokensLoading(true);
+    }
 
     try {
       const response = await adminService.getTokens();
@@ -2315,7 +2411,9 @@ export default function AdminPage() {
         throw new Error(response.error || "Не вдалося завантажити токени");
       }
 
-      setTokens(response.data || []);
+      const nextTokens = response.data || [];
+      setTokens(nextTokens);
+      writeAdminServiceCache("tokens", cacheKey, nextTokens);
     } catch (error) {
       pushToast("error", error.message || "Помилка завантаження токенів");
     } finally {
@@ -2324,7 +2422,16 @@ export default function AdminPage() {
   }, [pushToast]);
 
   const loadMediaFiles = useCallback(async (query = mediaSearchValue) => {
-    setIsMediaLoading(true);
+    const normalizedQuery = String(query || "").trim().toLowerCase();
+    const cacheKey = normalizedQuery || "all";
+    const cached = readAdminServiceCache("media", cacheKey);
+
+    if (Array.isArray(cached) && cached.length > 0) {
+      setMediaFiles(cached);
+      setIsMediaLoading(false);
+    } else {
+      setIsMediaLoading(true);
+    }
 
     try {
       const response = await adminService.getMediaFiles(query, 0, 500);
@@ -2333,7 +2440,9 @@ export default function AdminPage() {
         throw new Error(response.error || "Не вдалося завантажити медіафайли");
       }
 
-      setMediaFiles(response.data || []);
+      const nextMediaFiles = response.data || [];
+      setMediaFiles(nextMediaFiles);
+      writeAdminServiceCache("media", cacheKey, nextMediaFiles);
     } catch (error) {
       pushToast("error", error.message || "Помилка завантаження медіафайлів");
     } finally {
@@ -2353,8 +2462,10 @@ export default function AdminPage() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  const loadBootData = useCallback(async () => {
-    setIsBootLoading(true);
+  const loadBootData = useCallback(async (showBlocking = true) => {
+    if (showBlocking) {
+      setIsBootLoading(true);
+    }
 
     try {
       const [coursesRes, scenesRes, achievementsRes, usersRes, vocabularyRes] = await Promise.all([
@@ -2396,8 +2507,24 @@ export default function AdminPage() {
   }, [pushToast]);
 
   useEffect(() => {
-    loadBootData();
-  }, [loadBootData]);
+    loadBootData(!hasInitialAdminBootCache);
+  }, [hasInitialAdminBootCache, loadBootData]);
+
+  useEffect(() => {
+    if (isBootLoading) {
+      return;
+    }
+
+    writeAdminBootCache({
+      courses,
+      scenes,
+      achievements,
+      users,
+      allVocabulary,
+      selectedSceneId,
+      selectedAchievementId,
+    });
+  }, [achievements, allVocabulary, courses, isBootLoading, scenes, selectedAchievementId, selectedSceneId, users]);
 
   useEffect(() => {
     if (section !== "service") {
@@ -5841,10 +5968,6 @@ export default function AdminPage() {
 
         const email = String(form.email || "").trim();
         const password = String(form.password || "");
-        const courseIds = Array.isArray(form.courseIds)
-          ? form.courseIds.map((item) => Number(item)).filter(Boolean)
-          : [];
-        const activeCourseId = form.activeCourseId ? Number(form.activeCourseId) : null;
 
         if (!email) {
           throw new Error("Вкажіть email користувача");
@@ -5854,26 +5977,7 @@ export default function AdminPage() {
           throw new Error("Вкажіть пароль для нового користувача");
         }
 
-        const normalizedRole = String(form.role || "User").trim() || "User";
-        const isAdminRole = normalizedRole.toLowerCase() === "admin";
-
-        const dto = {
-          username: String(form.username || "").trim() || null,
-          email,
-          password: password.trim() || null,
-          avatarUrl: String(form.avatarUrl || "").trim() || null,
-          nativeLanguageCode: isAdminRole ? null : (String(form.nativeLanguageCode || "").trim() || null),
-          targetLanguageCode: isAdminRole ? null : (String(form.targetLanguageCode || "").trim() || null),
-          role: normalizedRole,
-          isEmailVerified: Boolean(form.isEmailVerified),
-          theme: String(form.theme || "light").trim() || "light",
-          points: Math.max(0, Number(form.points || 0)),
-          crystals: Math.max(0, Number(form.crystals || 0)),
-          hearts: Math.max(0, Number(form.hearts || 0)),
-          blockedUntilUtc: buildBlockedUntilUtc(form),
-          courseIds: isAdminRole ? [] : courseIds,
-          activeCourseId: isAdminRole ? null : activeCourseId,
-        };
+        const dto = buildUserRequestPayload(form, modal.mode, modal.payload);
 
         const response = modal.mode === "edit"
           ? await adminService.updateUser(modal.payload.id, dto)
@@ -6559,18 +6663,17 @@ export default function AdminPage() {
     window.open(mediaUrl, "_blank", "noopener,noreferrer");
   }, [pushToast]);
 
-  const handleAdminLogout = useCallback(async () => {
+  const handleAdminLogout = useCallback(() => {
     const refreshToken = authStorage.getRefreshToken();
 
-    try {
-      if (refreshToken) {
-        await authService.logout({ refreshToken });
-      }
-    } finally {
-      authStorage.clearGuestPreview();
-      authStorage.clearTokens();
-      navigate(PATHS.login, { replace: true });
+    if (refreshToken) {
+      authService.logout({ refreshToken }).catch(() => {
+      });
     }
+
+    authStorage.clearGuestPreview();
+    authStorage.clearTokens();
+    navigate(PATHS.login, { replace: true });
   }, [navigate]);
 
   const handleCourseLandingEditAction = useCallback(async () => {
@@ -8918,6 +9021,23 @@ export default function AdminPage() {
                       <div className={`${styles.serviceTokenField} ${styles.serviceTokenFieldWide}`.trim()}>
                         <div className={styles.serviceTokenFieldLabel}>URL</div>
                         <div className={styles.serviceTokenFieldValueBreak}>{item.url || "—"}</div>
+                      </div>
+                      <div className={`${styles.serviceTokenField} ${styles.serviceTokenFieldWide}`.trim()}>
+                        <div className={styles.serviceTokenFieldLabel}>Прив’язано до</div>
+                        <div className={styles.serviceTokenFieldValueBreak}>
+                          {Array.isArray(item.bindings) && item.bindings.length ? (
+                            <>
+                              {item.bindings.slice(0, 5).map((binding, index) => (
+                                <div key={`${relativePath || item.url}-binding-${index}`}>{binding}</div>
+                              ))}
+                              {Number(item.bindingCount || item.bindings.length || 0) > 5 ? (
+                                <div>Ще {Number(item.bindingCount || item.bindings.length) - 5}</div>
+                              ) : null}
+                            </>
+                          ) : (
+                            "Файл зараз ніде не використовується"
+                          )}
+                        </div>
                       </div>
                     </div>
 

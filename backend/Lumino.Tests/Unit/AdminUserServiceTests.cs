@@ -711,6 +711,167 @@ public class AdminUserServiceTests
     }
 
 
+    [Fact]
+    public void Update_PartialRequest_ShouldChangeOnlyProvidedField_AndKeepExternalAvatar()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Users.AddRange(
+            new User
+            {
+                Id = 1,
+                Email = "admin@lumino.local",
+                PasswordHash = "hash",
+                Role = Role.Admin,
+                CreatedAt = DateTime.UtcNow
+            },
+            new User
+            {
+                Id = 2,
+                Username = "google user",
+                Email = "google-user@mail.com",
+                PasswordHash = "hash",
+                Role = Role.User,
+                AvatarUrl = "https://lh3.googleusercontent.com/avatar-from-google",
+                Hearts = 2,
+                Crystals = 15,
+                Theme = "dark",
+                NativeLanguageCode = "uk",
+                TargetLanguageCode = "en",
+                IsEmailVerified = true,
+                CreatedAt = DateTime.UtcNow
+            }
+        );
+
+        dbContext.UserProgresses.Add(new UserProgress
+        {
+            UserId = 2,
+            TotalScore = 90,
+            LastUpdatedAt = DateTime.UtcNow
+        });
+
+        dbContext.SaveChanges();
+
+        var service = CreateService(dbContext);
+        var request = new AdminUserUpsertRequest
+        {
+            Hearts = 4,
+            ProvidedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                nameof(AdminUserUpsertRequest.Hearts)
+            }
+        };
+
+        var result = service.Update(2, request, 1);
+        var updated = dbContext.Users.Single(x => x.Id == 2);
+
+        Assert.Equal(4, updated.Hearts);
+        Assert.Equal("google user", updated.Username);
+        Assert.Equal("google-user@mail.com", updated.Email);
+        Assert.Equal("https://lh3.googleusercontent.com/avatar-from-google", updated.AvatarUrl);
+        Assert.Equal(15, updated.Crystals);
+        Assert.Equal("dark", updated.Theme);
+        Assert.Equal(90, result.Points);
+    }
+
+    [Fact]
+    public void Update_WithUnchangedExternalAvatar_ShouldAllowSavingOtherFields()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Users.AddRange(
+            new User
+            {
+                Id = 1,
+                Email = "admin@lumino.local",
+                PasswordHash = "hash",
+                Role = Role.Admin,
+                CreatedAt = DateTime.UtcNow
+            },
+            new User
+            {
+                Id = 2,
+                Username = "google user",
+                Email = "google-user@mail.com",
+                PasswordHash = "hash",
+                Role = Role.User,
+                AvatarUrl = "https://lh3.googleusercontent.com/avatar-from-google",
+                Hearts = 2,
+                Crystals = 15,
+                Theme = "dark",
+                NativeLanguageCode = "uk",
+                TargetLanguageCode = "en",
+                IsEmailVerified = true,
+                CreatedAt = DateTime.UtcNow
+            }
+        );
+
+        dbContext.SaveChanges();
+
+        var service = CreateService(dbContext);
+
+        var result = service.Update(2, new AdminUserUpsertRequest
+        {
+            Username = "google user",
+            Email = "google-user@mail.com",
+            Role = "User",
+            Theme = "light",
+            AvatarUrl = "https://lh3.googleusercontent.com/avatar-from-google",
+            Hearts = 2,
+            Crystals = 15,
+            IsEmailVerified = true,
+            NativeLanguageCode = "uk",
+            TargetLanguageCode = "en",
+        }, 1);
+
+        Assert.Equal("https://lh3.googleusercontent.com/avatar-from-google", result.AvatarUrl);
+        Assert.Equal("light", result.Theme);
+    }
+
+    [Fact]
+    public void Update_Throws_WhenHeartsAreGreaterThanFive()
+    {
+        var dbContext = TestDbContextFactory.Create();
+
+        dbContext.Users.AddRange(
+            new User
+            {
+                Id = 1,
+                Email = "admin@lumino.local",
+                PasswordHash = "hash",
+                Role = Role.Admin,
+                CreatedAt = DateTime.UtcNow
+            },
+            new User
+            {
+                Id = 2,
+                Username = "user",
+                Email = "user@mail.com",
+                PasswordHash = "hash",
+                Role = Role.User,
+                Hearts = 3,
+                Theme = "light",
+                CreatedAt = DateTime.UtcNow
+            }
+        );
+
+        dbContext.SaveChanges();
+
+        var service = CreateService(dbContext);
+
+        var ex = Assert.Throws<ArgumentException>(() => service.Update(2, new AdminUserUpsertRequest
+        {
+            Username = "user",
+            Email = "user@mail.com",
+            Role = "User",
+            Hearts = 6,
+            Theme = "light"
+        }, 1));
+
+        Assert.Contains("Hearts must be between 0 and 5", ex.Message);
+    }
+
+
     private static AdminUserService CreateService(Lumino.Api.Data.LuminoDbContext dbContext)
     {
         return new AdminUserService(

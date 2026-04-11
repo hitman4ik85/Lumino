@@ -3,6 +3,9 @@ import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { authStorage } from "../../../services/authStorage.js";
+import { preloadLessonPack } from "../../../services/lessonPackCache.js";
+import { preloadScenePack } from "../../../services/scenePackCache.js";
+import { readPersistentUserCache, removePersistentUserCache, writePersistentUserCache } from "../../../services/userPersistentCache.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { onboardingService } from "../../../services/onboardingService.js";
 import { coursesService } from "../../../services/coursesService.js";
@@ -541,6 +544,16 @@ function applyOptimisticLessonCompletion(path, lessonId, isPassed) {
     changed = true;
   }
 
+  if (!nextLesson) {
+    const currentTopicId = Number(currentTopic?.id || 0);
+    const currentTopicScene = nextPath.scenes.find((scene) => Number(scene?.topicId || 0) === currentTopicId);
+
+    if (currentTopicScene && !currentTopicScene.isUnlocked) {
+      currentTopicScene.isUnlocked = true;
+      changed = true;
+    }
+  }
+
   nextPath.nextPointers = getComputedNextPointers(nextPath.topics, nextPath.scenes);
 
   return changed ? nextPath : nextPath;
@@ -623,6 +636,12 @@ function applyOptimisticHomeRefresh(snapshot, locationState) {
   };
 }
 
+const HOME_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
+const COURSE_PATH_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
+const SCENES_OVERVIEW_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
+const SUPPORTED_LANGUAGES_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
+const CALENDAR_MONTH_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
+
 function getCoursePathCacheKey(languageCode, courseId) {
   const userKey = authStorage.getUserCacheKey();
   const normalizedLanguageCode = normalizeCode(languageCode || "");
@@ -651,80 +670,126 @@ function getScenesOverviewCacheKey(languageCode, courses) {
 
 function getCachedScenesOverview(languageCode, courses) {
   const key = getScenesOverviewCacheKey(languageCode, courses);
+  const value = readPersistentUserCache(key, { ttlMs: SCENES_OVERVIEW_CACHE_TTL_MS });
 
-  if (!key || typeof window === "undefined") {
-    return null;
-  }
-
-  try {
-    const raw = window.sessionStorage.getItem(key);
-
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw);
-
-    return Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
+  return Array.isArray(value) ? value : null;
 }
 
 function setCachedScenesOverview(languageCode, courses, value) {
   const key = getScenesOverviewCacheKey(languageCode, courses);
 
-  if (!key || typeof window === "undefined") {
+  if (!key) {
     return;
   }
 
-  try {
-    if (Array.isArray(value) && value.length > 0) {
-      window.sessionStorage.setItem(key, JSON.stringify(value));
-      return;
-    }
-
-    window.sessionStorage.removeItem(key);
-  } catch {
+  if (Array.isArray(value) && value.length > 0) {
+    writePersistentUserCache(key, value);
+    return;
   }
+
+  removePersistentUserCache(key);
+}
+
+function getSupportedLanguagesCacheKey() {
+  const userKey = authStorage.getUserCacheKey();
+
+  if (!userKey) {
+    return "";
+  }
+
+  return `lumino-supported-languages:${userKey}`;
+}
+
+function getCachedSupportedLanguages() {
+  const key = getSupportedLanguagesCacheKey();
+  const value = readPersistentUserCache(key, { ttlMs: SUPPORTED_LANGUAGES_CACHE_TTL_MS });
+
+  return Array.isArray(value) ? value : [];
+}
+
+function setCachedSupportedLanguages(value) {
+  const key = getSupportedLanguagesCacheKey();
+
+  if (!key) {
+    return;
+  }
+
+  if (Array.isArray(value) && value.length > 0) {
+    writePersistentUserCache(key, value);
+    return;
+  }
+
+  removePersistentUserCache(key);
+}
+
+function getCalendarMonthCacheKey(year, month) {
+  const userKey = authStorage.getUserCacheKey();
+  const normalizedYear = Number(year || 0);
+  const normalizedMonth = Number(month || 0);
+
+  if (!userKey || !normalizedYear || !normalizedMonth) {
+    return "";
+  }
+
+  return `lumino-calendar-month:${userKey}:${normalizedYear}:${normalizedMonth}`;
+}
+
+function getCachedCalendarMonth(year, month) {
+  const key = getCalendarMonthCacheKey(year, month);
+  const value = readPersistentUserCache(key, { ttlMs: CALENDAR_MONTH_CACHE_TTL_MS });
+
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  return {
+    activeDates: Array.isArray(value.activeDates) ? value.activeDates : [],
+    registrationDates: Array.isArray(value.registrationDates) ? value.registrationDates : [],
+    daysSinceJoined: Number(value.daysSinceJoined || 0),
+    currentKyivDateTimeText: String(value.currentKyivDateTimeText || ""),
+  };
+}
+
+function setCachedCalendarMonth(year, month, value) {
+  const key = getCalendarMonthCacheKey(year, month);
+
+  if (!key) {
+    return;
+  }
+
+  if (!value || typeof value !== "object") {
+    removePersistentUserCache(key);
+    return;
+  }
+
+  writePersistentUserCache(key, {
+    activeDates: Array.isArray(value.activeDates) ? value.activeDates : [],
+    registrationDates: Array.isArray(value.registrationDates) ? value.registrationDates : [],
+    daysSinceJoined: Number(value.daysSinceJoined || 0),
+    currentKyivDateTimeText: String(value.currentKyivDateTimeText || ""),
+  });
 }
 
 function getCachedCoursePath(languageCode, courseId) {
   const key = getCoursePathCacheKey(languageCode, courseId);
+  const value = readPersistentUserCache(key, { ttlMs: COURSE_PATH_CACHE_TTL_MS });
 
-  if (!key || typeof window === "undefined") {
-    return null;
-  }
-
-  try {
-    const raw = window.sessionStorage.getItem(key);
-
-    if (!raw) {
-      return null;
-    }
-
-    return normalizeCoursePath(JSON.parse(raw));
-  } catch {
-    return null;
-  }
+  return normalizeCoursePath(value);
 }
 
 function setCachedCoursePath(languageCode, courseId, value) {
   const key = getCoursePathCacheKey(languageCode, courseId);
 
-  if (!key || typeof window === "undefined") {
+  if (!key) {
     return;
   }
 
-  try {
-    if (value) {
-      window.sessionStorage.setItem(key, JSON.stringify(value));
-      return;
-    }
-
-    window.sessionStorage.removeItem(key);
-  } catch {
+  if (value) {
+    writePersistentUserCache(key, value);
+    return;
   }
+
+  removePersistentUserCache(key);
 }
 
 
@@ -740,53 +805,53 @@ function getHomeCacheKey() {
 
 function getCachedHomeSnapshot() {
   const key = getHomeCacheKey();
+  const parsed = readPersistentUserCache(key, { ttlMs: HOME_CACHE_TTL_MS });
 
-  if (!key || typeof window === "undefined") {
+  if (!parsed) {
     return null;
   }
 
-  try {
-    const raw = window.sessionStorage.getItem(key);
+  const activeLanguageCode = normalizeCode(parsed?.course?.languageCode || parsed?.languageState?.activeTargetLanguageCode || "");
+  const activeCourseId = Number(parsed?.course?.id || 0);
+  const cachedPath = normalizeCoursePath(parsed?.path) || getCachedCoursePath(activeLanguageCode, activeCourseId);
 
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw);
-
-    return {
-      user: parsed?.user || null,
-      languageState: parsed?.languageState || { activeTargetLanguageCode: "", learningLanguages: [] },
-      courses: Array.isArray(parsed?.courses) ? parsed.courses : [],
-      course: parsed?.course || null,
-      path: normalizeCoursePath(parsed?.path),
-      calendarDates: Array.isArray(parsed?.calendarDates) ? parsed.calendarDates : [],
-      calendarRegistrationDates: Array.isArray(parsed?.calendarRegistrationDates) ? parsed.calendarRegistrationDates : [],
-      calendarDaysSinceJoined: Number(parsed?.calendarDaysSinceJoined || 0),
-      calendarCurrentKyivDateTimeText: String(parsed?.calendarCurrentKyivDateTimeText || ""),
-      calendarMonth: parsed?.calendarMonth || null,
-    };
-  } catch {
-    return null;
-  }
+  return {
+    user: parsed?.user || null,
+    languageState: parsed?.languageState || { activeTargetLanguageCode: "", learningLanguages: [] },
+    courses: Array.isArray(parsed?.courses) ? parsed.courses : [],
+    course: parsed?.course || null,
+    path: cachedPath,
+    calendarDates: Array.isArray(parsed?.calendarDates) ? parsed.calendarDates : [],
+    calendarRegistrationDates: Array.isArray(parsed?.calendarRegistrationDates) ? parsed.calendarRegistrationDates : [],
+    calendarDaysSinceJoined: Number(parsed?.calendarDaysSinceJoined || 0),
+    calendarCurrentKyivDateTimeText: String(parsed?.calendarCurrentKyivDateTimeText || ""),
+    calendarMonth: parsed?.calendarMonth || null,
+  };
 }
 
 function setCachedHomeSnapshot(value) {
   const key = getHomeCacheKey();
 
-  if (!key || typeof window === "undefined") {
+  if (!key) {
     return;
   }
 
-  try {
-    if (!value) {
-      window.sessionStorage.removeItem(key);
-      return;
-    }
-
-    window.sessionStorage.setItem(key, JSON.stringify(value));
-  } catch {
+  if (!value) {
+    removePersistentUserCache(key);
+    return;
   }
+
+  const activeLanguageCode = normalizeCode(value?.course?.languageCode || value?.languageState?.activeTargetLanguageCode || "");
+  const activeCourseId = Number(value?.course?.id || 0);
+  const normalizedPath = normalizeCoursePath(value?.path);
+
+  if (activeLanguageCode && activeCourseId && normalizedPath) {
+    setCachedCoursePath(activeLanguageCode, activeCourseId, normalizedPath);
+  }
+
+  const { path, ...compactValue } = value;
+
+  writePersistentUserCache(key, compactValue);
 }
 
 function resolveMediaUrl(value) {
@@ -1110,7 +1175,7 @@ export default function HomePage() {
   const [modal, setModal] = useState({ open: false, title: "", message: "", primaryText: "Добре", secondaryText: "", onPrimary: null, onSecondary: null, variant: "default", illustrationSrc: "" });
   const [user, setUser] = useState(initialHomeCacheRef.current?.user || GUEST_USER);
   const [languageState, setLanguageState] = useState(initialHomeCacheRef.current?.languageState || { activeTargetLanguageCode: "", learningLanguages: [] });
-  const [supportedLanguages, setSupportedLanguages] = useState([]);
+  const [supportedLanguages, setSupportedLanguages] = useState(() => getCachedSupportedLanguages());
   const [courses, setCourses] = useState(initialHomeCacheRef.current?.courses || []);
   const [course, setCourse] = useState(initialHomeCacheRef.current?.course || null);
   const [path, setPath] = useState(initialHomeCacheRef.current?.path || null);
@@ -1200,6 +1265,55 @@ export default function HomePage() {
 
     return path?.nextPointers || getComputedNextPointers(path?.topics, path?.scenes);
   }, [isGuest, path]);
+
+  const lessonPrefetchIds = useMemo(() => {
+    if (isGuest || Number(user.hearts || 0) <= 0) {
+      return [];
+    }
+
+    const ids = [];
+    const pushLessonId = (value) => {
+      const id = Number(value || 0);
+
+      if (!id || ids.includes(id)) {
+        return;
+      }
+
+      ids.push(id);
+    };
+
+    const activeTopic = topics.find((item) => item?.lessons?.some((lesson) => lesson?.isUnlocked && !lesson?.isPassed))
+      || topics.find((item) => item?.lessons?.some((lesson) => lesson?.isUnlocked))
+      || null;
+
+    pushLessonId(nextPathPointers?.nextLessonId);
+
+    if (activeTopic) {
+      activeTopic.lessons
+        .filter((lesson) => lesson?.isUnlocked)
+        .forEach((lesson) => pushLessonId(lesson?.id));
+    }
+
+    return ids.slice(0, 9);
+  }, [isGuest, nextPathPointers?.nextLessonId, topics, user.hearts]);
+
+  useEffect(() => {
+    if (lessonPrefetchIds.length === 0) {
+      return undefined;
+    }
+
+    const timerId = window.setTimeout(() => {
+      lessonPrefetchIds.forEach((id) => {
+        preloadLessonPack(id).catch(() => {
+        });
+      });
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [lessonPrefetchIds]);
+
 
   useEffect(() => {
     const handleEscClose = (e) => {
@@ -1379,7 +1493,9 @@ export default function HomePage() {
         : normalizeCode(preferredLanguageCode || languageState.activeTargetLanguageCode || "");
       onboardingService.getSupportedLanguages().then((supportedRes) => {
         if (supportedRes.ok) {
-          setSupportedLanguages(supportedRes.items || []);
+          const nextSupportedLanguages = Array.isArray(supportedRes.items) ? supportedRes.items : [];
+          setSupportedLanguages(nextSupportedLanguages);
+          setCachedSupportedLanguages(nextSupportedLanguages);
         }
       });
 
@@ -1575,6 +1691,7 @@ export default function HomePage() {
           setCalendarRegistrationDates(nextCalendarRegistrationDatesForCache);
           setCalendarDaysSinceJoined(nextCalendarDaysSinceJoinedForCache);
           setCalendarCurrentKyivDateTimeText(nextCalendarCurrentKyivDateTimeTextForCache);
+          setCachedCalendarMonth(calendarMonth.year, calendarMonth.month, calendarPayload);
         }
 
         setCachedHomeSnapshot({
@@ -2050,6 +2167,9 @@ export default function HomePage() {
       return;
     }
 
+    preloadScenePack(scene?.id, { scene }).catch(() => {
+    });
+
     navigate(PATHS.scene(scene?.id), {
       state: {
         topic,
@@ -2073,6 +2193,9 @@ export default function HomePage() {
       showInfo("Енергія закінчилась", "Щоб почати урок, спочатку віднови енергію.");
       return;
     }
+
+    preloadLessonPack(lesson?.id).catch(() => {
+    });
 
     navigate(PATHS.lesson(lesson?.id), {
       state: {
@@ -2120,6 +2243,15 @@ export default function HomePage() {
     setShowFullCalendar(true);
     setOpenDropdown("");
 
+    const cachedCalendarPayload = getCachedCalendarMonth(calendarMonth.year, calendarMonth.month);
+
+    if (cachedCalendarPayload) {
+      setCalendarDates(cachedCalendarPayload.activeDates);
+      setCalendarRegistrationDates(cachedCalendarPayload.registrationDates);
+      setCalendarDaysSinceJoined(cachedCalendarPayload.daysSinceJoined);
+      setCalendarCurrentKyivDateTimeText(cachedCalendarPayload.currentKyivDateTimeText);
+    }
+
     const res = await streakService.getMyCalendarMonth(calendarMonth.year, calendarMonth.month);
 
     if (res.ok) {
@@ -2128,6 +2260,7 @@ export default function HomePage() {
       setCalendarRegistrationDates(calendarPayload.registrationDates);
       setCalendarDaysSinceJoined(calendarPayload.daysSinceJoined);
       setCalendarCurrentKyivDateTimeText(calendarPayload.currentKyivDateTimeText);
+      setCachedCalendarMonth(calendarMonth.year, calendarMonth.month, calendarPayload);
     }
   }, [calendarMonth.month, calendarMonth.year, guestPrompt, isGuest]);
 
@@ -2141,6 +2274,15 @@ export default function HomePage() {
       return;
     }
 
+    const cachedCalendarPayload = getCachedCalendarMonth(next.year, next.month);
+
+    if (cachedCalendarPayload) {
+      setCalendarDates(cachedCalendarPayload.activeDates);
+      setCalendarRegistrationDates(cachedCalendarPayload.registrationDates);
+      setCalendarDaysSinceJoined(cachedCalendarPayload.daysSinceJoined);
+      setCalendarCurrentKyivDateTimeText(cachedCalendarPayload.currentKyivDateTimeText);
+    }
+
     const res = await streakService.getMyCalendarMonth(next.year, next.month);
 
     if (res.ok) {
@@ -2149,6 +2291,7 @@ export default function HomePage() {
       setCalendarRegistrationDates(calendarPayload.registrationDates);
       setCalendarDaysSinceJoined(calendarPayload.daysSinceJoined);
       setCalendarCurrentKyivDateTimeText(calendarPayload.currentKyivDateTimeText);
+      setCachedCalendarMonth(next.year, next.month, calendarPayload);
     }
   }, [calendarMonth.month, calendarMonth.year, isGuest]);
 
@@ -2324,6 +2467,9 @@ export default function HomePage() {
                       });
                       return;
                     }
+
+                    preloadScenePack(scene?.id, { scene }).catch(() => {
+                    });
 
                     navigate(PATHS.scene(scene?.id), {
                       state: {

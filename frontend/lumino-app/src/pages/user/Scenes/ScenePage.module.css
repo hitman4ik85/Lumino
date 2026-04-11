@@ -438,6 +438,131 @@
   cursor:not-allowed;
 }
 
+
+.sceneModalOverlay{
+  position:absolute;
+  inset:0;
+  z-index:40;
+  background:rgba(210, 216, 225, .72);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.sceneModalCard{
+  position:relative;
+  flex-shrink:0;
+  border-radius:20px;
+  background:#B2C3D5;
+  box-shadow:0 24px 60px rgba(38,65,94,.16);
+  box-sizing:border-box;
+}
+
+.sceneLeaveModalCard{
+  width:473px;
+  height:317px;
+  padding:0;
+}
+
+.sceneModalCloseButton{
+  position:absolute;
+  left:28px;
+  top:29px;
+  width:30px;
+  height:30px;
+  border:0;
+  background:transparent;
+  padding:0;
+  cursor:pointer;
+}
+
+.sceneModalCloseButton::before,
+.sceneModalCloseButton::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:5px;
+  height:43px;
+  border-radius:999px;
+  background:#26415E;
+  transform-origin:center;
+}
+
+.sceneModalCloseButton::before{
+  transform:translate(-50%, -50%) rotate(45deg);
+}
+
+.sceneModalCloseButton::after{
+  transform:translate(-50%, -50%) rotate(-45deg);
+}
+
+.sceneLeaveTitleBox{
+  width:428px;
+  min-height:112px;
+  margin:80px auto 0;
+  border-radius:20px;
+  background:#D3E1F0;
+  padding:21px 8px;
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.sceneLeaveTitle{
+  width:421px;
+  min-height:70px;
+  margin:0 auto;
+  text-align:center;
+  font-family:'Montserrat', sans-serif;
+  font-style:normal;
+  font-weight:700;
+  font-size:32px;
+  line-height:35px;
+  text-transform:none;
+  color:#26415E;
+}
+
+.sceneLeaveActions{
+  margin-top:23px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:38px;
+}
+
+.sceneModalButton{
+  width:141px;
+  height:70px;
+  border:0;
+  border-radius:15px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Montserrat', sans-serif;
+  font-style:normal;
+  font-weight:700;
+  font-size:24px;
+  line-height:29px;
+  text-transform:none;
+  color:#FFFFFF;
+  cursor:pointer;
+}
+
+.sceneModalButtonPrimary{
+  background:#26415E;
+}
+
+.sceneModalButtonSecondary{
+  background:#99B5D6;
+}
+
+.sceneModalButton:disabled{
+  cursor:default;
+  opacity:1;
+}
+
 @media (max-width: 768px){
   .panel{
     left:80px;
@@ -470,6 +595,10 @@
 }
 
 
+
+:global(body[data-lumino-theme="dark"]) .sceneModalOverlay{
+  background:rgba(2, 11, 23, .52);
+}
 
 @keyframes sceneBubbleMascotEnter{
   from{

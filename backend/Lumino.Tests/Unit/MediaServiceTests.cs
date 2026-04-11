@@ -1,7 +1,10 @@
 ﻿using System;
 using Lumino.Api.Application.Services;
+using Lumino.Api.Data;
+using Lumino.Api.Domain.Entities;
 using Lumino.Api.Utils;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace Lumino.Tests;
@@ -351,7 +354,55 @@ public class MediaServiceTests
         }
     }
 
-    private static MediaService CreateService(string? contentRootPath = null)
+    [Fact]
+    public void List_WhenFileIsBoundToLessonExercise_ShouldReturnBindingInfo()
+    {
+        var originalDir = Directory.GetCurrentDirectory();
+        var tempRoot = Path.Combine(Path.GetTempPath(), "LuminoMediaTests", Guid.NewGuid().ToString("N"));
+        var uploadsPath = Path.Combine(tempRoot, "wwwroot", "uploads", "lessons");
+        Directory.CreateDirectory(uploadsPath);
+
+        var service = CreateService(tempRoot, db =>
+        {
+            db.Courses.Add(new Course { Id = 1, Title = "English A1", Description = "desc", LanguageCode = "en", IsPublished = true, Order = 1 });
+            db.Topics.Add(new Topic { Id = 2, CourseId = 1, Title = "Basics", Order = 1 });
+            db.Lessons.Add(new Lesson { Id = 3, TopicId = 2, Title = "Greetings", Theory = "theory", Order = 1 });
+            db.Exercises.Add(new Exercise { Id = 4, LessonId = 3, Type = 0, Question = "Q", Data = "{}", CorrectAnswer = "A", Order = 2, ImageUrl = "/uploads/lessons/binding.png" });
+        });
+
+        try
+        {
+            Directory.SetCurrentDirectory(tempRoot);
+            File.WriteAllBytes(Path.Combine(uploadsPath, "binding.png"), new byte[] { 1, 2, 3, 4 });
+
+            var items = service.List("http://localhost");
+            var item = Assert.Single(items, x => x.FileName == "lessons/binding.png");
+
+            Assert.Equal(1, item.BindingCount);
+            Assert.Single(item.Bindings);
+            Assert.Contains("Greetings", item.Bindings[0]);
+            Assert.Contains("Basics", item.Bindings[0]);
+            Assert.Contains("English A1", item.Bindings[0]);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalDir);
+
+            try
+            {
+                if (Directory.Exists(tempRoot))
+                {
+                    Directory.Delete(tempRoot, recursive: true);
+                }
+            }
+            catch
+            {
+                // cleanup intentionally ignored
+            }
+        }
+    }
+
+    private static MediaService CreateService(string? contentRootPath = null, Action<LuminoDbContext>? seed = null)
     {
         var root = string.IsNullOrWhiteSpace(contentRootPath)
             ? Path.GetTempPath()
@@ -363,6 +414,14 @@ public class MediaServiceTests
             WebRootPath = Path.Combine(root, "wwwroot")
         };
 
-        return new MediaService(environment);
+        var options = new DbContextOptionsBuilder<LuminoDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString("N"))
+            .Options;
+
+        var db = new LuminoDbContext(options);
+        seed?.Invoke(db);
+        db.SaveChanges();
+
+        return new MediaService(environment, db);
     }
 }

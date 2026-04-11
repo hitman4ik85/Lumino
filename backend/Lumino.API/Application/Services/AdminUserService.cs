@@ -114,12 +114,12 @@ namespace Lumino.Api.Application.Services
                 PasswordHash = _passwordHasher.Hash(request.Password!.Trim()),
                 AvatarUrl = NormalizeOptional(request.AvatarUrl),
                 Role = role,
-                IsEmailVerified = request.IsEmailVerified,
+                IsEmailVerified = request.IsEmailVerified ?? true,
                 CreatedAt = DateTime.UtcNow,
                 NativeLanguageCode = languages.NativeLanguageCode,
                 TargetLanguageCode = languages.TargetLanguageCode,
-                Hearts = role == Role.Admin ? 0 : Math.Max(0, request.Hearts),
-                Crystals = role == Role.Admin ? 0 : Math.Max(0, request.Crystals),
+                Hearts = role == Role.Admin ? 0 : NormalizeHearts(request.Hearts),
+                Crystals = role == Role.Admin ? 0 : Math.Max(0, request.Crystals ?? 0),
                 BlockedUntilUtc = blockedUntilUtc,
                 Theme = theme,
             };
@@ -132,7 +132,7 @@ namespace Lumino.Api.Application.Services
                 InvalidateUserSessions(user.Id);
             }
 
-            SyncUserProgress(user.Id, role == Role.Admin ? 0 : request.Points);
+            SyncUserProgress(user.Id, role == Role.Admin ? 0 : Math.Max(0, request.Points ?? 0));
             SyncUserCourses(user, courseIds, activeCourseId, languages.TargetLanguageCode);
 
             return GetAll().First(x => x.Id == user.Id);
@@ -154,9 +154,34 @@ namespace Lumino.Api.Application.Services
             }
 
             EnsureCanManageUser(currentAdmin, user);
-            ValidateRequest(request, isCreate: false, currentUsername: user.Username);
 
-            var role = ParseRole(request.Role);
+            var currentPoints = _dbContext.UserProgresses
+                .Where(x => x.UserId == user.Id)
+                .Select(x => x.TotalScore)
+                .FirstOrDefault();
+
+            var currentUserCourses = _dbContext.UserCourses
+                .Where(x => x.UserId == user.Id)
+                .OrderBy(x => x.CourseId)
+                .ToList();
+
+            var currentCourseIds = currentUserCourses
+                .Select(x => x.CourseId)
+                .Distinct()
+                .OrderBy(x => x)
+                .ToList();
+
+            var currentActiveCourseId = currentUserCourses
+                .Where(x => x.IsActive)
+                .OrderByDescending(x => x.LastOpenedAt)
+                .Select(x => (int?)x.CourseId)
+                .FirstOrDefault();
+
+            var effectiveRequest = BuildEffectiveUpdateRequest(request, user, currentPoints, currentCourseIds, currentActiveCourseId);
+
+            ValidateRequest(effectiveRequest, isCreate: false, currentUsername: user.Username, currentAvatarUrl: user.AvatarUrl);
+
+            var role = ParseRole(effectiveRequest.Role);
             var isTargetPrimaryAdmin = IsPrimaryAdmin(user);
 
             if (role == Role.Admin && !IsPrimaryAdmin(currentAdmin) && user.Role != Role.Admin)
@@ -166,7 +191,7 @@ namespace Lumino.Api.Application.Services
 
             if (isTargetPrimaryAdmin)
             {
-                if (!string.Equals(request.Email?.Trim(), PrimaryAdminEmail, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(effectiveRequest.Email?.Trim(), PrimaryAdminEmail, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new ForbiddenAccessException("Email основного адміністратора змінювати не можна.");
                 }
@@ -177,18 +202,18 @@ namespace Lumino.Api.Application.Services
                 }
             }
 
-            var email = NormalizeRequiredEmail(request.Email);
-            var username = NormalizeUsername(request.Username);
-            var blockedUntilUtc = NormalizeBlockedUntilUtc(request.BlockedUntilUtc);
-            var theme = NormalizeTheme(request.Theme);
-            var courseIds = role == Role.Admin ? new List<int>() : NormalizeCourseIds(request.CourseIds);
-            var activeCourseId = role == Role.Admin ? null : request.ActiveCourseId;
+            var email = NormalizeRequiredEmail(effectiveRequest.Email);
+            var username = NormalizeUsername(effectiveRequest.Username);
+            var blockedUntilUtc = NormalizeBlockedUntilUtc(effectiveRequest.BlockedUntilUtc);
+            var theme = NormalizeTheme(effectiveRequest.Theme);
+            var courseIds = role == Role.Admin ? new List<int>() : NormalizeCourseIds(effectiveRequest.CourseIds);
+            var activeCourseId = role == Role.Admin ? null : effectiveRequest.ActiveCourseId;
             ValidateCourseSelection(courseIds, activeCourseId);
             EnsureUniqueUser(email, username, id);
 
             var languages = role == Role.Admin
                 ? (NativeLanguageCode: (string?)null, TargetLanguageCode: (string?)null)
-                : NormalizeLanguages(request.NativeLanguageCode, request.TargetLanguageCode, courseIds, activeCourseId);
+                : NormalizeLanguages(effectiveRequest.NativeLanguageCode, effectiveRequest.TargetLanguageCode, courseIds, activeCourseId);
 
             if (id == currentAdminUserId && blockedUntilUtc.HasValue)
             {
@@ -200,19 +225,20 @@ namespace Lumino.Api.Application.Services
                 throw new ForbiddenAccessException("Основного адміністратора блокувати не можна.");
             }
 
-            var shouldInvalidateSessions = blockedUntilUtc.HasValue
+            var previousBlockedUntilUtc = NormalizeBlockedUntilUtc(user.BlockedUntilUtc);
+            var shouldInvalidateSessions = !Nullable.Equals(previousBlockedUntilUtc, blockedUntilUtc)
                 || user.Role != role
                 || !string.IsNullOrWhiteSpace(request.Password);
 
             user.Username = username;
             user.Email = email;
-            user.AvatarUrl = NormalizeOptional(request.AvatarUrl);
+            user.AvatarUrl = NormalizeOptional(effectiveRequest.AvatarUrl);
             user.Role = role;
-            user.IsEmailVerified = request.IsEmailVerified;
+            user.IsEmailVerified = effectiveRequest.IsEmailVerified ?? true;
             user.NativeLanguageCode = languages.NativeLanguageCode;
             user.TargetLanguageCode = languages.TargetLanguageCode;
-            user.Hearts = role == Role.Admin ? 0 : Math.Max(0, request.Hearts);
-            user.Crystals = role == Role.Admin ? 0 : Math.Max(0, request.Crystals);
+            user.Hearts = role == Role.Admin ? 0 : NormalizeHearts(effectiveRequest.Hearts);
+            user.Crystals = role == Role.Admin ? 0 : Math.Max(0, effectiveRequest.Crystals ?? 0);
             user.BlockedUntilUtc = blockedUntilUtc;
             user.Theme = theme;
 
@@ -228,7 +254,7 @@ namespace Lumino.Api.Application.Services
                 InvalidateUserSessions(user.Id);
             }
 
-            SyncUserProgress(user.Id, role == Role.Admin ? 0 : request.Points);
+            SyncUserProgress(user.Id, role == Role.Admin ? 0 : Math.Max(0, effectiveRequest.Points ?? 0));
             SyncUserCourses(user, courseIds, activeCourseId, languages.TargetLanguageCode);
 
             return GetAll().First(x => x.Id == user.Id);
@@ -295,7 +321,7 @@ namespace Lumino.Api.Application.Services
             }
         }
 
-        private void ValidateRequest(AdminUserUpsertRequest request, bool isCreate, string? currentUsername = null)
+        private void ValidateRequest(AdminUserUpsertRequest request, bool isCreate, string? currentUsername = null, string? currentAvatarUrl = null)
         {
             if (request == null)
             {
@@ -324,7 +350,13 @@ namespace Lumino.Api.Application.Services
                 AccountValidationRules.ValidatePasswordForSet(request.Password, fieldName: "Password");
             }
 
-            SupportedAvatars.Validate(request.AvatarUrl, "AvatarUrl", _configuration);
+            var normalizedAvatarUrl = NormalizeOptional(request.AvatarUrl);
+            var normalizedCurrentAvatarUrl = NormalizeOptional(currentAvatarUrl);
+
+            if (isCreate || !string.Equals(normalizedAvatarUrl, normalizedCurrentAvatarUrl, StringComparison.Ordinal))
+            {
+                SupportedAvatars.Validate(normalizedAvatarUrl, "AvatarUrl", _configuration);
+            }
 
             var hasNative = !string.IsNullOrWhiteSpace(request.NativeLanguageCode);
             var hasTarget = !string.IsNullOrWhiteSpace(request.TargetLanguageCode);
@@ -360,7 +392,13 @@ namespace Lumino.Api.Application.Services
                 }
             }
 
-            _ = ParseRole(request.Role);
+            var role = ParseRole(request.Role);
+            var heartsMax = GetHeartsMax();
+
+            if (role != Role.Admin && request.Hearts.HasValue && request.Hearts.Value > heartsMax)
+            {
+                throw new ArgumentException($"Hearts must be between 0 and {heartsMax}");
+            }
         }
 
         private void EnsureUniqueUser(string email, string? username, int ignoreUserId)
@@ -587,6 +625,45 @@ namespace Lumino.Api.Application.Services
                 .Distinct()
                 .OrderBy(x => x)
                 .ToList();
+        }
+
+        private AdminUserUpsertRequest BuildEffectiveUpdateRequest(
+            AdminUserUpsertRequest request,
+            User user,
+            int currentPoints,
+            List<int> currentCourseIds,
+            int? currentActiveCourseId)
+        {
+            return new AdminUserUpsertRequest
+            {
+                Username = request.HasField(nameof(AdminUserUpsertRequest.Username)) ? request.Username : user.Username,
+                Email = request.HasField(nameof(AdminUserUpsertRequest.Email)) ? request.Email : user.Email,
+                Password = request.HasField(nameof(AdminUserUpsertRequest.Password)) ? request.Password : null,
+                AvatarUrl = request.HasField(nameof(AdminUserUpsertRequest.AvatarUrl)) ? request.AvatarUrl : user.AvatarUrl,
+                NativeLanguageCode = request.HasField(nameof(AdminUserUpsertRequest.NativeLanguageCode)) ? request.NativeLanguageCode : user.NativeLanguageCode,
+                TargetLanguageCode = request.HasField(nameof(AdminUserUpsertRequest.TargetLanguageCode)) ? request.TargetLanguageCode : user.TargetLanguageCode,
+                Role = request.HasField(nameof(AdminUserUpsertRequest.Role)) ? request.Role : user.Role.ToString(),
+                IsEmailVerified = request.HasField(nameof(AdminUserUpsertRequest.IsEmailVerified)) ? request.IsEmailVerified : user.IsEmailVerified,
+                Hearts = request.HasField(nameof(AdminUserUpsertRequest.Hearts)) ? request.Hearts : user.Hearts,
+                Crystals = request.HasField(nameof(AdminUserUpsertRequest.Crystals)) ? request.Crystals : user.Crystals,
+                Points = request.HasField(nameof(AdminUserUpsertRequest.Points)) ? request.Points : currentPoints,
+                BlockedUntilUtc = request.HasField(nameof(AdminUserUpsertRequest.BlockedUntilUtc)) ? request.BlockedUntilUtc : user.BlockedUntilUtc,
+                Theme = request.HasField(nameof(AdminUserUpsertRequest.Theme)) ? request.Theme : user.Theme,
+                CourseIds = request.HasField(nameof(AdminUserUpsertRequest.CourseIds)) ? (request.CourseIds ?? new List<int>()) : currentCourseIds,
+                ActiveCourseId = request.HasField(nameof(AdminUserUpsertRequest.ActiveCourseId)) ? request.ActiveCourseId : currentActiveCourseId,
+            };
+        }
+
+        private int GetHeartsMax()
+        {
+            var heartsMax = _configuration.GetValue<int?>("Learning:HeartsMax") ?? 5;
+            return heartsMax <= 0 ? 5 : heartsMax;
+        }
+
+        private int NormalizeHearts(int? hearts)
+        {
+            var heartsMax = GetHeartsMax();
+            return Math.Clamp(hearts ?? heartsMax, 0, heartsMax);
         }
 
         private static Role ParseRole(string? role)

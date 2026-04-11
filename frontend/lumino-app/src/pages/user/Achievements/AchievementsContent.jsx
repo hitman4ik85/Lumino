@@ -1,12 +1,41 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { authStorage } from "../../../services/authStorage.js";
 import { achievementsService } from "../../../services/achievementsService.js";
+import { readPersistentUserCache, writePersistentUserCache } from "../../../services/userPersistentCache.js";
 import styles from "./AchievementsPage.module.css";
 import AwardCardLocked from "../../../assets/lesson/achievement/award_card_locked.svg";
 
 const PLACEHOLDER_COUNT = 12;
+const ACHIEVEMENTS_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
+
+function getAchievementsCacheKey() {
+  const userKey = authStorage.getUserCacheKey();
+
+  if (!userKey) {
+    return "";
+  }
+
+  return `lumino-achievements-cache:${userKey}`;
+}
+
+function readAchievementsCache() {
+  const key = getAchievementsCacheKey();
+  const value = readPersistentUserCache(key, { ttlMs: ACHIEVEMENTS_CACHE_TTL_MS });
+
+  return Array.isArray(value) ? value.map(normalizeAchievement).filter((item) => item.title) : null;
+}
+
+function writeAchievementsCache(items) {
+  const key = getAchievementsCacheKey();
+
+  if (!key) {
+    return;
+  }
+
+  writePersistentUserCache(key, Array.isArray(items) ? items : []);
+}
 
 const DESCRIPTION_BY_CODE = {
   "sys.first_day_learning": "За перший завершений день навчання",
@@ -92,7 +121,8 @@ function sortAchievements(items) {
 
 export default function AchievementsContent() {
   const navigate = useNavigate();
-  const [achievements, setAchievements] = useState([]);
+  const initialCacheRef = useRef(readAchievementsCache());
+  const [achievements, setAchievements] = useState(initialCacheRef.current || []);
   const [imageErrors, setImageErrors] = useState({});
 
   useEffect(() => {
@@ -119,6 +149,7 @@ export default function AchievementsContent() {
         : [];
 
       setAchievements(list);
+      writeAchievementsCache(list);
     };
 
     loadAchievements();

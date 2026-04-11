@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Lumino.Api.Application.DTOs;
 using Lumino.Api.Application.Interfaces;
 using Lumino.Api.Utils;
@@ -33,9 +34,18 @@ namespace Lumino.Api.Controllers
         }
 
         [HttpPut("{id:int}")]
-        public IActionResult Update(int id, [FromBody] AdminUserUpsertRequest request)
+        public IActionResult Update(int id, [FromBody] JsonElement requestBody)
         {
             var currentAdminUserId = ClaimsUtils.GetUserIdOrThrow(User);
+            var request = requestBody.Deserialize<AdminUserUpsertRequest>(new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+            }) ?? new AdminUserUpsertRequest();
+
+            request.ProvidedFields = requestBody.ValueKind == JsonValueKind.Object
+                ? requestBody.EnumerateObject().Select(x => x.Name).ToHashSet(StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             var result = _adminUserService.Update(id, request, currentAdminUserId);
             return Ok(result);
         }

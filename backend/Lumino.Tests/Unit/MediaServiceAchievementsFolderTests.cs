@@ -1,5 +1,7 @@
 ﻿using Lumino.Api.Application.Services;
+using Lumino.Api.Data;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace Lumino.Tests;
@@ -96,6 +98,12 @@ public class MediaServiceAchievementsFolderTests
             WebRootPath = Path.Combine(contentRootPath, "wwwroot")
         };
 
-        return new MediaService(environment);
+        var options = new DbContextOptionsBuilder<LuminoDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString("N"))
+            .Options;
+
+        var db = new LuminoDbContext(options);
+
+        return new MediaService(environment, db);
     }
 }

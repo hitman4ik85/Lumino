@@ -121,7 +121,7 @@ export function validateNewPassword(value, options = {}) {
   return "";
 }
 
-export function validateNonNegativeInteger(value, label) {
+export function validateNonNegativeInteger(value, label, options = {}) {
   const text = String(value ?? "").trim();
 
   if (!text) {
@@ -130,6 +130,12 @@ export function validateNonNegativeInteger(value, label) {
 
   if (!/^\d+$/.test(text)) {
     return `${label} має бути цілим невід'ємним числом.`;
+  }
+
+  const max = Number(options.max);
+
+  if (Number.isFinite(max) && Number(text) > max) {
+    return `${label} має бути не більше ${max}.`;
   }
 
   return "";
@@ -226,7 +232,7 @@ export function validateAdminUserForm(form, options = {}) {
     return crystalsError;
   }
 
-  const heartsError = validateNonNegativeInteger(form?.hearts, "Енергія");
+  const heartsError = validateNonNegativeInteger(form?.hearts, "Енергія", { max: 5 });
 
   if (heartsError) {
     return heartsError;

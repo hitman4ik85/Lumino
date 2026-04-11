@@ -6,6 +6,7 @@ using Lumino.Api.Data;
 using Lumino.Api.Domain.Entities;
 using Lumino.Api.Domain.Enums;
 using Lumino.Api.Utils;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
@@ -184,11 +185,14 @@ namespace Lumino.Api.Application.Services
 
             EnsureUserIsNotBlocked(user);
             PrepareUserForAuthenticatedSession(user);
-            StartNewUserSession(user);
+
+            var sessionStartedAtUtc = DateTime.UtcNow;
+
+            StartNewUserSession(user, saveChanges: false, nowUtc: sessionStartedAtUtc);
+            var refreshToken = CreateRefreshToken(user.Id, limitActiveTokens: false, saveChanges: false, nowUtc: sessionStartedAtUtc);
+            _dbContext.SaveChanges();
 
             var accessToken = GenerateJwtToken(user);
-
-            var refreshToken = CreateRefreshToken(user.Id);
 
             return new AuthResponse
             {
@@ -303,10 +307,14 @@ namespace Lumino.Api.Application.Services
 
             EnsureUserIsNotBlocked(user);
             PrepareUserForAuthenticatedSession(user);
-            StartNewUserSession(user);
+
+            var sessionStartedAtUtc = DateTime.UtcNow;
+
+            StartNewUserSession(user, saveChanges: false, nowUtc: sessionStartedAtUtc);
+            var refreshToken = CreateRefreshToken(user.Id, limitActiveTokens: false, saveChanges: false, nowUtc: sessionStartedAtUtc);
+            _dbContext.SaveChanges();
 
             var accessToken = GenerateJwtToken(user);
-            var refreshToken = CreateRefreshToken(user.Id);
 
             return new AuthResponse
             {
@@ -491,11 +499,14 @@ namespace Lumino.Api.Application.Services
                 return;
             }
 
+            var nowUtc = DateTime.UtcNow;
+            var hasChanges = false;
             var myCourses = _dbContext.UserCourses.Where(x => x.UserId == userId).ToList();
 
-            foreach (var item in myCourses)
+            foreach (var item in myCourses.Where(x => x.IsActive && x.CourseId != course.Id))
             {
                 item.IsActive = false;
+                hasChanges = true;
             }
 
             var existing = myCourses.FirstOrDefault(x => x.CourseId == course.Id);
@@ -508,16 +519,90 @@ namespace Lumino.Api.Application.Services
                     CourseId = course.Id,
                     IsActive = true,
                     IsCompleted = false,
-                    StartedAt = DateTime.UtcNow,
-                    LastOpenedAt = DateTime.UtcNow
+                    StartedAt = nowUtc,
+                    LastOpenedAt = nowUtc
                 });
+
+                hasChanges = true;
             }
             else
             {
-                existing.IsActive = true;
-                existing.LastOpenedAt = DateTime.UtcNow;
+                if (!existing.IsActive)
+                {
+                    existing.IsActive = true;
+                    hasChanges = true;
+                }
+
+                existing.LastOpenedAt = nowUtc;
+                hasChanges = true;
             }
 
+            if (hasChanges)
+            {
+                _dbContext.SaveChanges();
+            }
+
+            EnsureUserLessonProgressSeedForCourse(userId, course.Id);
+        }
+
+        private void EnsureUserLessonProgressSeedForCourse(int userId, int courseId)
+        {
+            if (userId <= 0 || courseId <= 0)
+            {
+                return;
+            }
+
+            var orderedLessonIds =
+                (from t in _dbContext.Topics.AsNoTracking()
+                 join l in _dbContext.Lessons.AsNoTracking() on t.Id equals l.TopicId
+                 where t.CourseId == courseId
+                 orderby (t.Order <= 0 ? int.MaxValue : t.Order), t.Id, (l.Order <= 0 ? int.MaxValue : l.Order), l.Id
+                 select l.Id)
+                .Distinct()
+                .ToList();
+
+            if (orderedLessonIds.Count == 0)
+            {
+                return;
+            }
+
+            var existingProgresses = _dbContext.UserLessonProgresses
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && orderedLessonIds.Contains(x.LessonId))
+                .Select(x => new { x.LessonId, x.IsUnlocked })
+                .ToList();
+
+            if (existingProgresses.Count == orderedLessonIds.Count)
+            {
+                return;
+            }
+
+            var existingLessonIds = existingProgresses
+                .Select(x => x.LessonId)
+                .ToHashSet();
+
+            var hasUnlockedExistingLesson = existingProgresses.Any(x => x.IsUnlocked);
+            var firstLessonId = orderedLessonIds[0];
+
+            var missingProgresses = orderedLessonIds
+                .Where(x => !existingLessonIds.Contains(x))
+                .Select(x => new UserLessonProgress
+                {
+                    UserId = userId,
+                    LessonId = x,
+                    IsUnlocked = x == firstLessonId && !hasUnlockedExistingLesson,
+                    IsCompleted = false,
+                    BestScore = 0,
+                    LastAttemptAt = null
+                })
+                .ToList();
+
+            if (missingProgresses.Count == 0)
+            {
+                return;
+            }
+
+            _dbContext.UserLessonProgresses.AddRange(missingProgresses);
             _dbContext.SaveChanges();
         }
 
@@ -1058,16 +1143,22 @@ namespace Lumino.Api.Application.Services
                 .Replace("=", "");
         }
 
-        private void StartNewUserSession(User user)
+        private void StartNewUserSession(User user, bool saveChanges = true, DateTime? nowUtc = null)
         {
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
 
-            RevokeAllActiveRefreshTokens(user.Id, DateTime.UtcNow);
+            var sessionStartedAtUtc = nowUtc ?? DateTime.UtcNow;
+
+            RevokeAllActiveRefreshTokens(user.Id, sessionStartedAtUtc);
             user.SessionVersion++;
-            _dbContext.SaveChanges();
+
+            if (saveChanges)
+            {
+                _dbContext.SaveChanges();
+            }
         }
 
         private void RevokeAllActiveRefreshTokens(int userId, DateTime? nowUtc = null)
@@ -1075,7 +1166,7 @@ namespace Lumino.Api.Application.Services
             var now = nowUtc ?? DateTime.UtcNow;
 
             var activeTokens = _dbContext.RefreshTokens
-                .Where(x => x.UserId == userId && x.RevokedAt == null)
+                .Where(x => x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > now)
                 .ToList();
 
             foreach (var token in activeTokens)
@@ -1084,7 +1175,7 @@ namespace Lumino.Api.Application.Services
             }
         }
 
-        private string CreateRefreshToken(int userId)
+        private string CreateRefreshToken(int userId, bool limitActiveTokens = true, bool saveChanges = true, DateTime? nowUtc = null)
         {
             var refreshToken = GenerateRefreshToken();
             var refreshTokenHash = HashToken(refreshToken);
@@ -1102,23 +1193,33 @@ namespace Lumino.Api.Application.Services
                 expiresDays = 1;
             }
 
+            var createdAtUtc = nowUtc ?? DateTime.UtcNow;
+
             var entity = new RefreshToken
             {
                 UserId = userId,
                 TokenHash = refreshTokenHash,
-                CreatedAt = DateTime.UtcNow,
-                ExpiresAt = DateTime.UtcNow.AddDays(expiresDays)
+                CreatedAt = createdAtUtc,
+                ExpiresAt = createdAtUtc.AddDays(expiresDays)
             };
 
             _dbContext.RefreshTokens.Add(entity);
 
+            if (!saveChanges)
+            {
+                return refreshToken;
+            }
+
             // Спочатку зберігаємо новий refresh token, щоб LimitActiveTokens бачив його у базі
             _dbContext.SaveChanges();
 
-            LimitActiveTokens(userId);
+            if (limitActiveTokens)
+            {
+                LimitActiveTokens(userId);
 
-            // Зберігаємо можливі revocations
-            _dbContext.SaveChanges();
+                // Зберігаємо можливі revocations
+                _dbContext.SaveChanges();
+            }
 
             return refreshToken;
         }

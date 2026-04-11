@@ -5,6 +5,7 @@ import { lessonService } from "../../../services/lessonService.js";
 import { userService } from "../../../services/userService.js";
 import { achievementsService } from "../../../services/achievementsService.js";
 import { demoLessonService } from "../../../services/demoLessonService.js";
+import { getCachedLessonPack, preloadLessonPack } from "../../../services/lessonPackCache.js";
 import { PATHS } from "../../../routes/paths.js";
 import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
 import styles from "./LessonPage.module.css";
@@ -1176,6 +1177,16 @@ export default function LessonPage() {
 
   useEffect(() => {
     let ignore = false;
+    const lessonPackMode = isMistakesMode ? "mistakes" : "default";
+    const cachedLessonPack = !isDemoLesson ? getCachedLessonPack(lessonId, { mode: lessonPackMode }) : null;
+    const hasCachedLessonPack = Array.isArray(cachedLessonPack?.exercises) && cachedLessonPack.exercises.length > 0;
+    const lessonFromState = location.state?.lesson || null;
+
+    if (!isDemoLesson) {
+      setLesson(lessonFromState || cachedLessonPack?.lesson || null);
+      setExercises(hasCachedLessonPack ? cachedLessonPack.exercises.map(normalizeExercise) : []);
+      setLoading(!hasCachedLessonPack);
+    }
 
     const loadDemoLessonContent = async () => {
       const demoLessonFromState = location.state?.lesson || null;
@@ -1220,44 +1231,27 @@ export default function LessonPage() {
     };
 
     const loadLessonContent = async () => {
-      const lessonRes = await lessonsService.getById(lessonId);
+      const lessonPackRes = await preloadLessonPack(lessonId, { mode: lessonPackMode });
 
       if (ignore) {
         return;
       }
 
-      if (!lessonRes.ok) {
-        setError(lessonRes.error || "Не вдалося завантажити урок");
-        setLoading(false);
+      if (!lessonPackRes.ok) {
+        if (!hasCachedLessonPack) {
+          setError(lessonPackRes.error || "Не вдалося завантажити урок");
+          setLoading(false);
+        }
         return;
       }
 
-      setLesson(lessonRes.data || null);
-
-      const exercisesRes = isMistakesMode
-        ? await lessonService.getMistakes(lessonId)
-        : await lessonsService.getExercises(lessonId);
-
-      if (ignore) {
-        return;
-      }
-
-      if (!exercisesRes.ok) {
-        setError(exercisesRes.error || "Не вдалося завантажити урок");
-        setLoading(false);
-        return;
-      }
-
-      const rawExercises = isMistakesMode
-        ? (Array.isArray(exercisesRes.data?.exercises) ? exercisesRes.data.exercises : [])
-        : (Array.isArray(exercisesRes.data) ? exercisesRes.data : []);
-
-      setExercises(rawExercises.map(normalizeExercise));
+      setLesson(lessonPackRes.data?.lesson || lessonFromState || null);
+      setExercises(Array.isArray(lessonPackRes.data?.exercises) ? lessonPackRes.data.exercises.map(normalizeExercise) : []);
       setLoading(false);
     };
 
     const load = async () => {
-      setLoading(true);
+      setLoading(!hasCachedLessonPack);
       setError("");
       finalizedAttemptRef.current = false;
       setSessionMistakesCount(0);
@@ -1270,23 +1264,29 @@ export default function LessonPage() {
         return;
       }
 
-      const requests = [userService.getMe()];
+      const userRequest = userService.getMe();
 
       if (!isMistakesMode) {
-        requests.push(achievementsService.getMine());
+        achievementsService.getMine().then((achievementsRes) => {
+          if (ignore || !achievementsRes?.ok) {
+            return;
+          }
+
+          const earnedAchievements = Array.isArray(achievementsRes.data) ? achievementsRes.data : [];
+          setStartAchievementsCount(countEarnedAchievements(earnedAchievements));
+          setStartAchievements(earnedAchievements);
+        });
       }
 
-      const responses = await Promise.all(requests);
-      const userRes = responses[0];
-      const achievementsRes = responses[1];
+      await loadLessonContent();
 
       if (ignore) {
         return;
       }
 
-      if (!userRes.ok) {
-        setError(userRes.error || "Не вдалося завантажити урок");
-        setLoading(false);
+      const userRes = await userRequest;
+
+      if (ignore || !userRes?.ok) {
         return;
       }
 
@@ -1298,25 +1298,6 @@ export default function LessonPage() {
       };
 
       setUser(nextUser);
-
-      if (!isMistakesMode) {
-        const earnedAchievements = Array.isArray(achievementsRes?.data) ? achievementsRes.data : [];
-        setStartAchievementsCount(countEarnedAchievements(earnedAchievements));
-        setStartAchievements(earnedAchievements);
-      }
-
-      if (!isMistakesMode && nextUser.hearts <= 0) {
-        if (location.state?.lesson) {
-          setLesson(location.state.lesson);
-        }
-
-        setExercises([]);
-        setLessonModal({ open: true, type: "emptyEnergy" });
-        setLoading(false);
-        return;
-      }
-
-      await loadLessonContent();
     };
 
     load();
