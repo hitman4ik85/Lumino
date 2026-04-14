@@ -133,5 +133,101 @@ namespace Lumino.Tests.Unit
             Assert.NotNull(external);
             Assert.Equal(existing.Id, external!.UserId);
         }
+
+        [Fact]
+        public void OAuthGoogle_AfterDeleteAccount_ShouldAllowCreatingSameGoogleAccountAgain()
+        {
+            var dbContext = TestDbContextFactory.Create();
+
+            dbContext.Users.Add(new User
+            {
+                Id = 1,
+                Email = "google.recreate@example.com",
+                PasswordHash = new PasswordHasher().Hash("generated-password"),
+                CreatedAt = DateTime.UtcNow,
+                Role = Lumino.Api.Domain.Enums.Role.User
+            });
+
+            dbContext.UserExternalLogins.Add(new UserExternalLogin
+            {
+                UserId = 1,
+                Provider = "google",
+                ProviderUserId = "sub-recreate",
+                Email = "google.recreate@example.com",
+                CreatedAtUtc = DateTime.UtcNow
+            });
+
+            dbContext.SaveChanges();
+
+            var userAccountService = new UserAccountService(
+                dbContext,
+                new FakeChangePasswordRequestValidator(),
+                new DeleteAccountRequestValidator(),
+                new PasswordHasher());
+
+            userAccountService.DeleteAccount(1, new DeleteAccountRequest());
+
+            Assert.False(dbContext.Users.Any(x => x.Id == 1));
+            Assert.False(dbContext.UserExternalLogins.Any(x => x.Provider == "google" && x.ProviderUserId == "sub-recreate"));
+
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    { "Jwt:Key", "super_secret_test_key_1234567890" },
+                    { "Jwt:Issuer", "test-issuer" },
+                    { "Jwt:Audience", "test-audience" },
+                    { "Jwt:ExpiresMinutes", "60" },
+                    { "RefreshToken:ExpiresDays", "7" },
+                    { "OAuth:Google:ClientId", "test-client-id" }
+                })
+                .Build();
+
+            var service = new AuthService(
+                dbContext,
+                configuration,
+                new RegisterRequestValidator(configuration),
+                new LoginRequestValidator(),
+                new ForgotPasswordRequestValidator(),
+                new ResetPasswordRequestValidator(),
+                new VerifyEmailRequestValidator(),
+                new ResendVerificationRequestValidator(),
+                new FakeEmailSender(),
+                new FakeOpenIdTokenValidator
+                {
+                    GoogleUserInfo = new OpenIdUserInfo
+                    {
+                        Subject = "sub-recreate",
+                        Email = "google.recreate@example.com",
+                        Name = "Recreated User",
+                        PictureUrl = null
+                    }
+                },
+                new FakeHostEnvironment("Testing"),
+                new PasswordHasher()
+            );
+
+            var result = service.OAuthGoogle(new OAuthLoginRequest
+            {
+                IdToken = "dummy"
+            });
+
+            Assert.False(string.IsNullOrWhiteSpace(result.Token));
+            Assert.False(string.IsNullOrWhiteSpace(result.RefreshToken));
+
+            var recreatedUser = dbContext.Users.SingleOrDefault(x => x.Email == "google.recreate@example.com");
+            Assert.NotNull(recreatedUser);
+            Assert.Equal("google.recreate@example.com", recreatedUser!.Email);
+
+            var recreatedExternal = dbContext.UserExternalLogins.SingleOrDefault(x => x.Provider == "google" && x.ProviderUserId == "sub-recreate");
+            Assert.NotNull(recreatedExternal);
+            Assert.Equal(recreatedUser.Id, recreatedExternal!.UserId);
+        }
+
+        private class FakeChangePasswordRequestValidator : IChangePasswordRequestValidator
+        {
+            public void Validate(ChangePasswordRequest request)
+            {
+            }
+        }
     }
 }

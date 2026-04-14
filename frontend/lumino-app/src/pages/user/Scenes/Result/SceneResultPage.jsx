@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStageScale } from "../../../../hooks/useStageScale.js";
 import { PATHS } from "../../../../routes/paths.js";
+import { preloadAchievementsCache } from "../../../../services/achievementsCache.js";
 import GlassModal from "../../../../components/common/GlassModal/GlassModal.jsx";
 import styles from "./SceneResultPage.module.css";
 
@@ -105,6 +106,17 @@ export default function SceneResultPage() {
     setAchievementModalOpen(false);
     setAchievementModalIndex(0);
   }, [isMistakesMode, newlyEarnedAchievements]);
+
+  useEffect(() => {
+    if (!result) {
+      return undefined;
+    }
+
+    preloadAchievementsCache().catch(() => {
+    });
+
+    return undefined;
+  }, [result]);
 
   useEffect(() => {
     setShowTitle(false);

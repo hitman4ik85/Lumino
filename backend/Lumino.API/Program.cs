@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Net.Http.Headers;
 using System.IO;
 using System.Text;
 
@@ -236,7 +237,22 @@ namespace Lumino.Api
             EnsureUploadsFolders(app);
             SyncLessonUploads(app);
 
-            app.UseStaticFiles();
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                OnPrepareResponse = context =>
+                {
+                    var requestPath = context.Context.Request.Path.Value ?? string.Empty;
+
+                    if (!requestPath.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)
+                        && !requestPath.StartsWith("/avatars/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return;
+                    }
+
+                    context.Context.Response.Headers[HeaderNames.CacheControl] = "public,max-age=604800,stale-while-revalidate=86400";
+                    context.Context.Response.Headers[HeaderNames.Vary] = "Accept-Encoding";
+                }
+            });
 
             app.UseCors("AllowFrontend");
 

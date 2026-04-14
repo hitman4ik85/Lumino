@@ -2,6 +2,7 @@ import { authStorage } from "./authStorage.js";
 import { lessonsService } from "./lessonsService.js";
 import { lessonService } from "./lessonService.js";
 import { readPersistentUserCache, removePersistentUserCache, writePersistentUserCache } from "./userPersistentCache.js";
+import { warmMediaUrls } from "./mediaWarmup.js";
 
 const LESSON_PACK_MISTAKES_CACHE_TTL_MS = 10 * 60 * 1000;
 const LESSON_PACK_PERSISTENT_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
@@ -33,6 +34,32 @@ function getLessonPackCacheTtlMs(mode) {
     : LESSON_PACK_PERSISTENT_CACHE_TTL_MS;
 }
 
+function getLessonPackMediaUrls(value) {
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  const items = [];
+
+  const pushValue = (candidate) => {
+    const src = String(candidate || "").trim();
+
+    if (!src || items.includes(src)) {
+      return;
+    }
+
+    items.push(src);
+  };
+
+  pushValue(value.lesson?.imageUrl || value.lesson?.ImageUrl || "");
+
+  (Array.isArray(value.exercises) ? value.exercises : []).forEach((exercise) => {
+    pushValue(exercise?.imageUrl || exercise?.ImageUrl || "");
+  });
+
+  return items;
+}
+
 function normalizeLessonPack(value) {
   if (!value || typeof value !== "object") {
     return null;
@@ -59,7 +86,13 @@ export function getCachedLessonPack(lessonId, options = {}) {
     return null;
   }
 
-  return normalizeLessonPack(readPersistentUserCache(key, { ttlMs: getLessonPackCacheTtlMs(normalizedMode) }));
+  const cached = normalizeLessonPack(readPersistentUserCache(key, { ttlMs: getLessonPackCacheTtlMs(normalizedMode) }));
+
+  if (cached) {
+    warmMediaUrls(getLessonPackMediaUrls(cached));
+  }
+
+  return cached;
 }
 
 export function setCachedLessonPack(lessonId, options = {}, value) {
@@ -77,6 +110,7 @@ export function setCachedLessonPack(lessonId, options = {}, value) {
   }
 
   writePersistentUserCache(key, normalized);
+  warmMediaUrls(getLessonPackMediaUrls(normalized));
 }
 
 export function clearCachedLessonPack(lessonId, options = {}) {

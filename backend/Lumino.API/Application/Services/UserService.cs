@@ -25,8 +25,6 @@ namespace Lumino.Api.Application.Services
 
         public UserProfileResponse GetCurrentUser(int userId)
         {
-            EnsureTodayCalendarActivity(userId);
-
             var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
 
             if (user == null)
@@ -34,6 +32,7 @@ namespace Lumino.Api.Application.Services
                 throw new KeyNotFoundException("User not found");
             }
 
+            EnsureTodayCalendarActivity(userId);
 
             var hasGoogleExternalLogin = _dbContext.UserExternalLogins.Any(x => x.UserId == userId && x.Provider == "google");
             var hasPassword = !hasGoogleExternalLogin && !string.IsNullOrWhiteSpace(user.PasswordHash);
@@ -83,7 +82,7 @@ namespace Lumino.Api.Application.Services
 
                 if (exists)
                 {
-                    throw new ConflictException("Користувач з таким username уже існує.");
+                    throw new ConflictException("РљРѕСЂРёСЃС‚СѓРІР°С‡ Р· С‚Р°РєРёРј username СѓР¶Рµ С–СЃРЅСѓС”.");
                 }
 
                 user.Username = username;

@@ -4,12 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { validateChangePasswordForm, validatePassword, validateUsername } from "../../../utils/validation.js";
 import { authStorage } from "../../../services/authStorage.js";
-import { readPersistentUserCache, removePersistentUserCache, writePersistentUserCache } from "../../../services/userPersistentCache.js";
+import { getCachedProfileSnapshot, preloadProfileSnapshot, setCachedProfileSnapshot } from "../../../services/profileSnapshotCache.js";
 import { authService } from "../../../services/authService.js";
 import { userService } from "../../../services/userService.js";
 import { onboardingService } from "../../../services/onboardingService.js";
-import { profileService } from "../../../services/profileService.js";
-import { avatarsService } from "../../../services/avatarsService.js";
 import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
 import styles from "./ProfilePage.module.css";
@@ -63,64 +61,6 @@ const SETTINGS_ITEMS = [
   { key: "languages", label: "Мови" },
   { key: "linkedAccounts", label: "Зв'язані облікові записи" },
 ];
-
-const PROFILE_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
-
-function getProfileCacheKey() {
-  const userKey = authStorage.getUserCacheKey();
-
-  if (!userKey) {
-    return "";
-  }
-
-  return `lumino-profile-cache:${userKey}`;
-}
-
-function normalizeProfileSnapshot(value) {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const profile = value.profile && typeof value.profile === "object" ? value.profile : null;
-
-  return {
-    profile,
-    languages: Array.isArray(value.languages) ? value.languages : [],
-    activeTargetLanguageCode: String(value.activeTargetLanguageCode || profile?.targetLanguageCode || ""),
-    weeklyProgress: value.weeklyProgress && typeof value.weeklyProgress === "object"
-      ? value.weeklyProgress
-      : { currentWeek: [], previousWeek: [], totalPoints: 0 },
-    externalLogins: Array.isArray(value.externalLogins) ? value.externalLogins : [],
-    avatars: Array.isArray(value.avatars) ? value.avatars : [],
-    myDataForm: {
-      username: String(value.myDataForm?.username || profile?.username || ""),
-      email: String(value.myDataForm?.email || profile?.email || ""),
-    },
-  };
-}
-
-function getCachedProfileSnapshot() {
-  const key = getProfileCacheKey();
-  const value = readPersistentUserCache(key, { ttlMs: PROFILE_CACHE_TTL_MS });
-
-  return normalizeProfileSnapshot(value);
-}
-
-function setCachedProfileSnapshot(value) {
-  const key = getProfileCacheKey();
-  const normalized = normalizeProfileSnapshot(value);
-
-  if (!key) {
-    return;
-  }
-
-  if (!normalized) {
-    removePersistentUserCache(key);
-    return;
-  }
-
-  writePersistentUserCache(key, normalized);
-}
 
 function normalizeCode(code) {
   return String(code || "").trim().toLowerCase();
@@ -443,52 +383,27 @@ export default function ProfileContent({ onProfileChange = null }) {
     }
 
     try {
-      const [meRes, languagesRes, weeklyRes, externalLoginsRes, avatarsRes] = await Promise.all([
-        userService.getMe(),
-        onboardingService.getMyLanguages(),
-        profileService.getWeeklyProgress(),
-        userService.getExternalLogins(),
-        avatarsService.getAll(),
-      ]);
+      const res = await preloadProfileSnapshot();
 
-      if (!meRes.ok) {
+      if (!res.ok) {
         if (showBlocking || initialProfileCacheRef.current == null) {
-          showInfo("Помилка", meRes.error || "Не вдалося завантажити профіль.");
+          showInfo("Помилка", res.error || "Не вдалося завантажити профіль.");
         }
 
         return;
       }
 
-      const nextProfile = meRes.data || null;
+      const snapshot = res.data || null;
+      const nextProfile = snapshot?.profile || null;
+
       setProfile(nextProfile);
       notifyProfileChange(nextProfile);
-      setMyDataForm({ username: nextProfile?.username || "", email: nextProfile?.email || "" });
-
-      if (languagesRes.ok) {
-        setLanguages(Array.isArray(languagesRes.learningLanguages) ? languagesRes.learningLanguages : []);
-        setActiveTargetLanguageCode(languagesRes.activeTargetLanguageCode || nextProfile?.targetLanguageCode || "");
-      } else {
-        setLanguages([]);
-        setActiveTargetLanguageCode(nextProfile?.targetLanguageCode || "");
-      }
-
-      if (weeklyRes?.ok) {
-        setWeeklyProgress(weeklyRes.data || { currentWeek: [], previousWeek: [], totalPoints: 0 });
-      } else {
-        setWeeklyProgress({ currentWeek: [], previousWeek: [], totalPoints: 0 });
-      }
-
-      if (externalLoginsRes?.ok) {
-        setExternalLogins(Array.isArray(externalLoginsRes.data) ? externalLoginsRes.data : []);
-      } else {
-        setExternalLogins([]);
-      }
-
-      if (avatarsRes?.ok) {
-        setAvatars(Array.isArray(avatarsRes.items) ? avatarsRes.items : []);
-      } else {
-        setAvatars([]);
-      }
+      setMyDataForm({ username: snapshot?.myDataForm?.username || nextProfile?.username || "", email: snapshot?.myDataForm?.email || nextProfile?.email || "" });
+      setLanguages(Array.isArray(snapshot?.languages) ? snapshot.languages : []);
+      setActiveTargetLanguageCode(snapshot?.activeTargetLanguageCode || nextProfile?.targetLanguageCode || "");
+      setWeeklyProgress(snapshot?.weeklyProgress || { currentWeek: [], previousWeek: [], totalPoints: 0 });
+      setExternalLogins(Array.isArray(snapshot?.externalLogins) ? snapshot.externalLogins : []);
+      setAvatars(Array.isArray(snapshot?.avatars) ? snapshot.avatars : []);
     } finally {
       if (showBlocking) {
         setLoading(false);

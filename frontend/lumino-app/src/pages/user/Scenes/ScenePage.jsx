@@ -6,6 +6,7 @@ import { getCachedScenePack, preloadScenePack } from "../../../services/scenePac
 import { achievementsService } from "../../../services/achievementsService.js";
 import { userService } from "../../../services/userService.js";
 import { profileService } from "../../../services/profileService.js";
+import { mergeCachedProfileSnapshot } from "../../../services/profileSnapshotCache.js";
 import { PATHS } from "../../../routes/paths.js";
 import styles from "./ScenePage.module.css";
 
@@ -196,6 +197,8 @@ export default function ScenePage() {
   const location = useLocation();
   const stageRef = useRef(null);
   const introTimerRef = useRef(null);
+  const startedAsCompletedRef = useRef(false);
+  const submitSceneRequestRef = useRef(null);
 
   useStageScale(stageRef, { mode: "absolute" });
 
@@ -221,6 +224,8 @@ export default function ScenePage() {
     const cachedScenePack = getCachedScenePack(sceneId, { mode: scenePackMode });
     const hasCachedScenePack = Array.isArray(cachedScenePack?.steps) && cachedScenePack.steps.length > 0;
 
+    startedAsCompletedRef.current = Boolean((!isMistakesMode ? cachedScenePack?.scene?.isCompleted : false) || stateScene?.isCompleted || cachedScenePack?.scene?.isCompleted);
+
     setScene((!isMistakesMode ? cachedScenePack?.scene : null) || stateScene || cachedScenePack?.scene || null);
     setSteps(hasCachedScenePack ? cachedScenePack.steps : []);
     setLoading(!hasCachedScenePack);
@@ -232,6 +237,7 @@ export default function ScenePage() {
       setScreen("content");
       setAnswers({});
       setFeedback(null);
+      submitSceneRequestRef.current = null;
 
       const userRequest = userService.getMe();
       const weeklyRequest = profileService.getWeeklyProgress();
@@ -363,74 +369,121 @@ export default function ScenePage() {
     setSceneModal({ open: true, type: "leaveScene" });
   }, []);
 
+  const submitSceneAttempt = useCallback(async () => {
+    if (submitSceneRequestRef.current?.promise) {
+      return submitSceneRequestRef.current.promise;
+    }
+
+    const payload = {
+      idempotencyKey: makeIdempotencyKey(`scene-${sceneId}`),
+      answers: questionSteps.map((step) => ({
+        stepId: step.id,
+        answer: answers[step.id] || "",
+      })),
+    };
+
+    const request = (async () => {
+      try {
+        const res = isMistakesMode ? await scenesService.submitMistakes(sceneId, payload) : await scenesService.submit(sceneId, payload);
+
+        if (!res.ok) {
+          return {
+            ok: false,
+            error: res.error || "Не вдалося завершити сцену",
+          };
+        }
+
+        const startedAsCompleted = Boolean(startedAsCompletedRef.current);
+        const completedForFirstTime = !startedAsCompleted && Boolean(res.data?.isCompleted);
+        const sceneRewardFallback = completedForFirstTime ? 15 : 0;
+        const earnedCrystals = Number(res.data?.earnedCrystals);
+        const earnedPoints = Number(res.data?.earnedPoints);
+
+        return {
+          ok: true,
+          result: {
+            ...(res.data || {}),
+            earnedCrystals: Number.isFinite(earnedCrystals) ? earnedCrystals : sceneRewardFallback,
+            earnedPoints: Number.isFinite(earnedPoints) ? earnedPoints : sceneRewardFallback,
+          },
+        };
+      } catch {
+        return {
+          ok: false,
+          error: "Не вдалося завершити сцену",
+        };
+      }
+    })();
+
+    const requestState = { promise: request };
+    submitSceneRequestRef.current = requestState;
+
+    const requestResult = await request;
+
+    if (submitSceneRequestRef.current === requestState) {
+      submitSceneRequestRef.current = {
+        promise: Promise.resolve(requestResult),
+        result: requestResult,
+      };
+    }
+
+    return requestResult;
+  }, [answers, isMistakesMode, questionSteps, sceneId]);
+
   const leaveScene = useCallback(() => {
     navigate(PATHS.home, { replace: true, state: { refreshLearning: true, refreshScenes: true } });
   }, [navigate]);
 
-  const handleContinueLine = useCallback(() => {
+  const handleContinueLine = useCallback(async () => {
     if (isLastStep) {
       setSubmitting(true);
-      const payload = {
-        idempotencyKey: makeIdempotencyKey(`scene-${sceneId}`),
-        answers: questionSteps.map((step) => ({
-          stepId: step.id,
-          answer: answers[step.id] || "",
-        })),
-      };
 
-      const startUser = { ...user };
-      const submitRequest = isMistakesMode ? scenesService.submitMistakes(sceneId, payload) : scenesService.submit(sceneId, payload);
+      const submitResult = await submitSceneAttempt();
 
-      submitRequest.then(async (res) => {
-        const extraRequests = [
-          userService.getMe(),
-          profileService.getWeeklyProgress(),
-        ];
+      setSubmitting(false);
 
-        if (!isMistakesMode) {
-          extraRequests.push(achievementsService.getMine());
-        }
+      if (!submitResult.ok) {
+        setError(submitResult.error || "Не вдалося завершити сцену");
+        return;
+      }
 
-        const [userRes, weeklyRes, achievementsRes] = await Promise.all(extraRequests);
-        setSubmitting(false);
-
-        if (!res.ok) {
-          setError(res.error || "Не вдалося завершити сцену");
+      Promise.all([
+        userService.getMe({ force: true }),
+        profileService.getWeeklyProgress({ force: true }),
+        isMistakesMode ? Promise.resolve(null) : achievementsService.getMine({ force: true }),
+      ]).then(([userRes, weeklyRes]) => {
+        if (!userRes?.ok && !weeklyRes?.ok) {
           return;
         }
 
-        const nextUser = {
-          ...(userRes.data || {}),
-          points: Number(weeklyRes.data?.totalPoints || 0),
-        };
-        const result = {
-          ...(res.data || {}),
-          earnedCrystals: Math.max(0, Number(nextUser?.crystals ?? nextUser?.crystalsCount ?? 0) - Number(startUser.crystals || 0)),
-          earnedPoints: Math.max(0, Number(nextUser?.points || 0) - Number(startUser.points || 0)),
-        };
-        const latestAchievements = Array.isArray(achievementsRes?.data) ? achievementsRes.data : [];
-        const newlyEarnedAchievements = isMistakesMode
-          ? []
-          : getNewlyEarnedAchievements(startAchievements, latestAchievements);
-
-        navigate(PATHS.sceneResult(sceneId), {
-          replace: true,
-          state: {
-            refreshLearning: true,
-            refreshScenes: true,
-            result,
-            user: nextUser,
-            scene,
-            mode: isMistakesMode ? "mistakes" : undefined,
-            newlyEarnedAchievements,
-          },
+        mergeCachedProfileSnapshot({
+          profile: userRes?.ok ? (userRes.data || null) : undefined,
+          activeTargetLanguageCode: userRes?.ok ? String(userRes.data?.targetLanguageCode || "") : undefined,
+          weeklyProgress: weeklyRes?.ok ? (weeklyRes.data || { currentWeek: [], previousWeek: [], totalPoints: 0 }) : undefined,
+          myDataForm: userRes?.ok ? {
+            username: String(userRes.data?.username || ""),
+            email: String(userRes.data?.email || ""),
+          } : undefined,
         });
+      }).catch(() => {
+      });
+
+      navigate(PATHS.sceneResult(sceneId), {
+        replace: true,
+        state: {
+          refreshLearning: true,
+          refreshScenes: true,
+          result: submitResult.result,
+          scene,
+          mode: isMistakesMode ? "mistakes" : undefined,
+          newlyEarnedAchievements: [],
+        },
       });
       return;
     }
 
     setStepIndex((prev) => prev + 1);
-  }, [answers, isLastStep, isMistakesMode, navigate, questionSteps, scene, sceneId, startAchievements, user]);
+  }, [isLastStep, isMistakesMode, navigate, scene, sceneId, submitSceneAttempt]);
 
   const handleCheck = useCallback(() => {
     const correct = isCorrectStep(currentStep, currentAnswer);
@@ -441,7 +494,12 @@ export default function ScenePage() {
 
     setFeedback({ correct, correctAnswer: getStepCorrectAnswer(currentStep) });
     setScreen("feedback");
-  }, [currentAnswer, currentStep, isMistakesMode]);
+
+    if (isLastStep) {
+      submitSceneAttempt().catch(() => {
+      });
+    }
+  }, [currentAnswer, currentStep, isLastStep, isMistakesMode, submitSceneAttempt]);
 
   const handleFeedbackContinue = useCallback(() => {
     if (isLastStep) {
@@ -459,9 +517,9 @@ export default function ScenePage() {
       <div ref={stageRef} className={styles.stage}>
         <img className={styles.bg} src={showIntro ? BgLoad : BgRun} alt="" />
 
-        {loading ? (
+        {loading && !scene ? (
           <div className={styles.loaderPage}>Завантаження сцени...</div>
-        ) : error || !scene || !currentStep ? (
+        ) : error || !scene || (!loading && !currentStep) ? (
           <div className={styles.loaderPage}>
             <div>{error || "Сцену не знайдено"}</div>
             <button type="button" className={styles.primaryButton} onClick={() => navigate(PATHS.home)}>Повернутися</button>
@@ -474,10 +532,10 @@ export default function ScenePage() {
 
             <div className={styles.topBar}>
               <div className={styles.progressTrack}><span style={{ width: `${progressPercent}%` }} /></div>
-              {!showIntro ? <div className={styles.topCounter}><img src={EnergyIcon} alt="" /> {Number(user.hearts || 0)}</div> : null}
+              {!showIntro && !loading ? <div className={styles.topCounter}><img src={EnergyIcon} alt="" /> {Number(user.hearts || 0)}</div> : null}
             </div>
 
-            {showIntro ? (
+            {showIntro || loading ? (
               <div className={styles.titleScreen}>
                 <div className={styles.sceneTitle}>{sceneTitle}</div>
               </div>

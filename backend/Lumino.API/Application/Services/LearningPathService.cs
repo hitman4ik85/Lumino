@@ -22,6 +22,15 @@ namespace Lumino.Api.Application.Services
 
         public LearningPathResponse GetMyCoursePath(int userId, int courseId)
         {
+            var userExists = _dbContext.Users
+                .AsNoTracking()
+                .Any(x => x.Id == userId);
+
+            if (!userExists)
+            {
+                throw new KeyNotFoundException("User not found");
+            }
+
             var course = _dbContext.Courses
                 .AsNoTracking()
                 .FirstOrDefault(x => x.Id == courseId && x.IsPublished);
@@ -465,11 +474,26 @@ namespace Lumino.Api.Application.Services
 
             if (needSave)
             {
+                var userStillExists = _dbContext.Users
+                    .AsNoTracking()
+                    .Any(x => x.Id == userId);
+
+                if (!userStillExists)
+                {
+                    DiscardTrackedUserLessonProgressChanges(userId, lessonIds);
+                    return;
+                }
+
                 PrepareTrackedUserLessonProgressesForSave(userId, lessonIds);
 
                 try
                 {
                     _dbContext.SaveChanges();
+                }
+                catch (DbUpdateException ex) when (IsUserLessonProgressUserForeignKeyConflict(ex))
+                {
+                    DiscardTrackedUserLessonProgressChanges(userId, lessonIds);
+                    return;
                 }
                 catch (DbUpdateException ex) when (IsUserLessonProgressDuplicateKey(ex))
                 {
@@ -479,8 +503,29 @@ namespace Lumino.Api.Application.Services
                     }
 
                     PrepareTrackedUserLessonProgressesForSave(userId, lessonIds);
-                    _dbContext.SaveChanges();
+
+                    try
+                    {
+                        _dbContext.SaveChanges();
+                    }
+                    catch (DbUpdateException retryEx) when (IsUserLessonProgressUserForeignKeyConflict(retryEx))
+                    {
+                        DiscardTrackedUserLessonProgressChanges(userId, lessonIds);
+                        return;
+                    }
                 }
+            }
+        }
+
+        private void DiscardTrackedUserLessonProgressChanges(int userId, List<int> lessonIds)
+        {
+            var trackedEntries = _dbContext.ChangeTracker.Entries<UserLessonProgress>()
+                .Where(x => x.Entity.UserId == userId && lessonIds.Contains(x.Entity.LessonId))
+                .ToList();
+
+            foreach (var trackedEntry in trackedEntries)
+            {
+                trackedEntry.State = EntityState.Detached;
             }
         }
 
@@ -618,6 +663,14 @@ namespace Lumino.Api.Application.Services
 
             return message.Contains("UserLessonProgresses", StringComparison.OrdinalIgnoreCase)
                 && message.Contains("IX_UserLessonProgresses_UserId_LessonId", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsUserLessonProgressUserForeignKeyConflict(DbUpdateException ex)
+        {
+            var message = ex.InnerException?.Message ?? ex.Message;
+
+            return message.Contains("UserLessonProgresses", StringComparison.OrdinalIgnoreCase)
+                && message.Contains("FK_UserLessonProgresses_Users_UserId", StringComparison.OrdinalIgnoreCase);
         }
 
 

@@ -2304,8 +2304,8 @@ export default function AdminPage() {
   const [courses, setCourses] = useState(() => sortByOrder(initialAdminBootCache?.courses || []));
   const [scenes, setScenes] = useState(() => sortByOrder(initialAdminBootCache?.scenes || []));
   const [achievements, setAchievements] = useState(() => initialAdminBootCache?.achievements || []);
-  const [users, setUsers] = useState(() => initialAdminBootCache?.users || []);
-  const [tokens, setTokens] = useState(() => readAdminServiceCache("tokens", "all") || []);
+  const [users, setUsers] = useState([]);
+  const [tokens, setTokens] = useState([]);
   const [mediaFiles, setMediaFiles] = useState([]);
   const [allVocabulary, setAllVocabulary] = useState(() => initialAdminBootCache?.allVocabulary || []);
 
@@ -2395,14 +2395,8 @@ export default function AdminPage() {
 
   const loadTokens = useCallback(async () => {
     const cacheKey = "all";
-    const cached = readAdminServiceCache("tokens", cacheKey);
 
-    if (Array.isArray(cached) && cached.length > 0) {
-      setTokens(cached);
-      setIsTokensLoading(false);
-    } else {
-      setIsTokensLoading(true);
-    }
+    setIsTokensLoading(true);
 
     try {
       const response = await adminService.getTokens();

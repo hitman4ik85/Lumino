@@ -4,6 +4,8 @@ import { lessonsService } from "../../../services/lessonsService.js";
 import { lessonService } from "../../../services/lessonService.js";
 import { userService } from "../../../services/userService.js";
 import { achievementsService } from "../../../services/achievementsService.js";
+import { profileService } from "../../../services/profileService.js";
+import { mergeCachedProfileSnapshot } from "../../../services/profileSnapshotCache.js";
 import { demoLessonService } from "../../../services/demoLessonService.js";
 import { getCachedLessonPack, preloadLessonPack } from "../../../services/lessonPackCache.js";
 import { PATHS } from "../../../routes/paths.js";
@@ -1566,7 +1568,6 @@ export default function LessonPage() {
         idempotencyKey: makeIdempotencyKey(`lesson-mistakes-${lessonId}`),
         answers: answersDto,
       });
-      const userRes = await userService.getMe();
 
       setSubmitting(false);
 
@@ -1577,14 +1578,32 @@ export default function LessonPage() {
 
       finalizedAttemptRef.current = true;
 
-      const nextUser = userRes.data || null;
+      Promise.all([
+        userService.getMe({ force: true }),
+        profileService.getWeeklyProgress({ force: true }),
+      ]).then(([userRes, weeklyRes]) => {
+        if (!userRes?.ok && !weeklyRes?.ok) {
+          return;
+        }
+
+        mergeCachedProfileSnapshot({
+          profile: userRes?.ok ? (userRes.data || null) : undefined,
+          activeTargetLanguageCode: userRes?.ok ? String(userRes.data?.targetLanguageCode || "") : undefined,
+          weeklyProgress: weeklyRes?.ok ? (weeklyRes.data || { currentWeek: [], previousWeek: [], totalPoints: 0 }) : undefined,
+          myDataForm: userRes?.ok ? {
+            username: String(userRes.data?.username || ""),
+            email: String(userRes.data?.email || ""),
+          } : undefined,
+        });
+      }).catch(() => {
+      });
+
       const restoredHearts = Math.max(0, Number(submitRes.data?.restoredHearts || 0));
 
       navigate(PATHS.lessonResult(lessonId), {
         replace: true,
         state: {
           lesson,
-          user: nextUser,
           mode: "mistakes",
           result: {
             totalExercises: Number(submitRes.data?.totalExercises || exercises.length || 0),
@@ -1632,7 +1651,6 @@ export default function LessonPage() {
     }
 
     const submitRes = await lessonsService.submit(lessonId, submitDto);
-    const [userRes, achievementsRes] = await Promise.all([userService.getMe(), achievementsService.getMine()]);
 
     setSubmitting(false);
 
@@ -1642,6 +1660,28 @@ export default function LessonPage() {
     }
 
     finalizedAttemptRef.current = true;
+
+    const achievementsRes = await achievementsService.getMine({ force: true });
+
+    Promise.all([
+      userService.getMe({ force: true }),
+      profileService.getWeeklyProgress({ force: true }),
+    ]).then(([userRes, weeklyRes]) => {
+      if (!userRes?.ok && !weeklyRes?.ok) {
+        return;
+      }
+
+      mergeCachedProfileSnapshot({
+        profile: userRes?.ok ? (userRes.data || null) : undefined,
+        activeTargetLanguageCode: userRes?.ok ? String(userRes.data?.targetLanguageCode || "") : undefined,
+        weeklyProgress: weeklyRes?.ok ? (weeklyRes.data || { currentWeek: [], previousWeek: [], totalPoints: 0 }) : undefined,
+        myDataForm: userRes?.ok ? {
+          username: String(userRes.data?.username || ""),
+          email: String(userRes.data?.email || ""),
+        } : undefined,
+      });
+    }).catch(() => {
+    });
 
     const latestAchievements = Array.isArray(achievementsRes?.data) ? achievementsRes.data : [];
     const achievementsCount = countEarnedAchievements(latestAchievements);
@@ -1653,7 +1693,6 @@ export default function LessonPage() {
       state: {
         lesson,
         result: submitRes.data,
-        user: userRes.data || null,
         hasNewAchievement,
         newlyEarnedAchievements,
       },

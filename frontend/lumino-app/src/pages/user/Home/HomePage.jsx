@@ -3,8 +3,8 @@ import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { authStorage } from "../../../services/authStorage.js";
-import { preloadLessonPack } from "../../../services/lessonPackCache.js";
-import { preloadScenePack } from "../../../services/scenePackCache.js";
+import { getCachedLessonPack, preloadLessonPack } from "../../../services/lessonPackCache.js";
+import { getCachedScenePack, preloadScenePack } from "../../../services/scenePackCache.js";
 import { readPersistentUserCache, removePersistentUserCache, writePersistentUserCache } from "../../../services/userPersistentCache.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { onboardingService } from "../../../services/onboardingService.js";
@@ -13,6 +13,10 @@ import { learningService } from "../../../services/learningService.js";
 import { userService } from "../../../services/userService.js";
 import { streakService } from "../../../services/streakService.js";
 import { scenesService } from "../../../services/scenesService.js";
+import { preloadAchievementsCache } from "../../../services/achievementsCache.js";
+import { preloadProfileSnapshot } from "../../../services/profileSnapshotCache.js";
+import { preloadVocabularyCache } from "../../../services/vocabularySnapshotCache.js";
+import { warmMediaUrls } from "../../../services/mediaWarmup.js";
 import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
 import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import ProfileContent from "../Profile/ProfileContent.jsx";
@@ -75,8 +79,9 @@ const HEADER_COUNTERS = {
 
 const ORBIT_SEQUENCE = [1, 2, 3, 1, 2, 3, 1, 2, 3, 1];
 const SECTION_WIDTH = 879.47;
-const FULL_PANEL_VIEWS = ["languages", "courses", "scenes", "lesson", "profile", "achievements", "dictionary"];
-const TOP_BAR_HIDDEN_VIEWS = ["languages", "lesson", "profile", "achievements", "dictionary"];
+const TAB_QUERY_VIEWS = ["profile", "achievements", "dictionary"];
+const FULL_PANEL_VIEWS = ["languages", "courses", "scenes", "lesson", ...TAB_QUERY_VIEWS];
+const TOP_BAR_HIDDEN_VIEWS = ["languages", "lesson", ...TAB_QUERY_VIEWS];
 const WEEK_DAYS = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "НД"];
 const LANGUAGE_ORDER = ["en", "de", "it", "es", "fr", "pl", "ja", "ko", "zh"];
 
@@ -671,8 +676,13 @@ function getScenesOverviewCacheKey(languageCode, courses) {
 function getCachedScenesOverview(languageCode, courses) {
   const key = getScenesOverviewCacheKey(languageCode, courses);
   const value = readPersistentUserCache(key, { ttlMs: SCENES_OVERVIEW_CACHE_TTL_MS });
+  const items = Array.isArray(value) ? value : null;
 
-  return Array.isArray(value) ? value : null;
+  if (Array.isArray(items) && items.length > 0) {
+    warmMediaUrls(items.filter((item) => item?.isUnlocked).map((item) => item?.previewUrl));
+  }
+
+  return items;
 }
 
 function setCachedScenesOverview(languageCode, courses, value) {
@@ -688,6 +698,101 @@ function setCachedScenesOverview(languageCode, courses, value) {
   }
 
   removePersistentUserCache(key);
+}
+
+function buildScenesOverviewItems(sourceCourses, responses) {
+  const nextScenes = [];
+
+  sourceCourses.forEach((item, courseIndex) => {
+    const res = Array.isArray(responses) ? responses[courseIndex] : null;
+    const courseScenes = Array.isArray(res?.data) ? res.data : [];
+
+    courseScenes
+      .slice()
+      .sort((first, second) => Number(first?.order || 0) - Number(second?.order || 0))
+      .forEach((scene, sceneIndex) => {
+        nextScenes.push({
+          ...scene,
+          key: `${item?.id || courseIndex}-${scene?.id || sceneIndex}`,
+          courseId: item?.id || null,
+          courseLevel: getCourseLevel(item),
+          courseOrder: Number(item?.order || courseIndex + 1),
+          topicOrder: sceneIndex + 1,
+          previewUrl: resolveMediaUrl(scene?.backgroundUrl || scene?.BackgroundUrl),
+        });
+      });
+  });
+
+  warmMediaUrls(nextScenes.map((item) => item?.previewUrl));
+  return nextScenes;
+}
+
+function buildScenesOverviewFallback(sourceCourses, path) {
+  const normalizedPath = normalizeCoursePath(path);
+  const primaryCourse = Array.isArray(sourceCourses) ? sourceCourses[0] : null;
+  const scenes = Array.isArray(normalizedPath?.scenes) ? normalizedPath.scenes : [];
+
+  if (!primaryCourse || scenes.length === 0) {
+    return [];
+  }
+
+  const nextScenes = scenes
+    .slice()
+    .sort((first, second) => Number(first?.order || 0) - Number(second?.order || 0))
+    .map((scene, sceneIndex) => ({
+      ...scene,
+      key: `${primaryCourse?.id || 0}-${scene?.id || sceneIndex}`,
+      courseId: primaryCourse?.id || null,
+      courseLevel: getCourseLevel(primaryCourse),
+      courseOrder: Number(primaryCourse?.order || 1),
+      topicOrder: sceneIndex + 1,
+      previewUrl: resolveMediaUrl(scene?.backgroundUrl || scene?.BackgroundUrl || scene?.previewUrl || scene?.PreviewUrl),
+    }));
+
+  warmMediaUrls(nextScenes.filter((item) => item?.isUnlocked).map((item) => item?.previewUrl));
+  return nextScenes;
+}
+
+function mergeScenesOverviewWithPath(items, path) {
+  const normalizedPath = normalizeCoursePath(path);
+  const sourceItems = Array.isArray(items) ? items : [];
+  const sourceScenes = Array.isArray(normalizedPath?.scenes) ? normalizedPath.scenes : [];
+
+  if (sourceItems.length === 0 || sourceScenes.length === 0) {
+    return sourceItems;
+  }
+
+  const scenesById = new Map(
+    sourceScenes
+      .map((scene) => [Number(scene?.id || 0), scene])
+      .filter(([id]) => id > 0)
+  );
+
+  const nextItems = sourceItems.map((item) => {
+    const id = Number(item?.id || 0);
+    const pathScene = scenesById.get(id);
+
+    if (!pathScene) {
+      return {
+        ...item,
+        previewUrl: resolveMediaUrl(item?.previewUrl || item?.backgroundUrl || item?.BackgroundUrl || item?.previewUrl || item?.PreviewUrl),
+      };
+    }
+
+    return {
+      ...item,
+      ...pathScene,
+      key: item?.key,
+      courseId: item?.courseId || null,
+      courseLevel: item?.courseLevel,
+      courseOrder: item?.courseOrder,
+      topicOrder: item?.topicOrder,
+      previewUrl: resolveMediaUrl(item?.previewUrl || pathScene?.backgroundUrl || pathScene?.BackgroundUrl || pathScene?.previewUrl || pathScene?.PreviewUrl),
+    };
+  });
+
+  warmMediaUrls(nextItems.filter((item) => item?.isUnlocked).map((item) => item?.previewUrl));
+  return nextItems;
 }
 
 function getSupportedLanguagesCacheKey() {
@@ -985,6 +1090,9 @@ function OrbitSection({
   onSceneButtonClick,
   onSceneSunClick,
   onLessonClick,
+  onLessonWarm,
+  onSceneWarm,
+  onSceneWarmForLesson,
 }) {
   const orbitType = getOrbitType(index);
   const layout = ORBIT_LAYOUTS[orbitType];
@@ -1054,6 +1162,18 @@ function OrbitSection({
                 height: `${lessonLayout.height}px`,
               }}
               onMouseDown={(event) => event.stopPropagation()}
+              onMouseEnter={() => {
+                if (isUnlocked) {
+                  onLessonWarm(lesson?.id);
+                  onSceneWarmForLesson(item, lesson);
+                }
+              }}
+              onFocus={() => {
+                if (isUnlocked) {
+                  onLessonWarm(lesson?.id);
+                  onSceneWarmForLesson(item, lesson);
+                }
+              }}
               onClick={() => onLessonClick(item, lesson, !isUnlocked)}
             >
               {isNextLesson ? (
@@ -1087,6 +1207,16 @@ function OrbitSection({
             height: `${layout.sun.height}px`,
           }}
           onMouseDown={(event) => event.stopPropagation()}
+          onMouseEnter={() => {
+            if (item?.scene?.isUnlocked) {
+              onSceneWarm(item?.scene);
+            }
+          }}
+          onFocus={() => {
+            if (item?.scene?.isUnlocked) {
+              onSceneWarm(item?.scene);
+            }
+          }}
           onClick={() => onSceneSunClick(item, item?.scene, !item?.scene?.isUnlocked)}
         >
           {Number(item?.scene?.id || 0) === nextScenePointer && item?.scene?.isUnlocked && !item?.scene?.isCompleted ? (
@@ -1166,7 +1296,7 @@ export default function HomePage() {
   const initialHomeCacheRef = useRef(!isGuest ? applyOptimisticHomeRefresh(getCachedHomeSnapshot(), location.state) : null);
   const [loading, setLoading] = useState(initialHomeCacheRef.current == null);
   const [restoringHearts, setRestoringHearts] = useState(false);
-  const initialTab = ["profile", "achievements", "dictionary"].includes(searchParams.get("tab")) ? searchParams.get("tab") : "learning";
+  const initialTab = TAB_QUERY_VIEWS.includes(searchParams.get("tab")) ? searchParams.get("tab") : "learning";
   const [activeNav, setActiveNav] = useState(initialTab === "learning" ? "learning" : initialTab);
   const [bodyView, setBodyView] = useState(initialTab);
   const bodyViewRef = useRef(initialTab);
@@ -1208,25 +1338,37 @@ export default function HomePage() {
     setCachedCoursePath(initialLanguageCode, initialCourseId, initialHomeCacheRef.current.path);
   }, [isGuest]);
 
+  const currentTabFromUrl = useMemo(() => {
+    const tab = String(new URLSearchParams(location.search).get("tab") || "").trim();
+
+    return TAB_QUERY_VIEWS.includes(tab) ? tab : "";
+  }, [location.search]);
+
   useEffect(() => {
     bodyViewRef.current = bodyView;
   }, [bodyView]);
 
   useEffect(() => {
-    if (bodyView !== "scenes") {
-      setScenePreviewsEnabled(false);
-      return undefined;
+    if (!currentTabFromUrl) {
+      if (TAB_QUERY_VIEWS.includes(bodyView)) {
+        setActiveNav("learning");
+        setBodyView("learning");
+      }
+
+      return;
     }
 
-    const timeoutId = window.setTimeout(() => {
-      if (bodyViewRef.current === "scenes") {
-        setScenePreviewsEnabled(true);
-      }
-    }, 350);
+    if (activeNav !== currentTabFromUrl) {
+      setActiveNav(currentTabFromUrl);
+    }
 
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
+    if (bodyView !== currentTabFromUrl) {
+      setBodyView(currentTabFromUrl);
+    }
+  }, [activeNav, bodyView, currentTabFromUrl]);
+
+  useEffect(() => {
+    setScenePreviewsEnabled(bodyView === "scenes");
   }, [bodyView]);
 
   const topics = useMemo(() => {
@@ -1266,6 +1408,7 @@ export default function HomePage() {
     return path?.nextPointers || getComputedNextPointers(path?.topics, path?.scenes);
   }, [isGuest, path]);
 
+
   const lessonPrefetchIds = useMemo(() => {
     if (isGuest || Number(user.hearts || 0) <= 0) {
       return [];
@@ -1297,6 +1440,38 @@ export default function HomePage() {
     return ids.slice(0, 9);
   }, [isGuest, nextPathPointers?.nextLessonId, topics, user.hearts]);
 
+  const scenePrefetchItems = useMemo(() => {
+    if (isGuest) {
+      return [];
+    }
+
+    const items = [];
+    const pushScene = (value) => {
+      const id = Number(value?.id || value || 0);
+
+      if (!id || items.some((item) => Number(item?.id || 0) === id)) {
+        return;
+      }
+
+      const scene = topics.map((topic) => topic?.scene).find((item) => Number(item?.id || 0) === id) || value;
+
+      if (!scene || typeof scene !== "object") {
+        return;
+      }
+
+      items.push(scene);
+    };
+
+    pushScene(nextPathPointers?.nextSceneId);
+
+    topics
+      .map((topic) => topic?.scene)
+      .filter((scene) => scene?.isUnlocked)
+      .forEach((scene) => pushScene(scene));
+
+    return items.slice(0, 4);
+  }, [isGuest, nextPathPointers?.nextSceneId, topics]);
+
   useEffect(() => {
     if (lessonPrefetchIds.length === 0) {
       return undefined;
@@ -1307,13 +1482,48 @@ export default function HomePage() {
         preloadLessonPack(id).catch(() => {
         });
       });
-    }, 500);
+    }, 0);
 
     return () => {
       window.clearTimeout(timerId);
     };
   }, [lessonPrefetchIds]);
 
+
+  useEffect(() => {
+    if (scenePrefetchItems.length === 0) {
+      return undefined;
+    }
+
+    const timerId = window.setTimeout(() => {
+      scenePrefetchItems.forEach((scene) => {
+        preloadScenePack(scene?.id, { scene }).catch(() => {
+        });
+      });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [scenePrefetchItems]);
+
+  useEffect(() => {
+    if (isGuest || loading) {
+      return undefined;
+    }
+
+    preloadVocabularyCache().catch(() => {
+    });
+    preloadAchievementsCache().catch(() => {
+    });
+    preloadProfileSnapshot({
+      languages: languageState.learningLanguages,
+      activeTargetLanguageCode: languageState.activeTargetLanguageCode,
+    }).catch(() => {
+    });
+
+    return undefined;
+  }, [isGuest, languageState.activeTargetLanguageCode, languageState.learningLanguages, loading]);
 
   useEffect(() => {
     const handleEscClose = (e) => {
@@ -1419,6 +1629,38 @@ export default function HomePage() {
   }, [course, courseItemsForView]);
   const hasPublishedCoursesForActiveLanguage = courseItemsForView.length > 0;
 
+  useEffect(() => {
+    if (isGuest || !currentCourseForScenes?.id || !activeLanguageCode) {
+      return undefined;
+    }
+
+    const sourceCourses = [currentCourseForScenes].filter(Boolean);
+    const cachedScenes = getCachedScenesOverview(activeLanguageCode, sourceCourses);
+
+    if (cachedScenes && cachedScenes.length > 0) {
+      warmMediaUrls(cachedScenes.map((item) => item?.previewUrl));
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const responses = await Promise.all(sourceCourses.map((item) => scenesService.getForMe(item?.id)));
+
+      if (cancelled) {
+        return;
+      }
+
+      const nextScenes = buildScenesOverviewItems(sourceCourses, responses);
+      setCachedScenesOverview(activeLanguageCode, sourceCourses, nextScenes);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLanguageCode, currentCourseForScenes, isGuest]);
+
+
   const guestPrompt = useCallback(() => {
     setModal({
       open: true,
@@ -1520,7 +1762,7 @@ export default function HomePage() {
         return { hasCourses: publicCourses.length > 0, activeTargetLanguageCode: preferred };
       }
 
-      const [userRes, languagesRes] = await Promise.all([userService.getMe(), onboardingService.getMyLanguages()]);
+      const [userRes, languagesRes] = await Promise.all([userService.getMe({ force: true }), onboardingService.getMyLanguages()]);
 
       if (isAuthExpiredResponse(userRes) || isAuthExpiredResponse(languagesRes)) {
         return { hasCourses: courses.length > 0, activeTargetLanguageCode: preferred };
@@ -1963,30 +2205,35 @@ export default function HomePage() {
     }
   }, [guestPrompt, isGuest, showInfo, user.crystalCostPerHeart, user.crystals, user.hearts, user.heartsMax]);
 
+  const syncHomeTab = useCallback((key) => {
+    const nextTab = TAB_QUERY_VIEWS.includes(key) ? key : "";
+    const nextBodyView = nextTab || "learning";
+
+    setActiveNav(nextBodyView);
+    setBodyView(nextBodyView);
+    setOpenDropdown("");
+    setShowFullCalendar(false);
+
+    if (currentTabFromUrl === nextTab) {
+      return;
+    }
+
+    if (nextTab) {
+      setSearchParams({ tab: nextTab }, { replace: true });
+      return;
+    }
+
+    setSearchParams({}, { replace: true });
+  }, [currentTabFromUrl, setSearchParams]);
+
   const handleNavClick = useCallback((key) => {
     if (isGuest) {
       guestPrompt();
       return;
     }
 
-    if (key === "profile" || key === "achievements") {
-      setActiveNav(key);
-      setBodyView(key);
-      setOpenDropdown("");
-      setShowFullCalendar(false);
-      setSearchParams({ tab: key });
-      return;
-    }
-
-    setActiveNav(key);
-    setBodyView(key === "learning" ? "learning" : key);
-    setOpenDropdown("");
-    setShowFullCalendar(false);
-
-    if (searchParams.get("tab") === "profile") {
-      setSearchParams({});
-    }
-  }, [guestPrompt, isGuest, searchParams, setSearchParams]);
+    syncHomeTab(key);
+  }, [guestPrompt, isGuest, syncHomeTab]);
 
   const handleCourseSelect = useCallback((item) => {
     if (isGuest) {
@@ -2048,41 +2295,24 @@ export default function HomePage() {
       return;
     }
 
-    const cachedScenes = getCachedScenesOverview(activeLanguageCode, sourceCourses);
+    const cachedScenes = mergeScenesOverviewWithPath(getCachedScenesOverview(activeLanguageCode, sourceCourses), path);
+    const fallbackScenes = buildScenesOverviewFallback(sourceCourses, path);
+    const initialScenes = cachedScenes && cachedScenes.length > 0 ? cachedScenes : fallbackScenes;
 
     setSelectedTopic(null);
     setOpenDropdown("");
     setBodyView("scenes");
 
-    if (cachedScenes && cachedScenes.length > 0) {
-      setScenesOverview(cachedScenes);
+    if (initialScenes.length > 0) {
+      setScenesOverview(initialScenes);
+      setLoading(false);
     } else {
       setLoading(true);
     }
 
     try {
       const responses = await Promise.all(sourceCourses.map((item) => scenesService.getForMe(item?.id)));
-      const nextScenes = [];
-
-      sourceCourses.forEach((item, courseIndex) => {
-        const res = responses[courseIndex];
-        const courseScenes = Array.isArray(res?.data) ? res.data : [];
-
-        courseScenes
-          .slice()
-          .sort((first, second) => Number(first?.order || 0) - Number(second?.order || 0))
-          .forEach((scene, sceneIndex) => {
-            nextScenes.push({
-              ...scene,
-              key: `${item?.id || courseIndex}-${scene?.id || sceneIndex}`,
-              courseId: item?.id || null,
-              courseLevel: getCourseLevel(item),
-              courseOrder: Number(item?.order || courseIndex + 1),
-              topicOrder: sceneIndex + 1,
-              previewUrl: resolveMediaUrl(scene?.backgroundUrl || scene?.BackgroundUrl),
-            });
-          });
-      });
+      const nextScenes = mergeScenesOverviewWithPath(buildScenesOverviewItems(sourceCourses, responses), path);
 
       if (scenesRequestRef.current !== requestId) {
         return;
@@ -2099,7 +2329,7 @@ export default function HomePage() {
         setLoading(false);
       }
     }
-  }, [activeLanguageCode, currentCourseForScenes, guestPrompt, isGuest]);
+  }, [activeLanguageCode, currentCourseForScenes, guestPrompt, isGuest, path]);
 
   const handleTitleClick = useCallback((topic, disabled = false, index = 0) => {
     if (isGuest) {
@@ -2146,7 +2376,61 @@ export default function HomePage() {
     loadScenesOverview();
   }, [loadScenesOverview]);
 
-  const handleSceneSunClick = useCallback((topic, scene, disabled) => {
+  const warmLessonPack = useCallback((lessonId) => {
+    preloadLessonPack(lessonId).catch(() => {
+    });
+  }, []);
+
+  const warmScenePack = useCallback((scene) => {
+    preloadScenePack(scene?.id, { scene }).catch(() => {
+    });
+  }, []);
+
+  const warmSceneForLastLesson = useCallback((topic, lesson) => {
+    const lessons = Array.isArray(topic?.lessons) ? topic.lessons : [];
+    const lessonId = Number(lesson?.id || 0);
+
+    if (!lessonId || lessons.length === 0) {
+      return;
+    }
+
+    const lessonIndex = lessons.findIndex((item) => Number(item?.id || 0) === lessonId);
+
+    if (lessonIndex === -1 || lessonIndex !== lessons.length - 1) {
+      return;
+    }
+
+    const scene = topic?.scene;
+
+    if (!scene?.id) {
+      return;
+    }
+
+    preloadScenePack(scene.id, { scene }).catch(() => {
+    });
+  }, []);
+
+  const openScene = useCallback(async (topic, scene) => {
+    if (!getCachedScenePack(scene?.id)) {
+      const preloadRequest = preloadScenePack(scene?.id, { scene }).catch(() => null);
+
+      await Promise.race([
+        preloadRequest,
+        new Promise((resolve) => {
+          window.setTimeout(resolve, 260);
+        }),
+      ]);
+    }
+
+    navigate(PATHS.scene(scene?.id), {
+      state: {
+        topic,
+        scene,
+      },
+    });
+  }, [navigate]);
+
+  const handleSceneSunClick = useCallback(async (topic, scene, disabled) => {
     if (isGuest) {
       guestPrompt();
       return;
@@ -2167,18 +2451,11 @@ export default function HomePage() {
       return;
     }
 
-    preloadScenePack(scene?.id, { scene }).catch(() => {
-    });
+    warmScenePack(scene);
+    await openScene(topic, scene);
+  }, [guestPrompt, isGuest, openScene, warmScenePack]);
 
-    navigate(PATHS.scene(scene?.id), {
-      state: {
-        topic,
-        scene,
-      },
-    });
-  }, [guestPrompt, isGuest, navigate, showInfo]);
-
-  const handleLessonClick = useCallback((topic, lesson, disabled) => {
+  const handleLessonClick = useCallback(async (topic, lesson, disabled) => {
     if (isGuest) {
       guestPrompt();
       return;
@@ -2194,8 +2471,18 @@ export default function HomePage() {
       return;
     }
 
-    preloadLessonPack(lesson?.id).catch(() => {
-    });
+    warmSceneForLastLesson(topic, lesson);
+
+    if (!getCachedLessonPack(lesson?.id)) {
+      const preloadRequest = preloadLessonPack(lesson?.id).catch(() => null);
+
+      await Promise.race([
+        preloadRequest,
+        new Promise((resolve) => {
+          window.setTimeout(resolve, 120);
+        }),
+      ]);
+    }
 
     navigate(PATHS.lesson(lesson?.id), {
       state: {
@@ -2203,7 +2490,7 @@ export default function HomePage() {
         lesson,
       },
     });
-  }, [guestPrompt, isGuest, navigate, showInfo, user.hearts]);
+  }, [guestPrompt, isGuest, navigate, showInfo, user.hearts, warmSceneForLastLesson]);
 
   const handleTrackMouseDown = useCallback((event) => {
     const track = trackRef.current;
@@ -2328,6 +2615,9 @@ export default function HomePage() {
               onSceneButtonClick={handleSceneButtonClick}
               onSceneSunClick={handleSceneSunClick}
               onLessonClick={handleLessonClick}
+              onLessonWarm={warmLessonPack}
+              onSceneWarm={warmScenePack}
+              onSceneWarmForLesson={warmSceneForLastLesson}
             />
           ))}
         </div>
@@ -2452,6 +2742,16 @@ export default function HomePage() {
                   key={scene.key || scene.id || index}
                   type="button"
                   className={`${styles.scenesCard} ${locked ? styles.scenesCardLocked : styles.scenesCardOpen}`}
+                  onMouseEnter={() => {
+                    if (!locked) {
+                      warmScenePack(scene);
+                    }
+                  }}
+                  onFocus={() => {
+                    if (!locked) {
+                      warmScenePack(scene);
+                    }
+                  }}
                   onClick={() => {
                     if (locked) {
                       setModal({
@@ -2468,14 +2768,8 @@ export default function HomePage() {
                       return;
                     }
 
-                    preloadScenePack(scene?.id, { scene }).catch(() => {
-                    });
-
-                    navigate(PATHS.scene(scene?.id), {
-                      state: {
-                        scene,
-                      },
-                    });
+                    warmScenePack(scene);
+                    openScene(null, scene);
                   }}
                 >
                   <span className={`${styles.scenesCardPreview} ${locked ? styles.scenesCardPreviewLocked : styles.scenesCardPreviewOpen}`}>

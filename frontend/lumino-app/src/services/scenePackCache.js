@@ -1,6 +1,7 @@
 import { authStorage } from "./authStorage.js";
 import { scenesService } from "./scenesService.js";
 import { readPersistentUserCache, removePersistentUserCache, writePersistentUserCache } from "./userPersistentCache.js";
+import { warmMediaUrls } from "./mediaWarmup.js";
 
 const SCENE_PACK_MISTAKES_CACHE_TTL_MS = 10 * 60 * 1000;
 const SCENE_PACK_PERSISTENT_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
@@ -46,6 +47,35 @@ function normalizeScene(value) {
   return nextScene;
 }
 
+function getScenePackMediaUrls(value) {
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  const items = [];
+
+  const pushValue = (candidate) => {
+    const src = String(candidate || "").trim();
+
+    if (!src || items.includes(src)) {
+      return;
+    }
+
+    items.push(src);
+  };
+
+  pushValue(value.scene?.backgroundUrl || value.scene?.BackgroundUrl || "");
+  pushValue(value.scene?.previewUrl || value.scene?.PreviewUrl || "");
+  pushValue(value.scene?.imageUrl || value.scene?.ImageUrl || "");
+
+  (Array.isArray(value.steps) ? value.steps : []).forEach((step) => {
+    pushValue(step?.imageUrl || step?.ImageUrl || "");
+    pushValue(step?.backgroundUrl || step?.BackgroundUrl || "");
+  });
+
+  return items;
+}
+
 function normalizeScenePack(value) {
   if (!value || typeof value !== "object") {
     return null;
@@ -72,7 +102,13 @@ export function getCachedScenePack(sceneId, options = {}) {
     return null;
   }
 
-  return normalizeScenePack(readPersistentUserCache(key, { ttlMs: getScenePackCacheTtlMs(normalizedMode) }));
+  const cached = normalizeScenePack(readPersistentUserCache(key, { ttlMs: getScenePackCacheTtlMs(normalizedMode) }));
+
+  if (cached) {
+    warmMediaUrls(getScenePackMediaUrls(cached));
+  }
+
+  return cached;
 }
 
 export function setCachedScenePack(sceneId, options = {}, value) {
@@ -90,6 +126,7 @@ export function setCachedScenePack(sceneId, options = {}, value) {
   }
 
   writePersistentUserCache(key, normalized);
+  warmMediaUrls(getScenePackMediaUrls(normalized));
 }
 
 export function clearCachedScenePack(sceneId, options = {}) {

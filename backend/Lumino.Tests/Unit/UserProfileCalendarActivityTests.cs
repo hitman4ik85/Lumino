@@ -56,6 +56,25 @@ namespace Lumino.Tests.Unit
             Assert.Equal(4, result.BestStreakDays);
         }
 
+        [Fact]
+        public void GetCurrentUser_WhenUserDoesNotExist_ShouldThrowWithoutCreatingCalendarActivity()
+        {
+            var dbContext = TestDbContextFactory.Create();
+            var now = new DateTime(2026, 3, 28, 10, 0, 0, DateTimeKind.Utc);
+
+            var settings = Options.Create(new LearningSettings
+            {
+                HeartsMax = 5,
+                HeartRegenMinutes = 30,
+                CrystalCostPerHeart = 10
+            });
+
+            var service = new UserService(dbContext, new FakeUpdateProfileRequestValidator(), settings, new FixedDateTimeProvider(now));
+
+            Assert.Throws<KeyNotFoundException>(() => service.GetCurrentUser(999));
+            Assert.Empty(dbContext.UserDailyActivities);
+        }
+
         private class FakeUpdateProfileRequestValidator : IUpdateProfileRequestValidator
         {
             public void Validate(UpdateProfileRequest request)

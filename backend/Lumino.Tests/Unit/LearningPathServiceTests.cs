@@ -273,6 +273,15 @@ public void GetMyCoursePath_WhenPreviousTopicSceneNotCompleted_NextTopicFirstLes
 {
     var dbContext = TestDbContextFactory.Create();
 
+    dbContext.Users.Add(new User
+    {
+        Id = 1,
+        Email = "learning-path-topic-lock-1@test.local",
+        PasswordHash = "hash",
+        CreatedAt = new DateTime(2026, 2, 10, 0, 0, 0, DateTimeKind.Utc),
+        Theme = "light"
+    });
+
     dbContext.Courses.Add(new Course
     {
         Id = 1,
@@ -335,6 +344,15 @@ public void GetMyCoursePath_WhenSceneHasNoTopicId_ShouldMapSceneToTopicByOrder_A
 {
     var dbContext = TestDbContextFactory.Create();
 
+    dbContext.Users.Add(new User
+    {
+        Id = 1,
+        Email = "learning-path-topic-lock-2@test.local",
+        PasswordHash = "hash",
+        CreatedAt = new DateTime(2026, 2, 10, 0, 0, 0, DateTimeKind.Utc),
+        Theme = "light"
+    });
+
     dbContext.Courses.Add(new Course
     {
         Id = 1,
@@ -387,8 +405,38 @@ public void GetMyCoursePath_WhenSceneHasNoTopicId_ShouldMapSceneToTopicByOrder_A
     Assert.Null(result.NextPointers.NextLessonId);
 }
 
-    private static void SeedCourse(Lumino.Api.Data.LuminoDbContext dbContext)
+
+    [Fact]
+    public void GetMyCoursePath_WhenUserDoesNotExist_ShouldThrowWithoutCreatingProgress()
     {
+        var dbContext = TestDbContextFactory.Create();
+
+        SeedCourse(dbContext, includeUser: false);
+        dbContext.SaveChanges();
+
+        var service = new LearningPathService(
+            dbContext,
+            Options.Create(new LearningSettings { PassingScorePercent = 80 })
+        );
+
+        Assert.Throws<KeyNotFoundException>(() => service.GetMyCoursePath(1, 1));
+        Assert.Empty(dbContext.UserLessonProgresses);
+    }
+
+    private static void SeedCourse(Lumino.Api.Data.LuminoDbContext dbContext, bool includeUser = true)
+    {
+        if (includeUser)
+        {
+            dbContext.Users.Add(new User
+            {
+                Id = 1,
+                Email = "learning-path@test.local",
+                PasswordHash = "hash",
+                CreatedAt = new DateTime(2026, 2, 10, 0, 0, 0, DateTimeKind.Utc),
+                Theme = "light"
+            });
+        }
+
         dbContext.Courses.Add(new Course
         {
             Id = 1,
@@ -410,16 +458,16 @@ public void GetMyCoursePath_WhenSceneHasNoTopicId_ShouldMapSceneToTopicByOrder_A
             new Lesson { Id = 2, TopicId = 1, Title = "L2", Theory = "T2", Order = 2 },
             new Lesson { Id = 3, TopicId = 1, Title = "L3", Theory = "T3", Order = 3 }
         );
-dbContext.Scenes.Add(new Scene
-{
-    Id = 1,
-    CourseId = 1,
-    TopicId = 1,
-    Title = "Topic Scene",
-    Description = "D",
-    SceneType = "Dialogue",
-    Order = 1
-});
 
+        dbContext.Scenes.Add(new Scene
+        {
+            Id = 1,
+            CourseId = 1,
+            TopicId = 1,
+            Title = "Topic Scene",
+            Description = "D",
+            SceneType = "Dialogue",
+            Order = 1
+        });
     }
 }

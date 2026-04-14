@@ -1,4 +1,13 @@
 import { apiClient } from "./apiClient.js";
+import { clearAchievementsCache } from "./achievementsService.js";
+import { clearWeeklyProgressCache } from "./profileService.js";
+import { clearUserSummaryCache } from "./userService.js";
+
+function clearLearningResultCaches() {
+  clearUserSummaryCache();
+  clearAchievementsCache();
+  clearWeeklyProgressCache();
+}
 
 export const scenesService = {
   getForMe(courseId) {
@@ -18,11 +27,23 @@ export const scenesService = {
     return apiClient.get(`/scenes/${id}/mistakes`);
   },
 
-  submit(id, dto) {
-    return apiClient.post(`/scenes/${id}/submit`, dto);
+  async submit(id, dto) {
+    const res = await apiClient.post(`/scenes/${id}/submit`, dto);
+
+    if (res.ok) {
+      clearLearningResultCaches();
+    }
+
+    return res;
   },
 
-  submitMistakes(id, dto) {
-    return apiClient.post(`/scenes/${id}/mistakes/submit`, dto);
+  async submitMistakes(id, dto) {
+    const res = await apiClient.post(`/scenes/${id}/mistakes/submit`, dto);
+
+    if (res.ok) {
+      clearLearningResultCaches();
+    }
+
+    return res;
   },
 };

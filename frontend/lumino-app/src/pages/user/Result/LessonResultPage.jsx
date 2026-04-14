@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { PATHS } from "../../../routes/paths.js";
+import { preloadAchievementsCache } from "../../../services/achievementsCache.js";
+import { preloadVocabularyCache } from "../../../services/vocabularySnapshotCache.js";
 import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
 import styles from "./LessonResultPage.module.css";
 
@@ -104,6 +106,19 @@ export default function LessonResultPage() {
     setAchievementModalOpen(false);
     setAchievementModalIndex(0);
   }, [isMistakesMode, newlyEarnedAchievements]);
+
+  useEffect(() => {
+    if (isDemoLesson || !result) {
+      return undefined;
+    }
+
+    preloadVocabularyCache().catch(() => {
+    });
+    preloadAchievementsCache().catch(() => {
+    });
+
+    return undefined;
+  }, [isDemoLesson, result]);
 
   useEffect(() => {
     setShowTitle(false);

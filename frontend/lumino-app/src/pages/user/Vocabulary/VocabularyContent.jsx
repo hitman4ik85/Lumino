@@ -2,52 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import { vocabularyService } from "../../../services/vocabularyService.js";
-import { authStorage } from "../../../services/authStorage.js";
-import { readPersistentUserCache, writePersistentUserCache } from "../../../services/userPersistentCache.js";
+import { preloadVocabularyCache, readVocabularyCache, writeVocabularyCache } from "../../../services/vocabularySnapshotCache.js";
 import SearchIconAsset from "../../../assets/vocabulare/search.svg";
 import DeleteIconAsset from "../../../assets/vocabulare/cart.svg";
 import styles from "./VocabularyPage.module.css";
 import { formatKyivDateTime, getKyivDayDifference } from "../../../utils/kyivDate.js";
 
-
-const VOCABULARY_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
-
-function getVocabularyCacheKey() {
-  const userKey = authStorage.getUserCacheKey();
-
-  if (!userKey) {
-    return "";
-  }
-
-  return `lumino-vocabulary-cache:${userKey}`;
-}
-
-function readVocabularyCache() {
-  const key = getVocabularyCacheKey();
-  const value = readPersistentUserCache(key, { ttlMs: VOCABULARY_CACHE_TTL_MS });
-
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  return {
-    items: Array.isArray(value?.items) ? value.items : [],
-    dueItems: Array.isArray(value?.dueItems) ? value.dueItems : [],
-  };
-}
-
-function writeVocabularyCache(items, dueItems) {
-  const key = getVocabularyCacheKey();
-
-  if (!key) {
-    return;
-  }
-
-  writePersistentUserCache(key, {
-    items: Array.isArray(items) ? items : [],
-    dueItems: Array.isArray(dueItems) ? dueItems : [],
-  });
-}
 
 const GRAMMAR_TOPICS = [
   {
@@ -1100,26 +1060,19 @@ export default function VocabularyContent() {
       setLoading(true);
     }
 
-    const [itemsRes, dueItemsRes] = await Promise.all([
-      vocabularyService.getMyVocabulary(),
-      typeof vocabularyService.getDueVocabulary === "function"
-        ? vocabularyService.getDueVocabulary()
-        : Promise.resolve({ ok: false, data: [] }),
-    ]);
+    const res = await preloadVocabularyCache();
 
-    if (!itemsRes.ok) {
+    if (!res.ok) {
       if (showBlocking) {
         setLoading(false);
       }
 
-      setModal({ open: true, title: "Словник", message: buildErrorText(itemsRes, "Не вдалося завантажити словник") });
+      setModal({ open: true, title: "Словник", message: buildErrorText(res, "Не вдалося завантажити словник") });
       return;
     }
 
-    const nextItems = Array.isArray(itemsRes.data) ? itemsRes.data : [];
-    const nextDueItems = dueItemsRes.ok
-      ? (Array.isArray(dueItemsRes.data) ? dueItemsRes.data : [])
-      : getDueItemsFromVocabulary(nextItems);
+    const nextItems = Array.isArray(res.data?.items) ? res.data.items : [];
+    const nextDueItems = Array.isArray(res.data?.dueItems) ? res.data.dueItems : [];
 
     setItems(nextItems);
     setDueItems(nextDueItems);
