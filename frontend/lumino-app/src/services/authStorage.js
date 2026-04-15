@@ -1,6 +1,22 @@
 const ACCESS_TOKEN_KEY = "lumino_access_token";
 const REFRESH_TOKEN_KEY = "lumino_refresh_token";
 const GUEST_PREVIEW_KEY = "lumino_guest_preview";
+const USER_CACHE_NAMESPACE_MAP_KEY = "lumino_user_cache_namespaces";
+const USER_CACHE_KEY_PREFIXES = [
+  "lumino-home-cache:",
+  "lumino-profile-cache:",
+  "lumino-vocabulary-cache:",
+  "lumino-achievements-cache:",
+  "lumino-request-cache:",
+  "lumino-course-path:",
+  "lumino-scenes-overview:",
+  "lumino-supported-languages:",
+  "lumino-calendar-month:",
+  "lumino-lesson-pack:",
+  "lumino-scene-pack:",
+  "lumino-admin-boot-cache:",
+  "lumino-admin-service-cache:",
+];
 
 function getTokenStore() {
   return window.sessionStorage;
@@ -13,6 +29,180 @@ function clearLegacyPersistentTokens() {
   } catch {
     // ignore storage errors
   }
+}
+
+function clearStoreByPrefixes(store, prefixes) {
+  if (!store || !Array.isArray(prefixes) || prefixes.length === 0) {
+    return;
+  }
+
+  try {
+    const keysToRemove = [];
+
+    for (let index = 0; index < store.length; index += 1) {
+      const key = store.key(index);
+
+      if (!key) {
+        continue;
+      }
+
+      if (prefixes.some((prefix) => key.startsWith(prefix))) {
+        keysToRemove.push(key);
+      }
+    }
+
+    keysToRemove.forEach((key) => {
+      store.removeItem(key);
+    });
+  } catch {
+    // ignore storage errors
+  }
+}
+
+
+function readUserCacheNamespaceMap() {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    const raw = window.localStorage.getItem(USER_CACHE_NAMESPACE_MAP_KEY);
+
+    if (!raw) {
+      return {};
+    }
+
+    const parsed = JSON.parse(raw);
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+function writeUserCacheNamespaceMap(value) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const nextValue = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    window.localStorage.setItem(USER_CACHE_NAMESPACE_MAP_KEY, JSON.stringify(nextValue));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function createUserCacheNamespace() {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID().replace(/-/g, "");
+    }
+  } catch {
+    // ignore crypto errors
+  }
+
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function migrateLegacyUserScopedCacheKeys(store, userId, namespace) {
+  if (!store || !userId || !namespace) {
+    return;
+  }
+
+  const legacyUserKey = `user:${userId}`;
+  const nextUserKey = `user:${userId}:${namespace}`;
+
+  try {
+    const updates = [];
+
+    for (let index = 0; index < store.length; index += 1) {
+      const key = store.key(index);
+
+      if (!key) {
+        continue;
+      }
+
+      const prefix = USER_CACHE_KEY_PREFIXES.find((item) => key.startsWith(item));
+
+      if (!prefix) {
+        continue;
+      }
+
+      const remainder = key.slice(prefix.length);
+
+      if (!remainder.startsWith(legacyUserKey) || remainder.startsWith(`${nextUserKey}`)) {
+        continue;
+      }
+
+      const nextKey = `${prefix}${nextUserKey}${remainder.slice(legacyUserKey.length)}`;
+      updates.push({ key, nextKey, value: store.getItem(key) });
+    }
+
+    updates.forEach(({ key, nextKey, value }) => {
+      if (value == null || key === nextKey) {
+        return;
+      }
+
+      store.setItem(nextKey, value);
+      store.removeItem(key);
+    });
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function ensureUserCacheNamespace(userId, options = {}) {
+  const normalizedUserId = String(userId || "").trim();
+
+  if (!normalizedUserId || typeof window === "undefined") {
+    return "";
+  }
+
+  const shouldRotate = Boolean(options?.rotate);
+  const namespaceMap = readUserCacheNamespaceMap();
+  let namespace = String(namespaceMap[normalizedUserId] || "").trim();
+
+  if (!namespace || shouldRotate) {
+    namespace = createUserCacheNamespace();
+    namespaceMap[normalizedUserId] = namespace;
+    writeUserCacheNamespaceMap(namespaceMap);
+  }
+
+  migrateLegacyUserScopedCacheKeys(window.sessionStorage, normalizedUserId, namespace);
+  migrateLegacyUserScopedCacheKeys(window.localStorage, normalizedUserId, namespace);
+
+  return namespace;
+}
+
+function clearUserCacheNamespace(userId) {
+  const normalizedUserId = String(userId || "").trim();
+
+  if (!normalizedUserId || typeof window === "undefined") {
+    return;
+  }
+
+  const namespaceMap = readUserCacheNamespaceMap();
+
+  if (!Object.prototype.hasOwnProperty.call(namespaceMap, normalizedUserId)) {
+    return;
+  }
+
+  delete namespaceMap[normalizedUserId];
+  writeUserCacheNamespaceMap(namespaceMap);
+}
+
+function clearUserScopedCaches() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  clearStoreByPrefixes(window.sessionStorage, USER_CACHE_KEY_PREFIXES);
+  clearStoreByPrefixes(window.localStorage, USER_CACHE_KEY_PREFIXES);
 }
 
 function parseJwtPayload(token) {
@@ -105,8 +295,14 @@ export const authStorage = {
     return getTokenStore().getItem(REFRESH_TOKEN_KEY) || "";
   },
 
-  setTokens(token, refreshToken) {
+  setTokens(token, refreshToken, options = {}) {
     const store = getTokenStore();
+    const shouldClearUserScopedCaches = Boolean(options?.clearUserScopedCaches);
+    const shouldRotateUserCacheNamespace = Boolean(options?.rotateUserCacheNamespace);
+
+    if (shouldClearUserScopedCaches) {
+      clearUserScopedCaches();
+    }
 
     if (token) {
       store.setItem(ACCESS_TOKEN_KEY, token);
@@ -116,20 +312,38 @@ export const authStorage = {
       store.setItem(REFRESH_TOKEN_KEY, refreshToken);
     }
 
+    const nextUserId = getUserIdFromPayload(parseJwtPayload(token));
+
+    if (nextUserId) {
+      ensureUserCacheNamespace(nextUserId, { rotate: shouldRotateUserCacheNamespace });
+    }
+
     localStorage.removeItem(GUEST_PREVIEW_KEY);
     clearLegacyPersistentTokens();
   },
 
-  clearTokens() {
+  clearTokens(options = {}) {
     const store = getTokenStore();
+    const shouldClearUserScopedCaches = Boolean(options?.clearUserScopedCaches);
+    const currentUserId = this.getUserId();
 
     store.removeItem(ACCESS_TOKEN_KEY);
     store.removeItem(REFRESH_TOKEN_KEY);
+
+    if (shouldClearUserScopedCaches) {
+      clearUserCacheNamespace(currentUserId);
+      clearUserScopedCaches();
+    }
+
     clearLegacyPersistentTokens();
   },
 
+  clearUserScopedCaches() {
+    clearUserScopedCaches();
+  },
+
   enableGuestPreview() {
-    this.clearTokens();
+    this.clearTokens({ clearUserScopedCaches: true });
     localStorage.setItem(GUEST_PREVIEW_KEY, "true");
   },
 
@@ -178,10 +392,15 @@ export const authStorage = {
   },
 
   getUserCacheKey() {
-    const payload = this.getTokenPayload();
-    const userId = String(payload?.nameid || payload?.sub || payload?.userId || payload?.id || "").trim();
+    const userId = this.getUserId();
 
     if (userId) {
+      const namespace = ensureUserCacheNamespace(userId);
+
+      if (namespace) {
+        return `user:${userId}:${namespace}`;
+      }
+
       return `user:${userId}`;
     }
 

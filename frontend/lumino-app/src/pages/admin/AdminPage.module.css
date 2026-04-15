@@ -1305,6 +1305,16 @@ button.adminVocabularyWordChip:active{
   grid-template-columns:52px 78px minmax(0, 1fr) 46px;
 }
 
+.userRowOnline{
+  background:rgba(98, 182, 108, .14);
+  box-shadow:inset 0 0 0 3px rgba(98, 182, 108, .26);
+}
+
+.userRowOffline{
+  background:rgba(221, 114, 114, .12);
+  box-shadow:inset 0 0 0 3px rgba(221, 114, 114, .22);
+}
+
 .userRow:hover{
   transform:translateY(-1px);
 }

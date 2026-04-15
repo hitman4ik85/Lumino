@@ -628,7 +628,7 @@ export default function ProfileContent({ onProfileChange = null }) {
         return;
       }
 
-      authStorage.clearTokens();
+      authStorage.clearTokens({ clearUserScopedCaches: true });
       navigate(PATHS.start, { replace: true });
     } finally {
       setDeletingAccount(false);

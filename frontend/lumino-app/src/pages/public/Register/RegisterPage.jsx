@@ -147,7 +147,7 @@ export default function RegisterPage() {
             return;
           }
 
-          authStorage.setTokens(token, refreshToken);
+          authStorage.setTokens(token, refreshToken, { rotateUserCacheNamespace: true });
           setSubmitting(false);
           navigate(PATHS.home);
         },

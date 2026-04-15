@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 import { vocabularyService } from "../../../services/vocabularyService.js";
-import { preloadVocabularyCache, readVocabularyCache, writeVocabularyCache } from "../../../services/vocabularySnapshotCache.js";
+import { getDueItemsFromVocabulary, getVocabularyDueSyncDelay, preloadVocabularyCache, readVocabularyCache, writeVocabularyCache } from "../../../services/vocabularySnapshotCache.js";
 import SearchIconAsset from "../../../assets/vocabulare/search.svg";
 import DeleteIconAsset from "../../../assets/vocabulare/cart.svg";
 import styles from "./VocabularyPage.module.css";
@@ -585,30 +585,6 @@ function ReviewSkipIcon() {
   );
 }
 
-function getDueItemsFromVocabulary(items) {
-  if (!Array.isArray(items) || items.length === 0) {
-    return [];
-  }
-
-  const now = Date.now();
-
-  return items.filter((item) => {
-    const nextReviewAt = item?.nextReviewAt || item?.NextReviewAt;
-
-    if (!nextReviewAt) {
-      return false;
-    }
-
-    const dateValue = new Date(nextReviewAt).getTime();
-
-    if (Number.isNaN(dateValue)) {
-      return false;
-    }
-
-    return dateValue <= now;
-  });
-}
-
 function buildErrorText(res, fallback) {
   return String(res?.data?.detail || res?.data?.message || res?.error || fallback || "Сталася помилка");
 }
@@ -771,6 +747,26 @@ function areLevelChipMapsEqual(left, right) {
   }
 
   return leftKeys.every((key) => Boolean(left[key]) === Boolean(right[key]));
+}
+
+function getDueItemIdentity(item) {
+  return [
+    String(item?.id || ""),
+    String(item?.vocabularyItemId || item?.VocabularyItemId || ""),
+    String(item?.nextReviewAt || item?.NextReviewAt || ""),
+  ].join(":");
+}
+
+function areDueItemsEqual(left, right) {
+  if (left === right) {
+    return true;
+  }
+
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((item, index) => getDueItemIdentity(item) === getDueItemIdentity(right[index]));
 }
 
 export default function VocabularyContent() {
@@ -1092,6 +1088,49 @@ export default function VocabularyContent() {
     loadVocabulary(false, !hasCache);
   }, [loadVocabulary]);
 
+  useEffect(() => {
+    const syncDueItemsFromTime = () => {
+      const nextDueItems = getDueItemsFromVocabulary(items);
+
+      setDueItems((prev) => {
+        if (areDueItemsEqual(prev, nextDueItems)) {
+          return prev;
+        }
+
+        writeVocabularyCache(items, nextDueItems);
+        return nextDueItems;
+      });
+    };
+
+    syncDueItemsFromTime();
+
+    const dueSyncDelay = getVocabularyDueSyncDelay(items);
+
+    if (dueSyncDelay == null || typeof window === "undefined" || typeof document === "undefined") {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(syncDueItemsFromTime, dueSyncDelay);
+
+    const handleWindowFocus = () => {
+      syncDueItemsFromTime();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncDueItemsFromTime();
+      }
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [dueItems, items]);
 
   useEffect(() => {
     if (activeFilter !== "review" && rightMode === "reviewPlan") {

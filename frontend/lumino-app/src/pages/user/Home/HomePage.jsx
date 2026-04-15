@@ -1295,6 +1295,7 @@ export default function HomePage() {
   const shouldUseCoursePathCache = true;
   const initialHomeCacheRef = useRef(!isGuest ? applyOptimisticHomeRefresh(getCachedHomeSnapshot(), location.state) : null);
   const [loading, setLoading] = useState(initialHomeCacheRef.current == null);
+  const [pathLoading, setPathLoading] = useState(false);
   const [restoringHearts, setRestoringHearts] = useState(false);
   const initialTab = TAB_QUERY_VIEWS.includes(searchParams.get("tab")) ? searchParams.get("tab") : "learning";
   const [activeNav, setActiveNav] = useState(initialTab === "learning" ? "learning" : initialTab);
@@ -1748,6 +1749,7 @@ export default function HomePage() {
         const todayIso = getKyivTodayIso();
         const currentMonth = getKyivCurrentMonth();
 
+        setPathLoading(false);
         setCourses(publicCourses);
         setCourse(nextCourse);
         setPath(null);
@@ -1797,6 +1799,7 @@ export default function HomePage() {
           return { hasCourses: false, activeTargetLanguageCode: targetCode };
         }
 
+        setPathLoading(false);
         setCourses([]);
         setCourse(null);
         setPath(null);
@@ -1840,19 +1843,7 @@ export default function HomePage() {
 
       let nextPathForCache = cachedPath;
 
-      if (activeCourse?.id && !cachedPath) {
-        const pathRes = await learningService.getMyCoursePath(activeCourse.id);
-
-        if (loadHomeRequestRef.current !== requestId) {
-          return { hasCourses: nextCourses.length > 0, activeTargetLanguageCode: targetCode };
-        }
-
-        if (pathRes?.ok) {
-          nextPathForCache = normalizeCoursePath(pathRes.data);
-          setCachedCoursePath(targetCode, activeCourse.id, nextPathForCache);
-        }
-      }
-
+      setPathLoading(Boolean(activeCourse?.id) && !cachedPath);
       setCourses(nextCourses);
       setCourse(activeCourse);
       setPath(nextPathForCache);
@@ -1881,7 +1872,7 @@ export default function HomePage() {
         streakService.getMyCalendarMonth(calendarMonth.year, calendarMonth.month),
       ];
 
-      if (activeCourse?.id && cachedPath) {
+      if (activeCourse?.id) {
         backgroundRequests.unshift(learningService.getMyCoursePath(activeCourse.id));
       }
 
@@ -1890,7 +1881,7 @@ export default function HomePage() {
           return;
         }
 
-        const hasPathResponse = Boolean(activeCourse?.id && cachedPath);
+        const hasPathResponse = Boolean(activeCourse?.id);
         const pathRes = hasPathResponse ? responses[0] : null;
         const streakRes = responses[hasPathResponse ? 1 : 0];
         const calendarRes = responses[hasPathResponse ? 2 : 1];
@@ -1908,6 +1899,8 @@ export default function HomePage() {
           setCachedCoursePath(targetCode, activeCourse.id, normalizedPath);
           nextPathForCacheForBackground = normalizedPath;
         }
+
+        setPathLoading(false);
 
         if (streakRes?.ok && streakRes.data) {
           nextUserForCache = {
@@ -1954,6 +1947,10 @@ export default function HomePage() {
           calendarCurrentKyivDateTimeText: nextCalendarCurrentKyivDateTimeTextForCache,
           calendarMonth,
         });
+      }).catch(() => {
+        if (loadHomeRequestRef.current === requestId) {
+          setPathLoading(false);
+        }
       });
 
       return { hasCourses: nextCourses.length > 0, activeTargetLanguageCode: targetCode };
@@ -2601,26 +2598,31 @@ export default function HomePage() {
       onMouseLeave={handleTrackMouseUp}
     >
       {hasPublishedCoursesForActiveLanguage ? (
-        <div className={styles.learningTrack}>
-          {topics.map((item, index) => (
-            <OrbitSection
-              key={item.id || index}
-              item={item}
-              index={index}
-              course={course}
-              isGuest={isGuest}
-              nextLessonId={nextPathPointers?.nextLessonId}
-              nextSceneId={nextPathPointers?.nextSceneId}
-              onTitleClick={handleTitleClick}
-              onSceneButtonClick={handleSceneButtonClick}
-              onSceneSunClick={handleSceneSunClick}
-              onLessonClick={handleLessonClick}
-              onLessonWarm={warmLessonPack}
-              onSceneWarm={warmScenePack}
-              onSceneWarmForLesson={warmSceneForLastLesson}
-            />
-          ))}
-        </div>
+        pathLoading && topics.length === 0 ? renderNoPublishedCoursesState(
+          "Йде підготовка вашого Курсу для навчання",
+          "Зачекайте будь-ласка декілька секунд. Маршрут ваших уроків і сцен з’явиться автоматично"
+        ) : (
+          <div className={styles.learningTrack}>
+            {topics.map((item, index) => (
+              <OrbitSection
+                key={item.id || index}
+                item={item}
+                index={index}
+                course={course}
+                isGuest={isGuest}
+                nextLessonId={nextPathPointers?.nextLessonId}
+                nextSceneId={nextPathPointers?.nextSceneId}
+                onTitleClick={handleTitleClick}
+                onSceneButtonClick={handleSceneButtonClick}
+                onSceneSunClick={handleSceneSunClick}
+                onLessonClick={handleLessonClick}
+                onLessonWarm={warmLessonPack}
+                onSceneWarm={warmScenePack}
+                onSceneWarmForLesson={warmSceneForLastLesson}
+              />
+            ))}
+          </div>
+        )
       ) : renderNoPublishedCoursesState(
         "Для цієї мови зараз немає опублікованих курсів",
         "Коли курс знову опублікують, твій збережений прогрес повернеться автоматично. Поки що можна обрати іншу мову у профілі або через кнопку мови зверху."

@@ -21,19 +21,23 @@ const safeJson = async (res) => {
   }
 };
 
+const isUserNotFoundResponse = (res, data, error) => {
+  const type = String(data?.type || "").trim().toLowerCase();
+  const detail = String(data?.detail || error || "").trim().toLowerCase();
+
+  if (detail !== "user not found") {
+    return false;
+  }
+
+  return res.status === 404 || res.status === 401 || type === "not_found";
+};
+
 const shouldClearTokens = (res, data, error) => {
   if (res.status === 401) {
     return true;
   }
 
-  if (res.status !== 404) {
-    return false;
-  }
-
-  const type = String(data?.type || "").trim().toLowerCase();
-  const detail = String(data?.detail || error || "").trim().toLowerCase();
-
-  return type === "not_found" && detail === "user not found";
+  return isUserNotFoundResponse(res, data, error);
 };
 
 const parseJwtPayload = (token) => {
@@ -195,8 +199,21 @@ export const apiClient = {
     const error =
       (data && (data.detail || data.message || data.error || data.title)) ||
       `HTTP ${res.status}`;
+    const mustClearTokens = shouldClearTokens(res, data, error);
+    const shouldClearUserScopedCaches = isUserNotFoundResponse(res, data, error);
 
-    return { ok: false, status: res.status, data, error, shouldClearTokens: shouldClearTokens(res, data, error) };
+    if (mustClearTokens) {
+      authStorage.clearTokens({ clearUserScopedCaches: shouldClearUserScopedCaches });
+    }
+
+    return {
+      ok: false,
+      status: res.status,
+      data,
+      error,
+      shouldClearTokens: mustClearTokens,
+      shouldClearUserScopedCaches,
+    };
   },
 
   get(path, options = {}) {

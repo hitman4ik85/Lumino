@@ -3,6 +3,7 @@ import { vocabularyService } from "./vocabularyService.js";
 import { readPersistentUserCache, writePersistentUserCache } from "./userPersistentCache.js";
 
 const VOCABULARY_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
+const VOCABULARY_DUE_SYNC_BUFFER_MS = 1000;
 
 function getVocabularyCacheKey() {
   const userKey = authStorage.getUserCacheKey();
@@ -22,10 +23,7 @@ export function readVocabularyCache() {
     return null;
   }
 
-  return {
-    items: Array.isArray(value?.items) ? value.items : [],
-    dueItems: Array.isArray(value?.dueItems) ? value.dueItems : [],
-  };
+  return normalizeVocabularyCacheSnapshot(value?.items, value?.dueItems);
 }
 
 export function writeVocabularyCache(items, dueItems) {
@@ -35,10 +33,7 @@ export function writeVocabularyCache(items, dueItems) {
     return;
   }
 
-  writePersistentUserCache(key, {
-    items: Array.isArray(items) ? items : [],
-    dueItems: Array.isArray(dueItems) ? dueItems : [],
-  });
+  writePersistentUserCache(key, normalizeVocabularyCacheSnapshot(items, dueItems));
 }
 
 export function clearVocabularySnapshotCache() {
@@ -51,28 +46,116 @@ export function clearVocabularySnapshotCache() {
   writePersistentUserCache(key, null);
 }
 
-function getDueItemsFromVocabulary(items) {
+function getVocabularyReviewAt(item) {
+  return item?.nextReviewAt || item?.NextReviewAt || "";
+}
+
+function getVocabularyReviewTimestamp(item) {
+  const reviewAt = getVocabularyReviewAt(item);
+
+  if (!reviewAt) {
+    return Number.NaN;
+  }
+
+  return new Date(reviewAt).getTime();
+}
+
+function getVocabularyDueItemKey(item) {
+  const id = item?.id || item?.Id || item?.userVocabularyId || item?.UserVocabularyId || item?.vocabularyItemId || item?.VocabularyItemId;
+
+  if (id != null && id !== "") {
+    return String(id);
+  }
+
+  const word = String(item?.word || item?.Word || "").trim().toLowerCase();
+  const reviewAt = getVocabularyReviewAt(item);
+
+  if (word || reviewAt) {
+    return `${word}:${reviewAt}`;
+  }
+
+  return "";
+}
+
+function isVocabularyItemDue(item, now = Date.now()) {
+  const reviewTime = getVocabularyReviewTimestamp(item);
+
+  if (Number.isNaN(reviewTime)) {
+    return false;
+  }
+
+  return reviewTime <= now;
+}
+
+export function getDueItemsFromVocabulary(items, now = Date.now()) {
   if (!Array.isArray(items) || items.length === 0) {
     return [];
   }
 
-  const now = Date.now();
+  return items.filter((item) => isVocabularyItemDue(item, now));
+}
 
-  return items.filter((item) => {
-    const nextReviewAt = item?.nextReviewAt || item?.NextReviewAt;
+function mergeDueItems(items, dueItems) {
+  const normalizedDueItems = [];
+  const seen = new Set();
 
-    if (!nextReviewAt) {
-      return false;
+  [...(Array.isArray(dueItems) ? dueItems : []), ...getDueItemsFromVocabulary(items)].forEach((item) => {
+    if (!item || !isVocabularyItemDue(item)) {
+      return;
     }
 
-    const dateValue = new Date(nextReviewAt).getTime();
+    const itemKey = getVocabularyDueItemKey(item);
 
-    if (Number.isNaN(dateValue)) {
-      return false;
+    if (!itemKey || seen.has(itemKey)) {
+      return;
     }
 
-    return dateValue <= now;
+    seen.add(itemKey);
+    normalizedDueItems.push(item);
   });
+
+  return normalizedDueItems;
+}
+
+export function getNextVocabularyDueAt(items, now = Date.now()) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return null;
+  }
+
+  let nextDueAt = null;
+
+  items.forEach((item) => {
+    const reviewTime = getVocabularyReviewTimestamp(item);
+
+    if (Number.isNaN(reviewTime) || reviewTime <= now) {
+      return;
+    }
+
+    if (nextDueAt == null || reviewTime < nextDueAt) {
+      nextDueAt = reviewTime;
+    }
+  });
+
+  return nextDueAt;
+}
+
+export function getVocabularyDueSyncDelay(items, now = Date.now()) {
+  const nextDueAt = getNextVocabularyDueAt(items, now);
+
+  if (nextDueAt == null) {
+    return null;
+  }
+
+  return Math.max(nextDueAt - now + VOCABULARY_DUE_SYNC_BUFFER_MS, 0);
+}
+
+export function normalizeVocabularyCacheSnapshot(items, dueItems) {
+  const normalizedItems = Array.isArray(items) ? items : [];
+
+  return {
+    items: normalizedItems,
+    dueItems: mergeDueItems(normalizedItems, dueItems),
+  };
 }
 
 export async function preloadVocabularyCache() {
@@ -91,19 +174,18 @@ export async function preloadVocabularyCache() {
     };
   }
 
-  const items = Array.isArray(itemsRes.data) ? itemsRes.data : [];
-  const dueItems = dueItemsRes.ok
-    ? (Array.isArray(dueItemsRes.data) ? dueItemsRes.data : [])
-    : getDueItemsFromVocabulary(items);
+  const normalizedSnapshot = normalizeVocabularyCacheSnapshot(
+    Array.isArray(itemsRes.data) ? itemsRes.data : [],
+    dueItemsRes.ok
+      ? (Array.isArray(dueItemsRes.data) ? dueItemsRes.data : [])
+      : []
+  );
 
-  writeVocabularyCache(items, dueItems);
+  writeVocabularyCache(normalizedSnapshot.items, normalizedSnapshot.dueItems);
 
   return {
     ok: true,
     status: itemsRes.status,
-    data: {
-      items,
-      dueItems,
-    },
+    data: normalizedSnapshot,
   };
 }

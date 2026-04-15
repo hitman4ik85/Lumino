@@ -4,7 +4,6 @@ import { useStageScale } from "../../hooks/useStageScale.js";
 import { adminService } from "../../services/admin/adminService.js";
 import { authStorage } from "../../services/authStorage.js";
 import { authService } from "../../services/authService.js";
-import { readPersistentUserCache, writePersistentUserCache } from "../../services/userPersistentCache.js";
 import styles from "./AdminPage.module.css";
 import { PATHS } from "../../routes/paths.js";
 import { validateAdminUserForm } from "../../utils/validation.js";
@@ -99,36 +98,17 @@ const ACHIEVEMENT_CONDITION_OPTIONS = [
   { value: "TotalXp", label: "За загальну кількість XP" },
 ];
 
-const ADMIN_BOOT_CACHE_TTL_MS = 30 * 60 * 1000;
-const ADMIN_SERVICE_CACHE_TTL_MS = 5 * 60 * 1000;
-
-function getAdminBootCacheKey() {
-  const userKey = authStorage.getUserCacheKey() || "admin";
-
-  return `lumino-admin-boot-cache:${userKey}`;
-}
-
-function getAdminServiceCacheKey(type, suffix = "") {
-  const userKey = authStorage.getUserCacheKey() || "admin";
-
-  return `lumino-admin-service-cache:${userKey}:${type}:${suffix}`;
-}
-
 function readAdminBootCache() {
-  return readPersistentUserCache(getAdminBootCacheKey(), { ttlMs: ADMIN_BOOT_CACHE_TTL_MS });
+  return null;
 }
 
-function writeAdminBootCache(value) {
-  writePersistentUserCache(getAdminBootCacheKey(), value);
+function writeAdminBootCache() {}
+
+function readAdminServiceCache() {
+  return null;
 }
 
-function readAdminServiceCache(type, suffix = "") {
-  return readPersistentUserCache(getAdminServiceCacheKey(type, suffix), { ttlMs: ADMIN_SERVICE_CACHE_TTL_MS });
-}
-
-function writeAdminServiceCache(type, suffix = "", value) {
-  writePersistentUserCache(getAdminServiceCacheKey(type, suffix), value);
-}
+function writeAdminServiceCache() {}
 
 const MAX_TOPICS_PER_COURSE = 10;
 const MAX_LESSONS_PER_TOPIC = 8;
@@ -188,6 +168,7 @@ const USER_FORM_FIELD_HINTS = {
 
 const INITIAL_MODAL = { type: "", mode: "", payload: null };
 const EMPTY_RELATION = { word: "", translation: "" };
+const USERS_PRESENCE_REFRESH_MS = 30000;
 
 function normalizeCode(value) {
   return String(value || "").trim().toLowerCase();
@@ -2306,6 +2287,7 @@ export default function AdminPage() {
   const [achievements, setAchievements] = useState(() => initialAdminBootCache?.achievements || []);
   const [users, setUsers] = useState([]);
   const [tokens, setTokens] = useState([]);
+  const [hasLoadedUserPresence, setHasLoadedUserPresence] = useState(false);
   const [mediaFiles, setMediaFiles] = useState([]);
   const [allVocabulary, setAllVocabulary] = useState(() => initialAdminBootCache?.allVocabulary || []);
 
@@ -2407,6 +2389,7 @@ export default function AdminPage() {
 
       const nextTokens = response.data || [];
       setTokens(nextTokens);
+      setHasLoadedUserPresence(true);
       writeAdminServiceCache("tokens", cacheKey, nextTokens);
     } catch (error) {
       pushToast("error", error.message || "Помилка завантаження токенів");
@@ -2414,6 +2397,29 @@ export default function AdminPage() {
       setIsTokensLoading(false);
     }
   }, [pushToast]);
+
+  const onlineUserIds = useMemo(() => {
+    return new Set(
+      (Array.isArray(tokens) ? tokens : [])
+        .filter((item) => Boolean(item?.isActive) && !Boolean(item?.isRevoked) && !Boolean(item?.isExpired))
+        .map((item) => Number(item?.userId || 0))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    );
+  }, [tokens]);
+
+  useEffect(() => {
+    if (section !== "users") {
+      return undefined;
+    }
+
+    loadTokens();
+
+    const intervalId = window.setInterval(() => {
+      loadTokens();
+    }, USERS_PRESENCE_REFRESH_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [loadTokens, section]);
 
   const loadMediaFiles = useCallback(async (query = mediaSearchValue) => {
     const normalizedQuery = String(query || "").trim().toLowerCase();
@@ -8763,6 +8769,21 @@ export default function AdminPage() {
     );
   };
 
+  const handleUsersRefresh = useCallback(async () => {
+    setIsActionLoading(true);
+
+    try {
+      await Promise.all([
+        refreshBootCollections(),
+        loadTokens(),
+      ]);
+
+      pushToast("success", "Список користувачів оновлено");
+    } finally {
+      setIsActionLoading(false);
+    }
+  }, [loadTokens, pushToast, refreshBootCollections]);
+
   const renderUsersSection = () => {
     const left = filteredUsers.slice(0, Math.ceil(filteredUsers.length / 2));
     const right = filteredUsers.slice(Math.ceil(filteredUsers.length / 2));
@@ -8817,6 +8838,12 @@ export default function AdminPage() {
         disabled: !selectedAdminUser || !canEditUser(selectedAdminUser),
       },
       {
+        icon: ReloadIcon,
+        label: "Оновити список користувачів",
+        onClick: handleUsersRefresh,
+        disabled: false,
+      },
+      {
         icon: AddIcon,
         label: "Додати користувача",
         onClick: () => openModal("userForm", "create", null, buildUserForm(null)),
@@ -8835,10 +8862,12 @@ export default function AdminPage() {
           const userPoints = Number(user.points || 0);
           const userCrystals = Number(user.crystals || 0);
           const userHearts = Number(user.hearts || 0);
+          const isOnline = hasLoadedUserPresence ? onlineUserIds.has(Number(user.id || 0)) : false;
+          const presenceClassName = hasLoadedUserPresence ? (isOnline ? styles.userRowOnline : styles.userRowOffline) : "";
 
           return (
             <div
-              className={`${styles.userRow} ${isSelected ? styles.userRowSelected : ""} ${isAdminRole ? styles.userRowAdmin : ""}`.trim()}
+              className={`${styles.userRow} ${presenceClassName} ${isSelected ? styles.userRowSelected : ""} ${isAdminRole ? styles.userRowAdmin : ""}`.trim()}
               key={user.id || `${startIndex}-${index}`}
               onClick={() => toggleSelectedAdminUser(user.id)}
               onKeyDown={(event) => {
