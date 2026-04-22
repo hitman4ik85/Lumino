@@ -766,7 +766,7 @@ function MultipleChoiceExercise({ exercise, value, feedback, selectedFlipSide, o
         </>
       )}
 
-      <div className={`${styles.exerciseAnswerZone} ${exercise.imageUrl ? styles.exerciseAnswerZoneWithImage : ""} ${isFeedback ? styles.exerciseAnswerZoneFeedback : ""}`}>
+      <div className={`${styles.exerciseAnswerZone} ${exercise.imageUrl ? styles.exerciseAnswerZoneWithImage : ""} ${isFeedback ? styles.exerciseAnswerZoneFeedback : ""} ${isSentenceMode ? styles.exerciseAnswerZoneSentence : ""}`}>
         {!isFeedback ? (
           isSentenceMode ? (
             <div key={questionAnimationKey} className={styles.sentenceHeroRow}>
@@ -1148,7 +1148,7 @@ export default function LessonPage() {
   const demoLanguageCode = location.state?.demoLanguageCode || localStorage.getItem("targetLanguage") || "en";
   const demoLevel = location.state?.demoLevel || localStorage.getItem("lumino_course_level") || "a1";
 
-  useStageScale(stageRef, { mode: "absolute" });
+  useStageScale(stageRef, { mode: "absolute", containBelow: 1180, containMinWidth: 700 });
 
   const [lesson, setLesson] = useState(null);
   const [exercises, setExercises] = useState([]);

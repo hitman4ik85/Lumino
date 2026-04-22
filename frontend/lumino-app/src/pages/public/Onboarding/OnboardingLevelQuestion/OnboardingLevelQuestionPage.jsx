@@ -101,29 +101,39 @@ const levels = useMemo(
           }}
         />
 
-        
-        <div className={styles.bottomShade} />
-<button className={styles.backBtn} type="button" onClick={handleBack}>
-          <img className={styles.backIcon} src={ArrowPrev} alt="back" />
-        </button>
 
-        <div className={styles.progressTrack}>
-          <div className={styles.progressFill} />
+        <div className={styles.bottomShade} />
+
+        <div className={styles.headerSection}>
+<button className={styles.backBtn} type="button" onClick={handleBack}>
+            <img className={styles.backIcon} src={ArrowPrev} alt="back" />
+          </button>
+
+          <div className={styles.progressTrack}>
+            <div className={styles.progressFill} />
+          </div>
         </div>
 
-        <AnimatedMascotBubble
-          mascotSrc={Mascot}
-          bubbleSrc={Bubble}
-          mascotClassName={styles.mascot}
-          bubbleClassName={styles.bubble}
-          textClassName={styles.bubbleText}
-        >
-          Це займе лише секунду!
-        </AnimatedMascotBubble>
+        <div className={styles.mainSection}>
+          <div className={styles.heroSection}>
+            <div className={styles.heroGroup}>
+          <AnimatedMascotBubble
+            mascotSrc={Mascot}
+            bubbleSrc={Bubble}
+            mascotClassName={styles.mascot}
+            bubbleClassName={styles.bubble}
+            textClassName={styles.bubbleText}
+          >
+            Це займе лише секунду!
+          </AnimatedMascotBubble>
+            </div>
+          </div>
 
-        <h1 className={styles.title}>Наскільки добре ви знаєте англійську?</h1>
+          <div className={styles.contentSection}>
+            <h1 className={styles.title}>Наскільки добре ви знаєте англійську?</h1>
 
-        <div className={styles.levelsContainer}>
+            <div className={styles.levelsSection}>
+              <div className={styles.levelsContainer}>
           {levels.map((it) => (
             <button
               key={it.key}
@@ -136,17 +146,21 @@ const levels = useMemo(
               {it.title}
             </button>
           ))}
-        </div>
-        
+              </div>
+            </div>
+          </div>
 
-        <button
+          <div className={styles.actionSection}>
+            <button
           className={styles.continueBtn}
           type="button"
           onClick={handleContinue}
           disabled={!level || loading}
-        >
-          ПРОДОВЖИТИ
-        </button>
+            >
+              ПРОДОВЖИТИ
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

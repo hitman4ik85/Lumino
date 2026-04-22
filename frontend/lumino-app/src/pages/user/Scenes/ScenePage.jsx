@@ -200,7 +200,7 @@ export default function ScenePage() {
   const startedAsCompletedRef = useRef(false);
   const submitSceneRequestRef = useRef(null);
 
-  useStageScale(stageRef, { mode: "absolute" });
+  useStageScale(stageRef, { mode: "absolute", containBelow: 1180, containMinWidth: 700 });
 
   const [scene, setScene] = useState(null);
   const [steps, setSteps] = useState([]);
@@ -526,14 +526,18 @@ export default function ScenePage() {
           </div>
         ) : (
           <>
-            <button type="button" className={styles.closeButton} onClick={handleClose} aria-label="Закрити сцену">
-              ×
-            </button>
+            {!showIntro && !loading ? (
+              <>
+                <button type="button" className={styles.closeButton} onClick={handleClose} aria-label="Закрити сцену">
+                  ×
+                </button>
 
-            <div className={styles.topBar}>
-              <div className={styles.progressTrack}><span style={{ width: `${progressPercent}%` }} /></div>
-              {!showIntro && !loading ? <div className={styles.topCounter}><img src={EnergyIcon} alt="" /> {Number(user.hearts || 0)}</div> : null}
-            </div>
+                <div className={styles.topBar}>
+                  <div className={styles.progressTrack}><span style={{ width: `${progressPercent}%` }} /></div>
+                  <div className={styles.topCounter}><img src={EnergyIcon} alt="" /> {Number(user.hearts || 0)}</div>
+                </div>
+              </>
+            ) : null}
 
             {showIntro || loading ? (
               <div className={styles.titleScreen}>

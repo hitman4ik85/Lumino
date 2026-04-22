@@ -34,28 +34,38 @@ export default function OnboardingCreateProfLaterPage() {
         <img className={styles.bgLeft} src={BgLeft} alt="" />
         <img className={styles.bgRight} src={BgRight} alt="" />
 
-        <button className={styles.backBtn} type="button" onClick={handleBack}>
-          <img className={styles.backIcon} src={ArrowPrev} alt="back" />
-        </button>
+        <div className={styles.headerSection}>
+          <button className={styles.backBtn} type="button" onClick={handleBack}>
+            <img className={styles.backIcon} src={ArrowPrev} alt="back" />
+          </button>
+        </div>
 
-        <AnimatedMascotBubble
-          mascotSrc={Mascot}
-          bubbleSrc={Bubble}
-          mascotClassName={styles.mascot}
-          bubbleClassName={styles.bubble}
-          textClassName={styles.bubbleText}
-          bubbleFirst
-          decorationSrc={MascotPlanet}
-          decorationClassName={styles.mascotPlanet}
-        >
-          <span>Спочатку можете</span>
-          <span>ознайомитися з курсом, а</span>
-          <span>профіль створити пізніше.</span>
-        </AnimatedMascotBubble>
+        <div className={styles.mainSection}>
+          <div className={styles.heroSection}>
+            <div className={styles.heroGroup}>
+          <AnimatedMascotBubble
+            mascotSrc={Mascot}
+            bubbleSrc={Bubble}
+            mascotClassName={styles.mascot}
+            bubbleClassName={styles.bubble}
+            textClassName={styles.bubbleText}
+            bubbleFirst
+            decorationSrc={MascotPlanet}
+            decorationClassName={styles.mascotPlanet}
+          >
+            <span>Спочатку можете</span>
+            <span>ознайомитися з курсом, а</span>
+            <span>профіль створити пізніше.</span>
+          </AnimatedMascotBubble>
+            </div>
+          </div>
 
-        <button className={styles.continueBtn} type="button" onClick={handleContinue}>
-          ПРОДОВЖИТИ
-        </button>
+          <div className={styles.actionSection}>
+            <button className={styles.continueBtn} type="button" onClick={handleContinue}>
+              ПРОДОВЖИТИ
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

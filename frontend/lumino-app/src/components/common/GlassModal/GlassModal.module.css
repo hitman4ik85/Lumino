@@ -5,12 +5,12 @@
 }
 
 .stageFrame{
-  position:absolute;
-  left:50%;
-  top:50%;
+  position:fixed;
+  left:0;
+  top:0;
   width:1920px;
   height:1080px;
-  transform-origin:center center;
+  transform-origin:0 0;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -40,6 +40,7 @@
 }
 
 .modal{
+  --glass-modal-scale:1;
   position:relative;
   z-index:1;
   width:472px;
@@ -52,6 +53,9 @@
   display:flex;
   flex-direction:column;
   align-items:center;
+  flex-shrink:0;
+  transform:scale(var(--glass-modal-scale));
+  transform-origin:center;
 }
 
 .languageWarningModal{
@@ -265,33 +269,15 @@
   background:#99B5D6;
 }
 
-@media (max-width: 560px){
-  .stageFrame{
-    width:100%;
-    height:100%;
+@media (max-width: 1024px){
+  .modal{
+    --glass-modal-scale:.92;
   }
+}
 
-  .modal,
-  .languageWarningModal{
-    width:min(100%, 474px);
-    min-height:auto;
-  }
-
-  .contentBox,
-  .languageWarningContentBox{
-    width:100%;
-  }
-
-  .actions,
-  .languageWarningActions{
-    gap:16px;
-  }
-
-  .btn,
-  .languageWarningPrimaryBtn,
-  .languageWarningSecondaryBtn{
-    min-width:0;
-    width:100%;
+@media (max-width: 700px){
+  .modal{
+    --glass-modal-scale:.82;
   }
 }
 

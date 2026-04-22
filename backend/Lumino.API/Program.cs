@@ -20,7 +20,6 @@ namespace Lumino.Api
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container
             builder.Services.AddControllers()
                 .ConfigureApiBehaviorOptions(options =>
                 {
@@ -260,9 +259,6 @@ namespace Lumino.Api
 
             app.UseAuthentication();
 
-            // Для інтеграційних тестів (Environment=Testing):
-            // якщо в Claims є userId, але в БД ще немає запису User - створюємо його автоматично.
-            // Це дозволяє бізнес-логіці (hearts/crystals/progress) працювати коректно в тестах.
             app.UseMiddleware<EnsureTestUserMiddleware>();
 
             app.UseMiddleware<BlockedUserMiddleware>();

@@ -31,10 +31,18 @@
   composes: backIcon from "../shared/OnboardingStepCommon.module.css";
 }
 
-.bubble{
+.heroGroup{
   position: absolute;
   left: 745px;
   top: 186px;
+  width: 430px;
+  height: 513px;
+}
+
+.bubble{
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 430px;
   height: 149px;
   pointer-events: none;
@@ -43,10 +51,13 @@
 
 .bubbleText{
   position: absolute;
-  left: 771px;
-  top: 214px;
+  left: 26px;
+  top: 28px;
   width: 378px;
   margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   font-family: var(--font-ui);
   font-size: 22px;
@@ -58,8 +69,8 @@
 
 .mascot{
   position: absolute;
-  left: 800px;
-  top: 379px;
+  left: 55px;
+  top: 193px;
   width: 320px;
   height: 320px;
   pointer-events: none;
@@ -91,3 +102,109 @@
 .continueBtn:hover{
   background: var(--color-primary);
 }
+
+@media (max-width: 1180px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.58;
+  }
+
+  .heroGroup{
+    left: 50%;
+    top: 148px;
+    width: 360px;
+    height: 406px;
+    transform: translateX(-50%);
+  }
+
+  .bubble{
+    width: 360px;
+    height: 126px;
+  }
+
+  .bubbleText{
+    left: 22px;
+    top: 24px;
+    width: 316px;
+    font-size: 18px;
+    line-height: 22px;
+  }
+
+  .mascot{
+    left: 46px;
+    top: 168px;
+    width: 268px;
+    height: 268px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 820px;
+    width: 430px;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 700px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.3;
+  }
+
+  .heroGroup{
+    left: 50%;
+    top: 176px;
+    width: 300px;
+    height: 338px;
+    transform: translateX(-50%);
+  }
+
+  .bubble{
+    width: 300px;
+    height: 140px;
+  }
+
+  .bubbleText{
+    left: 20px;
+    top: 40px;
+    width: 260px;
+    font-size: 16px;
+    line-height: 19px;
+  }
+
+  .mascot{
+    left: 39px;
+    top: 170px;
+    width: 230px;
+    height: 230px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 860px;
+    width: 360px;
+    height: 60px;
+    font-size: 18px;
+    transform: translateX(-50%);
+  }
+}
+
+.backBtn,
+.progressTrack,
+.heroGroup,
+.title,
+.description,
+.note,
+.levelBtn,
+.goalBtn,
+.cards,
+.continueBtn,
+.createBtn,
+.laterBtn{
+  margin-left: var(--lumino-stage-extra-x, 0px);
+}
+
+.headerSection{}
+.mainSection{}
+.heroSection{}
+.actionSection{}

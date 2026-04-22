@@ -8,8 +8,8 @@
 }
 
 .stage{
-  width: calc(var(--w) * 1px);
-  height: calc(var(--h) * 1px);
+  width: var(--lumino-stage-width, calc(var(--w) * 1px));
+  height: var(--lumino-stage-height, calc(var(--h) * 1px));
   position: relative;
   transform-origin: 0 0;
 }
@@ -18,19 +18,20 @@
 .bgRight{
   position: absolute;
   top: 0;
-  height: calc(var(--h) * 1px);
+  width: auto;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
   pointer-events: none;
   user-select: none;
 }
 
 .bgLeft{
   left: 0;
-  width: 780px;
 }
 
 .bgRight{
   right: 0;
-  width: 1120px;
 }
 
 .logo{
@@ -56,7 +57,6 @@
 }
 
 .content{
-  /* wrapper: do not affect absolute positioning of blocks */
 }
 
 .title{
@@ -64,7 +64,7 @@
   left: 968px;
   top: 377.71px;
   width: 564px;
-  height: 50px;
+  min-height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -83,7 +83,7 @@
   left: 1063px;
   top: 472.21px;
   width: 375px;
-  height: 29px;
+  min-height: 29px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -119,7 +119,6 @@
 }
 
 .startBtn{
-  position: absolute;
   left: 1035px;
   top: 546.71px;
   background: var(--color-start);
@@ -140,7 +139,6 @@
 }
 
 .accountBtn{
-  position: absolute;
   left: 1035px;
   top: 631.71px;
   background: transparent;
@@ -193,7 +191,7 @@
   position: absolute;
   left: 76px;
   top: 0;
-  width: 1241px;
+  width: calc(100% - 152px);
   height: 45px;
   overflow: hidden;
 }
@@ -216,7 +214,6 @@
 .item{
   scroll-snap-align: start;
   flex: 0 0 auto;
-
   border: 0;
   background: transparent;
   padding: 0;
@@ -253,93 +250,199 @@
   font-weight: 700;
 }
 
+@media (max-width: 1180px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.58;
+  }
 
-/*
-PHONE 
- */
+  .logo{
+    left: 50%;
+    top: 80px;
+    font-size: 42px;
+    transform: translateX(-50%);
+  }
 
- @media (max-width: 768px) {
+  .mascot{
+    left: 50%;
+    top: 202px;
+    width: 300px;
+    height: 277px;
+    transform: translateX(-50%);
+  }
 
-   .logo {
-     left: 50%;
-     transform: translateX(-50%);
-     top: 40px;
-     font-size: 36px;
-   }
+  .title{
+    left: 50%;
+    top: 520px;
+    width: 640px;
+    transform: translateX(-50%);
+    font-size: 34px;
+    line-height: 1.16;
+  }
 
-   .mascot {
-     left: 50%;
-     transform: translateX(-50%);
-     top: 120px;
-     width: 220px;
-     height: auto;
-   }
+  .subtitle{
+    left: 50%;
+    top: 600px;
+    width: 420px;
+    transform: translateX(-50%);
+    font-size: 22px;
+    line-height: 1.25;
+  }
 
-   .title {
-     left: 50%;
-     transform: translateX(-50%);
-     top: 360px;
-     width: 90%;
-     font-size: 28px;
-   }
+  .startBtn,
+  .accountBtn{
+    left: 50%;
+    width: 520px;
+    transform: translateX(-50%);
+  }
 
-   .subtitle {
-     left: 50%;
-     transform: translateX(-50%);
-     top: 420px;
-     width: 90%;
-     font-size: 18px;
-   }
+  .startBtn{
+    top: 690px;
+  }
 
- .startBtn {
-   left: 50%;
-   transform: translateX(-50%);
-   top: 480px;
-   width: 90%;
-   max-width: 360px;
-   height: 56px;
-   font-size: 18px;
- }
+  .accountBtn{
+    top: 776px;
+  }
 
- .accountBtn {
-   left: 50%;
-   transform: translateX(-50%);
-   top: 550px;
-   width: 90%;
-   max-width: 360px;
-   height: 56px;
-   font-size: 16px;
- }
+  .carousel{
+    left: 50%;
+    top: 930px;
+    width: 790px;
+    transform: translateX(-50%);
+  }
 
- .carousel {
-   left: 50%;
-   transform: translateX(-50%);
-   width: 92%;
-   max-width: 360px;
-   top: 640px;
- }
+  .items{
+    gap: 40px;
+  }
 
-     .itemsViewport {
-       width: 100%;
-       left: 0;
-     }
+  .flag{
+    width: 54px;
+    height: 40px;
+  }
 
-   .items {
-     gap: 18px;
-   }
+  .langLabel{
+    font-size: 18px;
+    line-height: 20px;
+  }
+}
 
-   .flag {
-     width: 45px;
-     height: 34px;
-   }
+@media (max-width: 700px){
+  .viewport{
+    background: var(--public-mobile-background);
+  }
 
-   .langLabel {
-     font-size: 16px;
-   }
+  .bgLeft,
+  .bgRight{
+    display: none;
+  }
 
-   .bgLeft,
-   .bgRight {
-     opacity: 0.25;
-   }
+  .logo{
+    left: 50%;
+    top: 140px;
+    font-size: 34px;
+    transform: translateX(-50%);
+  }
 
- }
+  .mascot{
+    left: 50%;
+    top: 260px;
+    width: 265px;
+    height: 245px;
+    transform: translateX(-50%);
+  }
+
+  .title{
+    left: 50%;
+    top: 566px;
+    width: 360px;
+    transform: translateX(-50%);
+    font-size: 24px;
+    line-height: 1.2;
+  }
+
+  .subtitle{
+    left: 50%;
+    top: 636px;
+    width: 320px;
+    transform: translateX(-50%);
+    font-size: 18px;
+    line-height: 1.24;
+  }
+
+  .startBtn,
+  .accountBtn{
+    left: 50%;
+    width: 360px;
+    height: 60px;
+    font-size: 18px;
+    transform: translateX(-50%);
+  }
+
+  .startBtn{
+    top: 720px;
+  }
+
+  .accountBtn{
+    top: 796px;
+  }
+
+  .carousel{
+    left: 50%;
+    top: 934px;
+    width: 420px;
+    height: 40px;
+    transform: translateX(-50%);
+  }
+
+  .arrowBtn{
+    top: 9px;
+    width: 24px;
+    height: 22px;
+  }
+
+  .arrowBtn img{
+    width: 18px;
+    height: 18px;
+  }
+
+  .itemsViewport{
+    left: 36px;
+    width: calc(100% - 72px);
+    height: 40px;
+  }
+
+  .items{
+    gap: 28px;
+  }
+
+  .item{
+    gap: 10px;
+  }
+
+  .flag{
+    width: 46px;
+    height: 34px;
+    border-radius: 8px;
+  }
+
+  .langLabel{
+    font-size: 16px;
+    line-height: 18px;
+  }
+}
+
+.logo,
+.mascot,
+.title,
+.subtitle,
+.startBtn,
+.accountBtn,
+.carousel{
+  margin-left: var(--lumino-stage-extra-x, 0px);
+}
+
+.headerGroup{}
+.mainGroup{}
+.mascotGroup{}
+.contentGroup{}
+.languageGroup{}

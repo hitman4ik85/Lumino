@@ -41,28 +41,38 @@ export default function OnboardingPreCreateProfPage() {
         <img className={styles.bgLeft} src={BgLeft} alt="" />
         <img className={styles.bgRight} src={BgRight} alt="" />
 
-        <button className={styles.backBtn} type="button" onClick={handleBack}>
-          <img className={styles.backIcon} src={ArrowPrev} alt="back" />
-        </button>
+        <div className={styles.headerSection}>
+          <button className={styles.backBtn} type="button" onClick={handleBack}>
+            <img className={styles.backIcon} src={ArrowPrev} alt="back" />
+          </button>
+        </div>
 
-        <AnimatedMascotBubble
-          mascotSrc={Mascot}
-          bubbleSrc={Bubble}
-          mascotClassName={styles.mascot}
-          bubbleClassName={styles.bubble}
-          textClassName={styles.bubbleText}
-          bubbleFirst
-        >
-          Створімо профіль!
-        </AnimatedMascotBubble>
+        <div className={styles.mainSection}>
+          <div className={styles.heroSection}>
+            <div className={styles.heroGroup}>
+          <AnimatedMascotBubble
+            mascotSrc={Mascot}
+            bubbleSrc={Bubble}
+            mascotClassName={styles.mascot}
+            bubbleClassName={styles.bubble}
+            textClassName={styles.bubbleText}
+            bubbleFirst
+          >
+            Створімо профіль!
+          </AnimatedMascotBubble>
+            </div>
+          </div>
 
-        <button className={styles.createBtn} type="button" onClick={handleCreateProfile}>
-          СТВОРИТИ ПРОФІЛЬ
-        </button>
+          <div className={styles.actionSection}>
+            <button className={styles.createBtn} type="button" onClick={handleCreateProfile}>
+              СТВОРИТИ ПРОФІЛЬ
+            </button>
 
-        <button className={styles.laterBtn} type="button" onClick={handleLater}>
-          ПІЗНІШЕ
-        </button>
+            <button className={styles.laterBtn} type="button" onClick={handleLater}>
+              ПІЗНІШЕ
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

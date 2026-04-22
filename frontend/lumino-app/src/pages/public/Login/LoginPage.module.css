@@ -18,25 +18,27 @@
 .bgRight{
   position: absolute;
   top: 0;
-  height: calc(var(--h) * 1px);
+  width: auto;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
   pointer-events: none;
   user-select: none;
 }
 
 .bgLeft{
   left: 0;
-  width: 960px;
 }
 
 .bgRight{
   right: 0;
-  width: 960px;
 }
 
 .backBtn{
   position: absolute;
-  left: 66px;
+  left: 72px;
   top: 52px;
+  transform: translateX(var(--lumino-stage-extra-x, 0px));
   width: 36px;
   height: 28px;
   border: 0;
@@ -57,14 +59,15 @@
 
 .registerLink{
   position: absolute;
-  left: 1713px;
+  right: calc(72px + var(--lumino-stage-extra-x, 0px));
   top: 52px;
-  width: 139px;
+  min-width: 139px;
   height: 29px;
   border: 0;
   background: transparent;
   cursor: pointer;
   padding: 0;
+  text-align: right;
   font-family: var(--font-ui);
   font-size: 20px;
   font-weight: 700;
@@ -74,14 +77,18 @@
 
 .formWrap{
   position: absolute;
-  left: 220px;
+  left: 50%;
   top: 106px;
   width: 1480px;
   height: 866px;
   border-radius: 46px;
-  border: 1px solid rgba(255,255,255,0.28);
-  background: linear-gradient(90deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.12) 100%);
+  border: 1px solid rgba(255,255,255,0.52);
+  background: linear-gradient(90deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.28) 52%, rgba(255,255,255,0.18) 100%);
   box-sizing: border-box;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 14px 36px rgba(97,127,158,0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transform: translateX(-50%);
 }
 
 .title{
@@ -362,4 +369,268 @@
   inset: 0;
   opacity: 0.01;
   z-index: 2;
+}
+
+.googleOverlay > div,
+.googleOverlay iframe{
+  width: 100% !important;
+  height: 100% !important;
+}
+
+
+@media (max-width: 1180px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.58;
+  }
+
+  .backBtn{
+    left: 40px;
+    top: 40px;
+  }
+
+  .registerLink{
+    right: 40px;
+    top: 40px;
+    font-size: 18px;
+    line-height: 24px;
+  }
+
+  .formWrap{
+    left: 50%;
+    top: 120px;
+    width: 760px;
+    height: 820px;
+    margin-left: var(--lumino-stage-extra-x, 0px);
+    transform: translateX(-50%);
+  }
+
+  .title{
+    left: 0;
+    top: 64px;
+    width: 100%;
+    height: auto;
+    font-size: 56px;
+    line-height: 1.08;
+  }
+
+  .subtitle{
+    left: 50%;
+    top: 152px;
+    width: calc(100% - 120px);
+    height: auto;
+    transform: translateX(-50%);
+    white-space: normal;
+    font-size: 18px;
+    line-height: 24px;
+  }
+
+  .inputWrap,
+  .forgotLink,
+  .loginBtn,
+  .inlineError,
+  .orWrap,
+  .googleBtn{
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .inputWrap{
+    width: 520px;
+  }
+
+  .inputWrap:nth-of-type(1){
+    top: 258px;
+  }
+
+  .inputWrap:nth-of-type(2){
+    top: 343px;
+  }
+
+  .forgotLink{
+    top: 425px;
+    width: 520px;
+  }
+
+  .loginBtn{
+    top: 486px;
+    width: 520px;
+  }
+
+  .inlineError{
+    top: 572px;
+    width: 520px;
+  }
+
+  .orWrap{
+    top: 626px;
+    width: 520px;
+  }
+
+  .orLine{
+    width: 180px;
+  }
+
+  .googleBtn{
+    top: 716px;
+    width: 520px;
+  }
+}
+
+@media (max-width: 700px){
+  .viewport{
+    background: var(--public-mobile-background);
+  }
+
+  .bgLeft,
+  .bgRight{
+    display: none;
+  }
+
+  .backBtn{
+    left: 24px;
+    top: 30px;
+  }
+
+  .registerLink{
+    right: 24px;
+    top: 30px;
+    font-size: 16px;
+    line-height: 20px;
+  }
+
+  .formWrap{
+    left: 50%;
+    top: 154px;
+    width: 440px;
+    height: 760px;
+    border-radius: 32px;
+    margin-left: var(--lumino-stage-extra-x, 0px);
+    transform: translateX(-50%);
+  }
+
+  .title{
+    left: 0;
+    top: 52px;
+    width: 100%;
+    height: auto;
+    font-size: 38px;
+    line-height: 1.08;
+  }
+
+  .subtitle{
+    left: 50%;
+    top: 116px;
+    width: calc(100% - 48px);
+    height: auto;
+    transform: translateX(-50%);
+    white-space: normal;
+    font-size: 16px;
+    line-height: 22px;
+  }
+
+  .inputWrap,
+  .forgotLink,
+  .loginBtn,
+  .inlineError,
+  .orWrap,
+  .googleBtn{
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .inputWrap{
+    width: 360px;
+    height: 60px;
+  }
+
+  .inputWrap:nth-of-type(1){
+    top: 220px;
+  }
+
+  .inputWrap:nth-of-type(2){
+    top: 295px;
+  }
+
+  .input{
+    border-radius: 16px;
+    padding: 0 22px;
+    font-size: 20px;
+    line-height: 24px;
+  }
+
+  .passwordInput{
+    padding-right: 66px;
+  }
+
+  .eyeBtn{
+    right: 16px;
+    top: 18px;
+  }
+
+  .forgotLink{
+    top: 370px;
+    width: 360px;
+    font-size: 15px;
+    line-height: 20px;
+  }
+
+  .loginBtn{
+    top: 430px;
+    width: 360px;
+    height: 60px;
+    font-size: 18px;
+    line-height: 22px;
+  }
+
+  .inlineError{
+    top: 502px;
+    width: 360px;
+    font-size: 15px;
+    line-height: 20px;
+  }
+
+  .orWrap{
+    top: 550px;
+    width: 360px;
+    height: 24px;
+  }
+
+  .orLine{
+    width: 120px;
+  }
+
+  .orText{
+    width: 50px;
+    font-size: 18px;
+    line-height: 24px;
+  }
+
+  .googleBtn{
+    top: 620px;
+    width: 360px;
+    height: 60px;
+    border-radius: 16px;
+    gap: 18px;
+  }
+
+  .googleIcon{
+    width: 44px;
+    height: 44px;
+  }
+
+  .googleIconCircle{
+    width: 44px;
+    height: 44px;
+  }
+
+  .googleIconLetter{
+    font-size: 26px;
+    line-height: 26px;
+  }
+
+  .googleText{
+    font-size: 18px;
+    line-height: 22px;
+  }
 }

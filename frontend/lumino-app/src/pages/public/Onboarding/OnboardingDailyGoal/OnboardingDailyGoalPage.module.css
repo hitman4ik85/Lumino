@@ -6,6 +6,18 @@
 
 .stage{
   composes: stage from "../shared/OnboardingSharedLayout.module.css";
+  --onboarding-tablet-back-left: 70px;
+  --onboarding-tablet-back-top: 50px;
+  --onboarding-tablet-progress-left: 118px;
+  --onboarding-tablet-progress-top: 48px;
+  --onboarding-tablet-progress-width: calc(100% - 236px);
+  --onboarding-tablet-progress-transform: none;
+  --onboarding-mobile-back-left: 30px;
+  --onboarding-mobile-back-top: 52px;
+  --onboarding-mobile-progress-left: 78px;
+  --onboarding-mobile-progress-top: 52px;
+  --onboarding-mobile-progress-width: calc(100% - 156px);
+  --onboarding-mobile-progress-transform: none;
 }
 
 .bg{
@@ -25,16 +37,24 @@
 }
 
 .progressFill{
-  width: 1108px;
-  height: 28px;
+  width: min(1108px, 74.8649%);
+  height: 100%;
   border-radius: 15px;
   background: #83a6ce;
 }
 
+.heroGroup{
+  position: absolute;
+  left: 249px;
+  top: 98px;
+  width: 545px;
+  height: 216px;
+}
+
 .mascot{
   position: absolute;
-  left: 248.8px;
-  top: 97.66px;
+  left: 0;
+  top: 0;
   width: 223.17px;
   height: 223.17px;
   pointer-events: none;
@@ -43,8 +63,8 @@
 
 .bubble{
   position: absolute;
-  left: 520px;
-  top: 196.29px;
+  left: 271px;
+  top: 98px;
   width: 273.63px;
   height: 118px;
   pointer-events: none;
@@ -53,10 +73,9 @@
 
 .bubbleText{
   position: absolute;
-  left: 572px;
-  top: 226px;
+  left: 323px;
+  top: 128px;
   width: 187px;
-  height: 58px;
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -78,9 +97,8 @@
 .title{
   position: absolute;
   left: 658px;
-  top: 435.29px;
+  top: 435px;
   width: 605px;
-  height: 49px;
   margin: 0;
   font-family: Montserrat, sans-serif;
   font-size: 40px;
@@ -89,6 +107,11 @@
   letter-spacing: 0;
   color: #0b1b32;
   white-space: nowrap;
+  text-align: center;
+}
+
+.goalsContainer{
+  position: static;
 }
 
 .goalBtn{
@@ -128,7 +151,7 @@
 .continueBtn{
   position: absolute;
   left: 745px;
-  top: 910.29px;
+  top: 910px;
   width: 430px;
   height: 70px;
   border-radius: 15px;
@@ -154,3 +177,171 @@
 .bottomShade{
   composes: bottomShade from "../shared/OnboardingStepCommon.module.css";
 }
+
+@media (max-width: 1180px){
+  .heroGroup{
+    left: 50%;
+    top: 126px;
+    width: 480px;
+    height: 178px;
+    transform: translateX(-50%);
+  }
+
+  .mascot{
+    width: 184px;
+    height: 184px;
+  }
+
+  .bubble{
+    left: 228px;
+    top: 60px;
+    width: 225px;
+    height: 96px;
+  }
+
+  .bubbleText{
+    left: 270px;
+    top: 84px;
+    width: 145px;
+    font-size: 20px;
+    line-height: 24px;
+  }
+
+  .title{
+    left: 50%;
+    top: 366px;
+    width: 560px;
+    transform: translateX(-50%);
+    font-size: 32px;
+    line-height: 38px;
+    white-space: normal;
+  }
+
+  .goalsContainer{
+    position: absolute;
+    left: 50%;
+    top: 510px;
+    width: 620px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    transform: translateX(-50%);
+  }
+
+  .goalBtn{
+    position: relative;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    min-height: 64px;
+    padding: 0 16px;
+    font-size: 20px;
+    line-height: 24px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 820px;
+    width: 430px;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 700px){
+  .heroGroup{
+    left: 50%;
+    top: 112px;
+    width: 320px;
+    height: 150px;
+    transform: translateX(-50%);
+  }
+
+  .mascot{
+    width: 146px;
+    height: 146px;
+  }
+
+  .bubble{
+    left: 152px;
+    top: 48px;
+    width: 150px;
+    height: 64px;
+  }
+
+  .bubbleText{
+    left: 179px;
+    top: 62px;
+    width: 98px;
+    font-size: 14px;
+    line-height: 18px;
+  }
+
+  .title{
+    left: 50%;
+    top: 300px;
+    width: 360px;
+    transform: translateX(-50%);
+    font-size: 24px;
+    line-height: 30px;
+    white-space: normal;
+  }
+
+  .goalsContainer{
+    position: absolute;
+    left: 50%;
+    top: 410px;
+    width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transform: translateX(-50%);
+  }
+
+  .goalBtn{
+    position: relative;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    min-height: 58px;
+    padding: 0 16px;
+    font-size: 20px;
+    line-height: 24px;
+    border-radius: 16px;
+  }
+
+  .goalIcon{
+    width: 22px;
+    height: 22px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 860px;
+    width: 360px;
+    height: 60px;
+    font-size: 18px;
+    transform: translateX(-50%);
+  }
+}
+
+.backBtn,
+.progressTrack,
+.heroGroup,
+.title,
+.description,
+.note,
+.levelBtn,
+.goalBtn,
+.cards,
+.continueBtn,
+.createBtn,
+.laterBtn{
+  margin-left: var(--lumino-stage-extra-x, 0px);
+}
+
+.headerSection{}
+.mainSection{}
+.heroSection{}
+.contentSection{}
+.goalsSection{}
+.actionSection{}

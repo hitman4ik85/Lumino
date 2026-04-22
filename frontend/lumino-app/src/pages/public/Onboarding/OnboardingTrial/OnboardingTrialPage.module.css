@@ -6,6 +6,18 @@
 
 .stage{
   composes: stage from "../shared/OnboardingSharedLayout.module.css";
+  --onboarding-tablet-back-left: 70px;
+  --onboarding-tablet-back-top: 50px;
+  --onboarding-tablet-progress-left: 118px;
+  --onboarding-tablet-progress-top: 48px;
+  --onboarding-tablet-progress-width: calc(100% - 236px);
+  --onboarding-tablet-progress-transform: none;
+  --onboarding-mobile-back-left: 30px;
+  --onboarding-mobile-back-top: 52px;
+  --onboarding-mobile-progress-left: 78px;
+  --onboarding-mobile-progress-top: 52px;
+  --onboarding-mobile-progress-width: calc(100% - 156px);
+  --onboarding-mobile-progress-transform: none;
 }
 
 .bg{
@@ -29,16 +41,24 @@
 }
 
 .progressFill{
-  width: 1330px;
-  height: 28px;
+  width: min(1330px, 89.8649%);
+  height: 100%;
   border-radius: 15px;
   background: #83a6ce;
 }
 
+.heroGroup{
+  position: absolute;
+  left: 232px;
+  top: 130px;
+  width: 647px;
+  height: 184px;
+}
+
 .mascot{
   position: absolute;
-  left: 231.63px;
-  top: 129.82px;
+  left: 0;
+  top: 0;
   width: 223.17px;
   height: 223.17px;
   pointer-events: none;
@@ -47,8 +67,8 @@
 
 .bubble{
   position: absolute;
-  left: 520px;
-  top: 196.29px;
+  left: 288px;
+  top: 66px;
   width: 358px;
   height: 118px;
   pointer-events: none;
@@ -57,10 +77,9 @@
 
 .bubbleText{
   position: absolute;
-  left: 562px;
-  top: 226.29px;
+  left: 330px;
+  top: 96px;
   width: 291px;
-  height: 58px;
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -82,7 +101,7 @@
 .cards{
   position: absolute;
   left: 638px;
-  top: 414.29px;
+  top: 414px;
   width: 644px;
   height: 305px;
 }
@@ -114,7 +133,6 @@
 .cardBtnActive .cardDescription{
   color: #ffffff;
 }
-
 
 .cardBtn:hover .recommendedBadge,
 .cardBtnActive .recommendedBadge{
@@ -205,7 +223,7 @@
 .continueBtn{
   position: absolute;
   left: 745px;
-  top: 910.29px;
+  top: 910px;
   width: 430px;
   height: 70px;
   border-radius: 15px;
@@ -236,3 +254,213 @@
 .continueBtn:disabled:hover{
   background: #83a6ce;
 }
+
+@media (max-width: 1180px){
+  .heroGroup{
+    left: 50%;
+    top: 126px;
+    width: 520px;
+    height: 178px;
+    transform: translateX(-50%);
+  }
+
+  .mascot{
+    width: 184px;
+    height: 184px;
+  }
+
+  .bubble{
+    left: 226px;
+    top: 58px;
+    width: 294px;
+    height: 96px;
+  }
+
+  .bubbleText{
+    left: 260px;
+    top: 86px;
+    width: 232px;
+    font-size: 20px;
+    line-height: 24px;
+  }
+
+  .cards{
+    left: 50%;
+    top: 426px;
+    width: 520px;
+    height: 286px;
+    transform: translateX(-50%);
+  }
+
+  .cardBtn{
+    width: 520px;
+    height: 122px;
+  }
+
+  .cardBtnSecondary{
+    top: 164px;
+  }
+
+  .recommendedBadge{
+    left: auto;
+    right: -34px;
+    width: 190px;
+    height: 44px;
+    font-size: 16px;
+  }
+
+  .cardIconBooks,
+  .cardIconSaturn{
+    left: 34px;
+    top: 32px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .cardTextBlock{
+    left: 96px;
+    top: 18px;
+    width: 332px;
+  }
+
+  .cardTitle,
+  .cardBtnSecondary .cardTitle{
+    left: 96px;
+    top: 44px;
+    font-size: 22px;
+    line-height: 26px;
+  }
+
+  .cardDescription{
+    font-size: 15px;
+    line-height: 19px;
+    max-width: 300px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 820px;
+    width: 430px;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 700px){
+  .heroGroup{
+    left: 50%;
+    top: 112px;
+    width: 320px;
+    height: 150px;
+    transform: translateX(-50%);
+  }
+
+  .mascot{
+    width: 146px;
+    height: 146px;
+  }
+
+  .bubble{
+    left: 150px;
+    top: 48px;
+    width: 204px;
+    height: 64px;
+  }
+
+  .bubbleText{
+    left: 169px;
+    top: 63px;
+    width: 160px;
+    font-size: 14px;
+    line-height: 18px;
+  }
+
+  .cards{
+    left: 50%;
+    top: 350px;
+    width: 360px;
+    height: 426px;
+    transform: translateX(-50%);
+  }
+
+  .cardBtn{
+    width: 360px;
+    height: 126px;
+    border-radius: 18px;
+  }
+
+  .cardBtnSecondary{
+    top: 150px;
+  }
+
+  .recommendedBadge{
+    left: auto;
+    right: -24px;
+    top: -18px;
+    width: 160px;
+    height: 36px;
+    font-size: 14px;
+    line-height: 18px;
+  }
+
+  .cardIconBooks,
+  .cardIconSaturn{
+    left: 22px;
+    top: 26px;
+    width: 42px;
+    height: 42px;
+  }
+
+  .cardTextBlock{
+    left: 78px;
+    top: 16px;
+    width: 242px;
+  }
+
+  .cardTitle{
+    font-size: 18px;
+    line-height: 22px;
+  }
+
+  .cardBtnSecondary .cardTitle{
+    left: 78px;
+    top: 42px;
+  }
+
+  .cardDescription{
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 17px;
+    max-width: 220px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 860px;
+    width: 360px;
+    height: 60px;
+    font-size: 18px;
+    transform: translateX(-50%);
+  }
+}
+
+.backBtn,
+.progressTrack,
+.heroGroup,
+.title,
+.description,
+.note,
+.levelBtn,
+.goalBtn,
+.cards,
+.continueBtn,
+.createBtn,
+.laterBtn{
+  margin-left: var(--lumino-stage-extra-x, 0px);
+}
+
+.headerSection{}
+.mainSection{}
+.heroSection{}
+.contentSection{}
+.cardsSection{}
+.actionSection{}

@@ -69,7 +69,7 @@ export default function SceneResultPage() {
   const navigate = useNavigate();
   const stageRef = useRef(null);
 
-  useStageScale(stageRef, { mode: "absolute" });
+  useStageScale(stageRef, { mode: "absolute", containBelow: 1180, containMinWidth: 700 });
 
   const result = location.state?.result || null;
   const scene = location.state?.scene || null;
@@ -191,6 +191,8 @@ export default function SceneResultPage() {
     });
   };
 
+  const hasMistakesButton = !isMistakesMode && mistakesCount > 0;
+
   return (
     <div className={styles.viewport}>
       <div ref={stageRef} className={styles.stage} id="scene-result-stage-root">
@@ -229,8 +231,8 @@ export default function SceneResultPage() {
               stageTargetId="scene-result-stage-root"
             />
 
-            <div className={styles.actionsRow}>
-              {!isMistakesMode && mistakesCount > 0 ? (
+            <div className={`${styles.actionsRow} ${!hasMistakesButton ? styles.actionsRowSingle : ""}`}>
+              {hasMistakesButton ? (
                 <button type="button" className={styles.mistakesButton} onClick={handleOpenMistakes}>
                   ПОМИЛКИ
                 </button>

@@ -72,28 +72,38 @@ export default function OnboardingQuestionGoalPage() {
 
         <div className={styles.bottomShade} />
 
-        <button className={styles.backBtn} type="button" onClick={handleBack}>
-          <img className={styles.backIcon} src={ArrowPrev} alt="back" />
-        </button>
+        <div className={styles.headerSection}>
+          <button className={styles.backBtn} type="button" onClick={handleBack}>
+            <img className={styles.backIcon} src={ArrowPrev} alt="back" />
+          </button>
 
-        <div className={styles.progressTrack}>
-          <div className={styles.progressFill} />
+          <div className={styles.progressTrack}>
+            <div className={styles.progressFill} />
+          </div>
         </div>
 
-        <AnimatedMascotBubble
-          mascotSrc={Mascot}
-          bubbleSrc={Bubble}
-          mascotClassName={styles.mascot}
-          bubbleClassName={styles.bubble}
-          textClassName={styles.bubbleText}
-        >
-          <span>Обери свою мету —</span>
-          <span>і вперед!</span>
-        </AnimatedMascotBubble>
+        <div className={styles.mainSection}>
+          <div className={styles.heroSection}>
+            <div className={styles.heroGroup}>
+          <AnimatedMascotBubble
+            mascotSrc={Mascot}
+            bubbleSrc={Bubble}
+            mascotClassName={styles.mascot}
+            bubbleClassName={styles.bubble}
+            textClassName={styles.bubbleText}
+          >
+            <span>Обери свою мету —</span>
+            <span>і вперед!</span>
+          </AnimatedMascotBubble>
+            </div>
+          </div>
 
-        <h1 className={styles.title}>З якою метою ви вивчаєте англійську?</h1>
+          <div className={styles.contentSection}>
+            <h1 className={styles.title}>З якою метою ви вивчаєте англійську?</h1>
 
-        {goals.map((it) => (
+            <div className={styles.goalsSection}>
+              <div className={styles.goalsContainer}>
+          {goals.map((it) => (
           <button
             key={it.key}
             type="button"
@@ -105,10 +115,16 @@ export default function OnboardingQuestionGoalPage() {
             {it.title}
           </button>
         ))}
+              </div>
+            </div>
+          </div>
 
-        <button className={styles.continueBtn} type="button" onClick={handleContinue}>
-          ПРОДОВЖИТИ
-        </button>
+          <div className={styles.actionSection}>
+            <button className={styles.continueBtn} type="button" onClick={handleContinue}>
+              ПРОДОВЖИТИ
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

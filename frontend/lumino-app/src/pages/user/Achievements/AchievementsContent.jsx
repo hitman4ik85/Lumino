@@ -68,6 +68,10 @@ export default function AchievementsContent() {
 
   return (
     <div className={styles.viewport}>
+      <div className={styles.mobileHeader}>
+        <div className={styles.mobileTitle}>Нагороди</div>
+      </div>
+
       <div className={styles.topDivider} />
 
       <div className={styles.achievementsBody}>

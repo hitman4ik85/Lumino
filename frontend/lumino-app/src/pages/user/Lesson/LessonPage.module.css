@@ -27,7 +27,10 @@
 .bgLeft,.bgRight{
   position:absolute;
   top:0;
-  height:1080px;
+  width:auto;
+  height:100%;
+  max-width:none;
+  object-fit:contain;
   pointer-events:none;
   user-select:none;
 }
@@ -46,6 +49,7 @@
 }
 
 .closeButton{
+  transform:translateX(var(--lumino-stage-extra-x, 0px));
   position:absolute;
   left:173px;
   top:53px;
@@ -69,6 +73,7 @@
 .topBar{
   position:absolute;
   inset:0;
+  transform:translateX(var(--lumino-stage-extra-x, 0px));
 }
 
 .progressTrack{
@@ -124,10 +129,13 @@
   height:703px;
   padding:0;
   border-radius:52px;
-  border:1px solid rgba(255,255,255,.34);
-  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.52);
+  background:linear-gradient(90deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,.28) 52%, rgba(255,255,255,.18) 100%);
   box-sizing:border-box;
-  backdrop-filter:blur(2px);
+  box-shadow:0 0 0 1px rgba(255,255,255,.12) inset, 0 14px 36px rgba(97,127,158,.08);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  transform:translateX(var(--lumino-stage-extra-x, 0px));
 }
 
 .contentCardChoice{
@@ -675,7 +683,7 @@
   left:50%;
   top:419px;
   transform:translateX(-50%);
-  width:max-content;
+  width:760px;
   max-width:760px;
   display:flex;
   align-items:flex-start;
@@ -687,7 +695,7 @@
   align-items:flex-end;
   justify-content:center;
   gap:8px;
-  width:max-content;
+  width:100%;
 }
 
 .inputAnswerSlot{
@@ -782,6 +790,7 @@
   display:flex;
   align-items:center;
   justify-content:center;
+  transform:translateX(var(--lumino-stage-extra-x, 0px));
 }
 
 .bubble{
@@ -947,6 +956,7 @@ button.matchOptionButton:disabled{
   height:70px;
   display:flex;
   justify-content:center;
+  transform:translateX(var(--lumino-stage-extra-x, 0px));
 }
 
 .bottomBarChoice{
@@ -999,12 +1009,15 @@ button.matchOptionButton:disabled{
 }
 
 .lessonModalCard{
+  --lesson-modal-scale:1;
   position:relative;
   flex-shrink:0;
   border-radius:20px;
   background:#B2C3D5;
   box-shadow:0 24px 60px rgba(38,65,94,.16);
   box-sizing:border-box;
+  transform:scale(var(--lesson-modal-scale));
+  transform-origin:center;
 }
 
 .lessonLeaveModalCard{
@@ -1363,5 +1376,749 @@ button.matchOptionButton:disabled{
   to{
     opacity:1;
     transform:translateX(0) translateY(0) scale(1);
+  }
+}
+
+
+@media (max-width: 1180px){
+  .closeButton{
+    left:70px;
+    top:45px;
+    width:30px;
+    height:30px;
+    font-size:48px;
+    line-height:30px;
+    transform:none;
+  }
+
+  .progressTrack{
+    left:112px;
+    top:48px;
+    width:calc(100% - 224px);
+    height:24px;
+  }
+
+  .energyCounter{
+    left:auto;
+    right:30px;
+    top:36px;
+    width:auto;
+    min-width:74px;
+    height:48px;
+    gap:4px;
+  }
+
+  .energyCounter img{
+    width:31px;
+    height:31px;
+  }
+
+  .energyCounter span{
+    font-size:22px;
+    line-height:1;
+  }
+
+  .contentCard{
+    left:50%;
+    top:140px;
+    width:760px;
+    height:770px;
+    border-radius:40px;
+    transform:translateX(-50%);
+  }
+
+  .exerciseTitle,
+  .inputExerciseTitle{
+    left:40px;
+    top:28px;
+    width:calc(100% - 80px);
+    height:auto;
+    white-space:normal;
+    font-size:29px;
+    line-height:1.16;
+  }
+
+  .exerciseSubtitle{
+    left:40px;
+    top:72px;
+    width:calc(100% - 80px);
+    height:auto;
+    font-size:20px;
+    line-height:1.2;
+  }
+
+  .wordCard{
+    left:50%;
+    top:168px;
+    width:328px;
+    height:160px;
+    transform:translateX(-50%);
+  }
+
+  .wordCardBack{
+    font-size:52px;
+    line-height:1.12;
+  }
+
+  .wordCardFrontFallback{
+    padding:0 22px;
+    font-size:34px;
+    line-height:1.18;
+  }
+
+  .exercisePrompt{
+    left:40px;
+    top:188px;
+    width:calc(100% - 80px);
+    min-height:0;
+    font-size:52px;
+    line-height:1.12;
+    white-space:normal;
+  }
+
+  .sentenceHeroRow{
+    left:38px;
+    top:118px;
+    width:calc(100% - 76px);
+    gap:24px;
+  }
+
+  .sentenceMascot{
+    width:142px;
+    height:202px;
+  }
+
+  .sentenceBubble{
+    flex:0 1 auto;
+    width:max-content;
+    max-width:calc(100% - 166px);
+    min-height:92px;
+    margin-top:40px;
+    padding:18px 22px;
+  }
+
+  .sentenceBubbleText{
+    font-size:23px;
+    line-height:1.34;
+  }
+
+  .optionsGrid{
+    left:50%;
+    top:416px;
+    width:600px;
+    max-width:600px;
+    gap:14px;
+    transform:translateX(-50%);
+  }
+
+  .sentenceHeroRow + .optionsGrid{
+    top:382px;
+  }
+
+  .optionButton{
+    width:60%;
+    min-width:0;
+    max-width:60%;
+    min-height:66px;
+    padding:14px 18px;
+    font-size:26px;
+    line-height:1.28;
+  }
+
+  .feedbackHeroRow{
+    left:40px;
+    top:28px;
+    width:calc(100% - 80px);
+    height:auto;
+    gap:18px;
+  }
+
+  .feedbackHeroRowCorrect,
+  .feedbackHeroRowWrong{
+    width:calc(100% - 80px);
+    height:auto;
+  }
+
+  .mascotWrap{
+    width:162px;
+    height:168px;
+    flex:0 0 162px;
+  }
+
+  .feedbackMascot{
+    left:10px;
+    top:0;
+    width:150px;
+    height:150px;
+  }
+
+  .feedbackStarOne{
+    left:-18px;
+    top:64px;
+    width:24px;
+    height:28px;
+  }
+
+  .feedbackStarTwo{
+    left:14px;
+    top:26px;
+    width:18px;
+    height:22px;
+  }
+
+  .feedbackStarThree{
+    left:2px;
+    top:116px;
+    width:19px;
+    height:23px;
+  }
+
+  .feedbackBubbleWrap{
+    margin-left:0;
+    margin-top:28px;
+    flex:0 1 auto;
+    align-self:flex-start;
+    min-width:0;
+    max-width:calc(100% - 180px);
+  }
+
+  .feedbackBubbleWrapCorrect,
+  .feedbackBubbleWrapWrong{
+    width:auto;
+    max-width:calc(100% - 180px);
+  }
+
+  .matchFeedbackBubbleWrapWrong{
+    margin-left:0;
+  }
+
+  .feedbackBubbleShape{
+    width:auto;
+    max-width:100%;
+    display:inline-flex;
+    padding:18px 20px;
+  }
+
+  .feedbackBubbleText{
+    font-size:22px;
+    line-height:1.32;
+  }
+
+  .feedbackBubbleTextSingle,
+  .feedbackBubbleTextDouble{
+    min-height:auto;
+  }
+
+  .inputHeroRow{
+    left:32px;
+    top:108px;
+    width:calc(100% - 64px);
+  }
+
+  .inputMascot{
+    width:210px;
+    height:210px;
+  }
+
+  .inputBubble{
+    flex:0 1 auto;
+    width:max-content;
+    max-width:calc(100% - 242px);
+    min-height:92px;
+    margin-top:28px;
+    margin-left:0;
+    padding:18px 22px;
+  }
+
+  .inputBubbleText{
+    white-space:normal;
+    font-size:23px;
+    line-height:1.34;
+  }
+
+  .inputAnswerWrap{
+    top:414px;
+    width:600px;
+    max-width:600px;
+  }
+
+  .inputAnswerSlots{
+    flex-wrap:wrap;
+    row-gap:12px;
+  }
+
+  .inputAnswerSlot{
+    width:36px;
+    height:72px;
+  }
+
+  .inputAnswerSlotSpace{
+    width:22px;
+  }
+
+  .inputAnswerUnderline{
+    width:26px;
+  }
+
+  .inputAnswerLetter{
+    min-width:26px;
+    bottom:8px;
+    font-size:46px;
+    line-height:46px;
+  }
+
+  .matchBoard{
+    left:50%;
+    top:272px;
+    width:600px;
+    grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
+    column-gap:28px;
+    transform:translateX(-50%);
+  }
+
+  .matchBoardFeedback{
+    top:272px;
+  }
+
+  .matchColumn{
+    justify-items:center;
+  }
+
+  .matchOptionButton{
+    width:60%;
+    max-width:60%;
+    height:auto;
+    min-height:62px;
+    padding:12px 16px;
+    font-size:24px;
+    line-height:1.28;
+  }
+
+  .bottomBar{
+    left:50%;
+    right:auto;
+    top:960px;
+    width:300px;
+    justify-content:center;
+    transform:translateX(-50%);
+  }
+
+  .bottomBarChoice{
+    justify-content:flex-end;
+  }
+
+  .primaryButton{
+    width:300px;
+    min-width:300px;
+    height:66px;
+    font-size:22px;
+  }
+
+  .exerciseAnswerZoneSentence .optionsGrid,
+  .exerciseAnswerZoneSentence.exerciseAnswerZoneFeedback .optionsGrid{
+    top:382px;
+  }
+
+  .exerciseAnswerZoneWithImage .optionsGrid,
+  .exerciseAnswerZoneWithImage.exerciseAnswerZoneFeedback .optionsGrid{
+    top:362px;
+  }
+
+  .exerciseAnswerZoneFeedback .optionsGrid{
+    top:416px;
+  }
+
+  .lessonLeaveModalCard,
+  .lessonRestoreModalCard,
+  .lessonEmptyEnergyModalCard{
+    --lesson-modal-scale:.92;
+  }
+
+}
+
+@media (max-width: 700px){
+  .viewport,
+  .stage{
+    background:var(--lesson-scenes-mobile-background);
+  }
+
+  .bgLeft,
+  .bgRight{
+    display:none;
+  }
+
+  .closeButton{
+    left:30px;
+    top:48px;
+    width:30px;
+    height:30px;
+    font-size:46px;
+    line-height:30px;
+  }
+
+  .progressTrack{
+    left:70px;
+    top:52px;
+    width:calc(100% - 142px);
+    height:22px;
+  }
+
+  .energyCounter{
+    right:14px;
+    top:41px;
+    min-width:52px;
+    height:40px;
+    gap:2px;
+  }
+
+  .energyCounter img{
+    width:28px;
+    height:28px;
+  }
+
+  .energyCounter span{
+    font-size:20px;
+  }
+
+  .contentCard{
+    left:50%;
+    top:130px;
+    width:440px;
+    height:800px;
+    border-radius:34px;
+    transform:translateX(-50%);
+  }
+
+  .exerciseTitle,
+  .inputExerciseTitle{
+    left:20px;
+    top:28px;
+    width:calc(100% - 40px);
+    font-size:24px;
+    line-height:1.22;
+  }
+
+  .exerciseSubtitle{
+    left:20px;
+    top:92px;
+    width:calc(100% - 40px);
+    font-size:16px;
+    line-height:1.24;
+  }
+
+  .wordCard{
+    top:174px;
+    width:230px;
+    height:148px;
+  }
+
+  .wordCardFront,
+  .wordCardBack{
+    border-radius:24px;
+  }
+
+  .wordCardBack{
+    font-size:40px;
+  }
+
+  .wordCardFrontFallback{
+    padding:0 18px;
+    font-size:28px;
+    line-height:1.18;
+  }
+
+  .wordCardImage{
+    padding:10px;
+  }
+
+  .exercisePrompt{
+    left:20px;
+    top:188px;
+    width:calc(100% - 40px);
+    font-size:40px;
+    line-height:1.12;
+  }
+
+  .sentenceHeroRow{
+    left:16px;
+    top:110px;
+    width:calc(100% - 32px);
+    gap:12px;
+  }
+
+  .sentenceMascot{
+    width:102px;
+    height:146px;
+  }
+
+  .sentenceBubble{
+    flex:0 1 auto;
+    width:max-content;
+    max-width:calc(100% - 114px);
+    min-height:84px;
+    margin-top:18px;
+    padding:14px 18px;
+    border-radius:16px;
+  }
+
+  .sentenceBubble::before{
+    left:-10px;
+    bottom:18px;
+    width:18px;
+    height:18px;
+  }
+
+  .sentenceBubbleText{
+    font-size:19px;
+    line-height:1.34;
+  }
+
+  .optionsGrid{
+    left:50%;
+    top:392px;
+    width:400px;
+    max-width:400px;
+    gap:12px;
+    transform:translateX(-50%);
+  }
+
+  .sentenceHeroRow + .optionsGrid{
+    top:356px;
+  }
+
+  .optionButton{
+    width:100%;
+    max-width:100%;
+    min-height:58px;
+    padding:12px 16px;
+    font-size:20px;
+    line-height:1.28;
+    border-radius:18px;
+  }
+
+  .feedbackHeroRow{
+    left:16px;
+    top:22px;
+    width:calc(100% - 32px);
+    gap:10px;
+  }
+
+  .feedbackHeroRowCorrect,
+  .feedbackHeroRowWrong{
+    width:calc(100% - 32px);
+  }
+
+  .mascotWrap{
+    width:104px;
+    height:108px;
+    flex:0 0 104px;
+  }
+
+  .feedbackMascot{
+    left:2px;
+    width:100px;
+    height:100px;
+  }
+
+  .feedbackStarOne{
+    left:-6px;
+    top:46px;
+    width:18px;
+    height:22px;
+  }
+
+  .feedbackStarTwo{
+    left:18px;
+    top:12px;
+    width:14px;
+    height:18px;
+  }
+
+  .feedbackStarThree{
+    left:6px;
+    top:80px;
+    width:14px;
+    height:18px;
+  }
+
+  .feedbackBubbleWrap{
+    margin-top:10px;
+    flex:0 1 auto;
+    align-self:flex-start;
+    max-width:calc(100% - 114px);
+  }
+
+  .feedbackBubbleShape{
+    width:auto;
+    max-width:100%;
+    display:inline-flex;
+    padding:14px 16px;
+    border-radius:16px;
+  }
+
+  .feedbackBubbleShapeSingle{
+    min-height:64px;
+  }
+
+  .feedbackBubbleShapeDouble{
+    min-height:92px;
+  }
+
+  .feedbackBubbleTail{
+    left:-9px;
+    width:16px;
+    height:16px;
+  }
+
+  .feedbackBubbleText{
+    font-size:19px;
+    line-height:1.32;
+  }
+
+  .inputHeroRow{
+    left:16px;
+    top:102px;
+    width:calc(100% - 32px);
+  }
+
+  .inputMascot{
+    width:104px;
+    height:146px;
+  }
+
+  .inputBubble{
+    flex:0 1 auto;
+    width:max-content;
+    max-width:calc(100% - 114px);
+    min-height:84px;
+    margin-top:18px;
+    padding:14px 18px;
+    border-radius:16px;
+  }
+
+  .inputBubble::before{
+    left:-10px;
+    bottom:18px;
+    width:18px;
+    height:18px;
+  }
+
+  .inputBubbleText{
+    white-space:normal;
+    font-size:19px;
+    line-height:1.34;
+  }
+
+  .inputAnswerWrap{
+    top:358px;
+    width:400px;
+    max-width:400px;
+  }
+
+  .inputAnswerSlots{
+    gap:4px;
+    row-gap:10px;
+  }
+
+  .inputAnswerSlot{
+    width:28px;
+    height:56px;
+  }
+
+  .inputAnswerSlotSpace{
+    width:16px;
+  }
+
+  .inputAnswerUnderline{
+    width:22px;
+    height:3px;
+  }
+
+  .inputAnswerLetter{
+    min-width:22px;
+    bottom:8px;
+    font-size:36px;
+    line-height:36px;
+  }
+
+  .matchBoard{
+    left:50%;
+    top:240px;
+    width:400px;
+    grid-template-columns:minmax(0, 1fr);
+    column-gap:0;
+    row-gap:42px;
+    transform:translateX(-50%);
+  }
+
+  .matchBoardFeedback{
+    top:240px;
+  }
+
+  .matchColumn{
+    gap:10px;
+  }
+
+  .matchOptionButton{
+    width:100%;
+    max-width:100%;
+    min-height:50px;
+    padding:12px 14px;
+    font-size:20px;
+    line-height:1.28;
+    border-radius:18px;
+  }
+
+  .bottomBar{
+    left:50%;
+    right:auto;
+    top:970px;
+    width:360px;
+    justify-content:center;
+    transform:translateX(-50%);
+  }
+
+  .bottomBarChoice{
+    justify-content:center;
+  }
+
+  .primaryButton{
+    width:360px;
+    min-width:360px;
+    height:70px;
+    font-size:20px;
+    border-radius:18px;
+  }
+
+  .exerciseAnswerZoneSentence .optionsGrid,
+  .exerciseAnswerZoneSentence.exerciseAnswerZoneFeedback .optionsGrid{
+    top:356px;
+  }
+
+  .exerciseAnswerZoneWithImage .optionsGrid,
+  .exerciseAnswerZoneWithImage.exerciseAnswerZoneFeedback .optionsGrid{
+    top:346px;
+  }
+
+  .exerciseAnswerZoneFeedback .optionsGrid{
+    top:392px;
+  }
+
+  .lessonLeaveModalCard,
+  .lessonRestoreModalCard,
+  .lessonEmptyEnergyModalCard{
+    --lesson-modal-scale:.82;
+  }
+
+
+  .lessonRestoreAction{
+    min-height:72px;
+    padding:14px 16px;
+  }
+
+  .lessonRestoreActionText,
+  .lessonRestoreActionRight span{
+    font-size:18px;
+    line-height:1.2;
   }
 }

@@ -71,10 +71,10 @@ const NAV_ITEMS = [
 ];
 
 const HEADER_COUNTERS = {
-  flag: { x: 1228, y: 40, w: 98, h: 72 },
-  star: { x: 1377, y: 39, w: 129, h: 66 },
-  crystal: { x: 1572, y: 57, w: 114.34, h: 39.86 },
-  energy: { x: 1732, y: 39, w: 149, h: 69 },
+  flag: { right: 625, y: 40, w: 98, h: 72 },
+  star: { right: 445, y: 39, w: 129, h: 66 },
+  crystal: { right: 264.66, y: 57, w: 114.34, h: 39.86 },
+  energy: { right: 70, y: 39, w: 149, h: 69 },
 };
 
 const ORBIT_SEQUENCE = [1, 2, 3, 1, 2, 3, 1, 2, 3, 1];
@@ -1106,15 +1106,31 @@ function OrbitSection({
 
   return (
     <section className={styles.section} style={{ left: `${SECTION_WIDTH * index}px` }}>
-      <button
-        type="button"
-        className={`${styles.topicCard} ${isTopicUnlocked ? "" : styles.topicCardLocked}`}
-        onMouseDown={(event) => event.stopPropagation()}
-        onClick={() => onTitleClick(item, !isTopicUnlocked, index)}
-      >
-        <span className={styles.topicMeta}>{formatCourseBadge(course, index)}</span>
-        <span className={styles.topicTitle}>{item?.title || `Topic ${index + 1}`}</span>
-      </button>
+      <div className={styles.sectionHeaderRow}>
+        <button
+          type="button"
+          className={`${styles.topicCard} ${isTopicUnlocked ? "" : styles.topicCardLocked}`}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={() => onTitleClick(item, !isTopicUnlocked, index)}
+        >
+          <span className={styles.topicMeta}>{formatCourseBadge(course, index)}</span>
+          <span className={styles.topicTitle}>{item?.title || `Topic ${index + 1}`}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.sceneButton} ${isTopicUnlocked ? "" : styles.sceneButtonLockedState}`}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={() => onSceneButtonClick(item, !isTopicUnlocked, index)}
+        >
+          <img
+            className={styles.sceneButtonImage}
+            src={HOME_SHARED_ASSETS.sceneButton}
+            alt=""
+            aria-hidden="true"
+          />
+        </button>
+      </div>
 
       <div className={styles.orbitBox}>
         <div className={`${styles.ring} ${styles.ring1}`} />
@@ -1233,19 +1249,6 @@ function OrbitSection({
         </button>
       </div>
 
-      <button
-        type="button"
-        className={`${styles.sceneButton} ${isTopicUnlocked ? "" : styles.sceneButtonLockedState}`}
-        onMouseDown={(event) => event.stopPropagation()}
-        onClick={() => onSceneButtonClick(item, !isTopicUnlocked, index)}
-      >
-        <img
-          className={styles.sceneButtonImage}
-          src={HOME_SHARED_ASSETS.sceneButton}
-          alt=""
-          aria-hidden="true"
-        />
-      </button>
 
       {index < 9 ? (
         <div className={styles.sectionDivider}>
@@ -1280,6 +1283,7 @@ export default function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const stageRef = useRef(null);
   const trackRef = useRef(null);
+  const mobileOrbitCenteredRef = useRef("");
   const dragRef = useRef({ active: false, startX: 0, startLeft: 0 });
   const dropdownRef = useRef(null);
   const scenesRequestRef = useRef(0);
@@ -1397,6 +1401,58 @@ export default function HomePage() {
 
     return [];
   }, [isGuest, path]);
+
+  useEffect(() => {
+    const applyMobileLearningOffset = () => {
+      const track = trackRef.current;
+
+      if (!track) {
+        return;
+      }
+
+      if (window.innerWidth > 700 || bodyViewRef.current !== "learning" || topics.length === 0) {
+        mobileOrbitCenteredRef.current = "";
+        return;
+      }
+
+      const currentCourseKey = `${Number(course?.id || 0)}:${topics.length}:${window.innerWidth}`;
+
+      if (mobileOrbitCenteredRef.current === currentCourseKey) {
+        return;
+      }
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          const currentTrack = trackRef.current;
+
+          if (!currentTrack || window.innerWidth > 700 || bodyViewRef.current !== "learning" || topics.length === 0) {
+            return;
+          }
+
+          const sunButton = currentTrack.getElementsByClassName(styles.sunButton)[0];
+
+          if (!(sunButton instanceof HTMLElement)) {
+            return;
+          }
+
+          const trackRect = currentTrack.getBoundingClientRect();
+          const sunRect = sunButton.getBoundingClientRect();
+          const nextScrollLeft = currentTrack.scrollLeft + (sunRect.left + (sunRect.width / 2)) - (trackRect.left + (currentTrack.clientWidth / 2));
+          const maxScrollLeft = Math.max(0, currentTrack.scrollWidth - currentTrack.clientWidth);
+
+          currentTrack.scrollLeft = Math.min(Math.max(nextScrollLeft, 0), maxScrollLeft);
+          mobileOrbitCenteredRef.current = currentCourseKey;
+        });
+      });
+    };
+
+    applyMobileLearningOffset();
+    window.addEventListener("resize", applyMobileLearningOffset);
+
+    return () => {
+      window.removeEventListener("resize", applyMobileLearningOffset);
+    };
+  }, [bodyView, course?.id, topics.length]);
 
   const nextPathPointers = useMemo(() => {
     if (isGuest) {
@@ -2945,7 +3001,7 @@ export default function HomePage() {
             <button
               type="button"
               className={styles.flagButton}
-              style={{ left: `${HEADER_COUNTERS.flag.x}px`, top: `${HEADER_COUNTERS.flag.y}px`, width: `${HEADER_COUNTERS.flag.w}px`, height: `${HEADER_COUNTERS.flag.h}px` }}
+              style={{ right: `${HEADER_COUNTERS.flag.right}px`, top: `${HEADER_COUNTERS.flag.y}px`, width: `${HEADER_COUNTERS.flag.w}px`, height: `${HEADER_COUNTERS.flag.h}px` }}
               onClick={() => {
                 if (isGuest) {
                   guestPrompt();
@@ -2961,7 +3017,7 @@ export default function HomePage() {
             <button
               type="button"
               className={styles.counterButton}
-              style={{ left: `${HEADER_COUNTERS.star.x}px`, top: `${HEADER_COUNTERS.star.y}px`, width: `${HEADER_COUNTERS.star.w}px`, height: `${HEADER_COUNTERS.star.h}px` }}
+              style={{ right: `${HEADER_COUNTERS.star.right}px`, top: `${HEADER_COUNTERS.star.y}px`, width: `${HEADER_COUNTERS.star.w}px`, height: `${HEADER_COUNTERS.star.h}px` }}
               onClick={() => {
                 if (isGuest) {
                   guestPrompt();
@@ -2977,7 +3033,7 @@ export default function HomePage() {
 
             <div
               className={styles.counterStatic}
-              style={{ left: `${HEADER_COUNTERS.crystal.x}px`, top: `${HEADER_COUNTERS.crystal.y}px`, width: `${HEADER_COUNTERS.crystal.w}px`, height: `${HEADER_COUNTERS.crystal.h}px` }}
+              style={{ right: `${HEADER_COUNTERS.crystal.right}px`, top: `${HEADER_COUNTERS.crystal.y}px`, width: `${HEADER_COUNTERS.crystal.w}px`, height: `${HEADER_COUNTERS.crystal.h}px` }}
             >
               <HeaderIcon src={HOME_HEADER_ICONS.crystal} />
               <span>{Number(user.crystals || 0)}</span>
@@ -2986,7 +3042,7 @@ export default function HomePage() {
             <button
               type="button"
               className={styles.counterButton}
-              style={{ left: `${HEADER_COUNTERS.energy.x}px`, top: `${HEADER_COUNTERS.energy.y}px`, width: `${HEADER_COUNTERS.energy.w}px`, height: `${HEADER_COUNTERS.energy.h}px` }}
+              style={{ right: `${HEADER_COUNTERS.energy.right}px`, top: `${HEADER_COUNTERS.energy.y}px`, width: `${HEADER_COUNTERS.energy.w}px`, height: `${HEADER_COUNTERS.energy.h}px` }}
               onClick={() => {
                 if (isGuest) {
                   guestPrompt();
@@ -3001,7 +3057,7 @@ export default function HomePage() {
             </button>
 
             {openDropdown === "language" ? (
-              <div className={`${styles.dropdownCard} ${styles.languageDropdownCard}`} style={{ left: "1102px", top: "136px", width: "402px", minHeight: "180px" }}>
+              <div className={`${styles.dropdownCard} ${styles.languageDropdownCard}`} style={{ right: "447px", top: "136px", width: "402px", minHeight: "180px" }}>
                 <div className={styles.languageDropdownTitle}>КУРСИ</div>
                 <div className={styles.languageDropdownDivider} />
                 <div className={styles.languageDropdownActions}>
@@ -3034,7 +3090,7 @@ export default function HomePage() {
             ) : null}
 
             {openDropdown === "streak" ? (
-              <div className={`${styles.dropdownCard} ${styles.streakDropdownCard}`} style={{ left: "1240px", top: "125px", width: "402px", minHeight: "390px" }}>
+              <div className={`${styles.dropdownCard} ${styles.streakDropdownCard}`} style={{ right: "309px", top: "125px", width: "402px", minHeight: "390px" }}>
                 <div className={styles.streakDropdownTop}>
                   <div className={styles.streakHeroContent}>
                     <div className={styles.streakHeroDays}>{Number(user.currentStreakDays || 0)}</div>
@@ -3074,7 +3130,7 @@ export default function HomePage() {
             ) : null}
 
             {openDropdown === "energy" ? (
-              <div className={`${styles.dropdownCard} ${styles.energyDropdownCard}`} style={{ left: "1518px", top: "135px", width: "402px", minHeight: "293px" }}>
+              <div className={`${styles.dropdownCard} ${styles.energyDropdownCard}`} style={{ right: "31px", top: "135px", width: "402px", minHeight: "293px" }}>
                 <div className={styles.energyDropdownTitle}>Енергія</div>
                 <div className={styles.energyChargeLabel}>ЗАРЯДЖЕННЯ{energyRestoreTimerText ? ` (${energyRestoreTimerText})` : ""}</div>
                 <div className={styles.energyScale}>
@@ -3169,7 +3225,7 @@ export default function HomePage() {
           </div>
         ) : null}
 
-        <main className={`${styles.body} ${isFullPanelView ? styles.bodyFull : ""}`}>{renderBody()}</main>
+        <main className={`${styles.body} ${isFullPanelView ? styles.bodyFull : ""} ${(bodyView === "achievements" || bodyView === "languages") ? styles.bodyWithoutTopBarMobile : ""}`}>{renderBody()}</main>
       </div>
     </div>
   );

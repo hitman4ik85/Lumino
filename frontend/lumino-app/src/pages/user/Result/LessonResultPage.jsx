@@ -66,7 +66,7 @@ export default function LessonResultPage() {
   const navigate = useNavigate();
   const stageRef = useRef(null);
 
-  useStageScale(stageRef, { mode: "absolute" });
+  useStageScale(stageRef, { mode: "absolute", containBelow: 1180, containMinWidth: 700 });
 
   const result = location.state?.result || null;
   const lesson = location.state?.lesson || null;
@@ -208,6 +208,8 @@ export default function LessonResultPage() {
     });
   };
 
+  const hasMistakesButton = !isMistakesMode && !isDemoLesson && mistakesCount > 0;
+
   return (
     <div className={styles.viewport}>
       <div ref={stageRef} className={styles.stage} id="lesson-result-stage-root">
@@ -251,8 +253,8 @@ export default function LessonResultPage() {
               stageTargetId="lesson-result-stage-root"
             />
 
-            <div className={styles.actionsRow}>
-              {!isMistakesMode && !isDemoLesson && mistakesCount > 0 ? (
+            <div className={`${styles.actionsRow} ${!hasMistakesButton ? styles.actionsRowSingle : ""}`}>
+              {hasMistakesButton ? (
                 <button type="button" className={styles.mistakesButton} onClick={handleOpenMistakes}>
                   ПОМИЛКИ
                 </button>

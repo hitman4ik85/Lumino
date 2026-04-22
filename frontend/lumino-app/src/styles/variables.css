@@ -6,4 +6,23 @@
   --color-lang: #0B1B32;
   --color-start: #83A6CE;
   --color-secondary: #9DABBC;
+  --public-mobile-background:
+    radial-gradient(58% 24% at 50% 0%, rgba(189, 196, 220, 0.96) 0%, rgba(189, 196, 220, 0.68) 38%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(72% 34% at 0% 0%, rgba(226, 234, 244, 0.98) 0%, rgba(226, 234, 244, 0.92) 34%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(72% 34% at 100% 0%, rgba(229, 205, 221, 0.98) 0%, rgba(229, 205, 221, 0.92) 34%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(76% 36% at 0% 100%, rgba(232, 209, 225, 0.98) 0%, rgba(232, 209, 225, 0.90) 32%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(76% 36% at 100% 100%, rgba(218, 228, 240, 0.98) 0%, rgba(218, 228, 240, 0.90) 32%, rgba(255, 255, 255, 0) 100%),
+    linear-gradient(180deg, #f5f4f7 0%, #ffffff 28%, #ffffff 74%, #f5f4f7 100%);
+  --lesson-scenes-mobile-background:
+    radial-gradient(46% 18% at 50% 0%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.92) 44%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(72% 34% at 0% 0%, rgba(233, 239, 246, 0.98) 0%, rgba(233, 239, 246, 0.88) 34%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(72% 34% at 100% 0%, rgba(241, 229, 236, 0.98) 0%, rgba(241, 229, 236, 0.86) 34%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(84% 56% at 0% 100%, rgba(216, 194, 214, 0.98) 0%, rgba(216, 194, 214, 0.88) 24%, rgba(255, 255, 255, 0) 76%),
+    radial-gradient(84% 56% at 100% 100%, rgba(198, 208, 228, 0.98) 0%, rgba(198, 208, 228, 0.88) 24%, rgba(255, 255, 255, 0) 76%),
+    linear-gradient(180deg, #f6f8fb 0%, #fbfbfc 18%, #ffffff 42%, #f8f6fa 72%, #ece3ed 88%, #d5dbea 100%);
+  --lesson-scenes-result-mobile-background:
+    radial-gradient(58% 24% at 50% 0%, rgba(246, 248, 252, 0.98) 0%, rgba(246, 248, 252, 0.90) 34%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(74% 36% at 0% 0%, rgba(201, 211, 229, 0.98) 0%, rgba(201, 211, 229, 0.92) 32%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(74% 36% at 100% 0%, rgba(207, 196, 220, 0.98) 0%, rgba(207, 196, 220, 0.90) 32%, rgba(255, 255, 255, 0) 100%),
+    linear-gradient(180deg, #edf3f9 0%, #f6f5f8 22%, #ffffff 46%, #ffffff 100%);
 }

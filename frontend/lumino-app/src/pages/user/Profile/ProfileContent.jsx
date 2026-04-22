@@ -194,7 +194,7 @@ function buildChartSeries(week, previousWeek) {
 }
 
 function Chart({ currentWeek, previousWeek }) {
-  const width = 735;
+  const width = 1100;
   const height = 248;
   const left = 70;
   const right = 20;

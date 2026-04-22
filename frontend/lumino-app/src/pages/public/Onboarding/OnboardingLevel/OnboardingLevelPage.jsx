@@ -27,18 +27,20 @@ export default function OnboardingLevelPage() {
         <img className={styles.bgLeft} src={BgLeft} alt="" />
         <img className={styles.bgRight} src={BgRight} alt="" />
 
-        <AnimatedMascotBubble
-          mascotSrc={Mascot}
-          bubbleSrc={Bubble}
-          mascotClassName={styles.mascot}
-          bubbleClassName={styles.bubble}
-          textClassName={styles.bubbleText}
-          bubbleFirst
-        >
-          Дайте відповідь всього на<br />
-          <strong>декілька коротких питань</strong> — і<br />
-          ми розпочнемо перший урок!
-        </AnimatedMascotBubble>
+        <div className={styles.heroGroup}>
+          <AnimatedMascotBubble
+            mascotSrc={Mascot}
+            bubbleSrc={Bubble}
+            mascotClassName={styles.mascot}
+            bubbleClassName={styles.bubble}
+            textClassName={styles.bubbleText}
+            bubbleFirst
+          >
+            Дайте відповідь всього на<br />
+            <strong>декілька коротких питань</strong> — і<br />
+            ми розпочнемо перший урок!
+          </AnimatedMascotBubble>
+        </div>
 
         <button className={styles.continueBtn} onClick={handleContinue}>
           ПРОДОВЖИТИ

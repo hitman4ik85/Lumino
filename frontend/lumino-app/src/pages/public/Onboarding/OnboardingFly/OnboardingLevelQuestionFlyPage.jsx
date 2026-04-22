@@ -38,30 +38,40 @@ export default function OnboardingLevelQuestionFlyPage() {
 
         <div className={styles.bottomShade} />
 
-        <button className={styles.backBtn} type="button" onClick={handleBack}>
-          <img className={styles.backIcon} src={ArrowPrev} alt="back" />
-        </button>
+        <div className={styles.headerSection}>
+          <button className={styles.backBtn} type="button" onClick={handleBack}>
+            <img className={styles.backIcon} src={ArrowPrev} alt="back" />
+          </button>
 
-        <div className={styles.progressTrack}>
-          <div className={styles.progressFill} />
+          <div className={styles.progressTrack}>
+            <div className={styles.progressFill} />
+          </div>
         </div>
 
-        <AnimatedMascotBubble
-          mascotSrc={Mascot}
-          bubbleSrc={Bubble}
-          mascotClassName={styles.mascot}
-          bubbleClassName={styles.bubble}
-          textClassName={styles.bubbleText}
-          bubbleFirst
-          mascotAnimation="ufo"
-        >
-          <span>Полетіли тренувати</span>
-          <span>мовлення?</span>
-        </AnimatedMascotBubble>
+        <div className={styles.mainSection}>
+          <div className={styles.heroSection}>
+            <div className={styles.heroGroup}>
+          <AnimatedMascotBubble
+            mascotSrc={Mascot}
+            bubbleSrc={Bubble}
+            mascotClassName={styles.mascot}
+            bubbleClassName={styles.bubble}
+            textClassName={styles.bubbleText}
+            bubbleFirst
+            mascotAnimation="ufo"
+          >
+            <span>Полетіли тренувати</span>
+            <span>мовлення?</span>
+          </AnimatedMascotBubble>
+            </div>
+          </div>
 
-        <button className={styles.continueBtn} type="button" onClick={handleContinue}>
-          ПРОДОВЖИТИ
-        </button>
+          <div className={styles.actionSection}>
+            <button className={styles.continueBtn} type="button" onClick={handleContinue}>
+              ПРОДОВЖИТИ
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

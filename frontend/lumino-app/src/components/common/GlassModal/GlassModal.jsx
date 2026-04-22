@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import styles from "./GlassModal.module.css";
+import { getStageViewportMetrics } from "../../../hooks/useStageScale.js";
 
 export default function GlassModal({
   open,
@@ -15,21 +16,19 @@ export default function GlassModal({
   illustrationSrc = "",
   stageTargetId = "",
 }) {
-  const [stageScale, setStageScale] = useState(1);
+  const [stageMetrics, setStageMetrics] = useState(() => getStageViewportMetrics(window.innerWidth, window.innerHeight));
   const [stageTargetNode, setStageTargetNode] = useState(null);
 
   useEffect(() => {
-    const updateStageScale = () => {
-      const sx = window.innerWidth / 1920;
-      const sy = window.innerHeight / 1080;
-      setStageScale(Math.min(sx, sy));
+    const updateStageMetrics = () => {
+      setStageMetrics(getStageViewportMetrics(window.innerWidth, window.innerHeight));
     };
 
-    updateStageScale();
-    window.addEventListener("resize", updateStageScale);
+    updateStageMetrics();
+    window.addEventListener("resize", updateStageMetrics);
 
     return () => {
-      window.removeEventListener("resize", updateStageScale);
+      window.removeEventListener("resize", updateStageMetrics);
     };
   }, []);
 
@@ -188,7 +187,13 @@ export default function GlassModal({
     <div className={styles.overlayRoot}>
       <div
         className={styles.stageFrame}
-        style={{ transform: `translate(-50%, -50%) scale(${stageScale})` }}
+        style={{
+          left: `${stageMetrics.left}px`,
+          top: `${stageMetrics.top}px`,
+          width: `${stageMetrics.stageWidth}px`,
+          height: `${stageMetrics.stageHeight}px`,
+          transform: `scale(${stageMetrics.scale})`,
+        }}
         role="presentation"
       >
         {content}

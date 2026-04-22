@@ -27,20 +27,28 @@ export default function OnboardingPage() {
         <img className={styles.bgLeft} src={BgLeft} alt="" />
         <img className={styles.bgRight} src={BgRight} alt="" />
 
-        <AnimatedMascotBubble
-          mascotSrc={Mascot}
-          bubbleSrc={Bubble}
-          mascotClassName={styles.mascot}
-          bubbleClassName={styles.bubble}
-          textClassName={styles.bubbleText}
-          bubbleFirst
-        >
-          Привіт! Мене звати <strong>Lumi</strong>
-        </AnimatedMascotBubble>
+        <div className={styles.mainSection}>
+          <div className={styles.heroSection}>
+            <div className={styles.heroGroup}>
+          <AnimatedMascotBubble
+            mascotSrc={Mascot}
+            bubbleSrc={Bubble}
+            mascotClassName={styles.mascot}
+            bubbleClassName={styles.bubble}
+            textClassName={styles.bubbleText}
+            bubbleFirst
+          >
+            Привіт! Мене звати <strong>Lumi</strong>
+          </AnimatedMascotBubble>
+            </div>
+          </div>
 
-        <button className={styles.continueBtn} onClick={handleContinue}>
+          <div className={styles.actionSection}>
+            <button className={styles.continueBtn} onClick={handleContinue}>
           ПРОДОВЖИТИ
-        </button>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

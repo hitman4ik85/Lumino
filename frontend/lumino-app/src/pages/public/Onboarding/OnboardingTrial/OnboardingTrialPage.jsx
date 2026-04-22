@@ -100,26 +100,35 @@ export default function OnboardingTrialPage() {
 
         <div className={styles.bottomShade} />
 
-        <button className={styles.backBtn} type="button" onClick={(e) => { e.stopPropagation(); handleBack(); }}>
-          <img className={styles.backIcon} src={ArrowPrev} alt="back" />
-        </button>
+        <div className={styles.headerSection}>
+          <button className={styles.backBtn} type="button" onClick={(e) => { e.stopPropagation(); handleBack(); }}>
+            <img className={styles.backIcon} src={ArrowPrev} alt="back" />
+          </button>
 
-        <div className={styles.progressTrack}>
-          <div className={styles.progressFill} />
+          <div className={styles.progressTrack}>
+            <div className={styles.progressFill} />
+          </div>
         </div>
 
-        <AnimatedMascotBubble
-          mascotSrc={Mascot}
-          bubbleSrc={Bubble}
-          mascotClassName={styles.mascot}
-          bubbleClassName={styles.bubble}
-          textClassName={styles.bubbleText}
-        >
-          <span>Спробуй базовий урок</span>
-          <span>— це лише хвилинка!</span>
-        </AnimatedMascotBubble>
+        <div className={styles.mainSection}>
+          <div className={styles.heroSection}>
+            <div className={styles.heroGroup}>
+          <AnimatedMascotBubble
+            mascotSrc={Mascot}
+            bubbleSrc={Bubble}
+            mascotClassName={styles.mascot}
+            bubbleClassName={styles.bubble}
+            textClassName={styles.bubbleText}
+          >
+            <span>Спробуй базовий урок</span>
+            <span>— це лише хвилинка!</span>
+          </AnimatedMascotBubble>
+            </div>
+          </div>
 
-        <div className={styles.cards}>
+          <div className={styles.contentSection}>
+            <div className={styles.cardsSection}>
+              <div className={styles.cards}>
           <button
             type="button"
             className={`${styles.cardBtn} ${isRecommendedHighlighted ? styles.cardBtnActive : ""}`}
@@ -157,16 +166,21 @@ export default function OnboardingTrialPage() {
               <div className={styles.cardTitle}>{cards[1].title}</div>
             </div>
           </button>
-        </div>
+              </div>
+            </div>
+          </div>
 
-        <button
+          <div className={styles.actionSection}>
+            <button
           className={styles.continueBtn}
           type="button"
           disabled={!selected}
           onClick={(e) => { e.stopPropagation(); handleContinue(); }}
-        >
-          ПРОДОВЖИТИ
-        </button>
+            >
+              ПРОДОВЖИТИ
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -31,10 +31,18 @@
   composes: backIcon from "../shared/OnboardingStepCommon.module.css";
 }
 
-.bubble{
+.heroGroup{
   position: absolute;
   left: 765px;
   top: 245px;
+  width: 391px;
+  height: 454px;
+}
+
+.bubble{
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 391px;
   height: 90px;
   pointer-events: none;
@@ -43,10 +51,13 @@
 
 .bubbleText{
   position: absolute;
-  left: 805px;
-  top: 269px;
+  left: 40px;
+  top: 24px;
   width: 311px;
   margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   font-family: var(--font-ui);
   font-size: 22px;
@@ -57,8 +68,8 @@
 
 .mascot{
   position: absolute;
-  left: 800px;
-  top: 379px;
+  left: 35px;
+  top: 134px;
   width: 320px;
   height: 320px;
   pointer-events: none;
@@ -111,3 +122,124 @@
   letter-spacing: 0;
   line-height: 24px;
 }
+
+@media (max-width: 1180px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.58;
+  }
+
+  .heroGroup{
+    left: 50%;
+    top: 164px;
+    width: 320px;
+    height: 384px;
+    transform: translateX(-50%);
+  }
+
+  .bubble{
+    width: 320px;
+    height: 170px;
+  }
+
+  .bubbleText{
+    left: 26px;
+    top: 70px;
+    width: 268px;
+    font-size: 20px;
+    line-height: 24px;
+  }
+
+  .mascot{
+    left: 24px;
+    top: 160px;
+    width: 272px;
+    height: 272px;
+  }
+
+  .createBtn{
+    left: 50%;
+    top: 744px;
+    width: 520px;
+    transform: translateX(-50%);
+  }
+
+  .laterBtn{
+    left: 50%;
+    top: 836px;
+    width: 120px;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 700px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.3;
+  }
+
+  .heroGroup{
+    left: 50%;
+    top: 186px;
+    width: 272px;
+    height: 328px;
+    transform: translateX(-50%);
+  }
+
+  .bubble{
+    width: 272px;
+    height: 180px;
+  }
+
+  .bubbleText{
+    left: 22px;
+    top: 78px;
+    width: 228px;
+    font-size: 18px;
+    line-height: 22px;
+  }
+
+  .mascot{
+    left: 22px;
+    top: 160px;
+    width: 228px;
+    height: 228px;
+  }
+
+  .createBtn{
+    left: 50%;
+    top: 820px;
+    width: 360px;
+    height: 60px;
+    font-size: 18px;
+    transform: translateX(-50%);
+  }
+
+  .laterBtn{
+    left: 50%;
+    top: 898px;
+    width: 110px;
+    font-size: 18px;
+    transform: translateX(-50%);
+  }
+}
+
+.backBtn,
+.progressTrack,
+.heroGroup,
+.title,
+.description,
+.note,
+.levelBtn,
+.goalBtn,
+.cards,
+.continueBtn,
+.createBtn,
+.laterBtn{
+  margin-left: var(--lumino-stage-extra-x, 0px);
+}
+
+.headerSection{}
+.mainSection{}
+.heroSection{}
+.actionSection{}

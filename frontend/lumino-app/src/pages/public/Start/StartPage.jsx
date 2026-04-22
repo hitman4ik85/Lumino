@@ -129,7 +129,7 @@ export default function Start() {
         setModal({
           open: true,
           title: "Не вдалося перевірити",
-          message: "Спробуй ще раз або перевір, що бекенд запущений (https://localhost:7181).",
+          message: "Спробуй ще раз або перевір, що бекенд запущений.",
         });
         return;
       }
@@ -186,13 +186,19 @@ export default function Start() {
         <img className={styles.bgLeft} src={BgLeft} alt="" aria-hidden="true" />
         <img className={styles.bgRight} src={BgRight} alt="" aria-hidden="true" />
 
-        <div className={styles.logo} aria-label="LUMINO">
-          LUMINO
+        <div className={styles.headerGroup}>
+          <div className={styles.logo} aria-label="LUMINO">
+            LUMINO
+          </div>
         </div>
 
-        <img className={styles.mascot} src={Mascot} alt="" aria-hidden="true" />
+        <div className={styles.mainGroup}>
+          <div className={styles.mascotGroup}>
+            <img className={styles.mascot} src={Mascot} alt="" aria-hidden="true" />
+          </div>
 
-        <div className={styles.content}>
+          <div className={styles.contentGroup}>
+            <div className={styles.content}>
           <div className={styles.title}>Навчайся легко та цікаво!</div>
           <div className={styles.subtitle}>Щоб розпочати оберіть мову</div>
 
@@ -203,9 +209,12 @@ export default function Start() {
           <button className={styles.accountBtn} type="button" onClick={() => navigate(PATHS.login)}>
             УЖЕ МАЮ ОБЛІКОВИЙ ЗАПИС
           </button>
+            </div>
+          </div>
         </div>
 
-        <div className={styles.carousel}>
+        <div className={styles.languageGroup}>
+          <div className={styles.carousel}>
           <button
             className={`${styles.arrowBtn} ${styles.arrowLeft}`}
             type="button"
@@ -241,6 +250,7 @@ export default function Start() {
           >
             <img src={ArrowRight} alt="" aria-hidden="true" />
           </button>
+          </div>
         </div>
       </div>
     </div>

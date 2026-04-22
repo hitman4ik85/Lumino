@@ -23,10 +23,18 @@
 .bgLeft{ left: 0; }
 .bgRight{ right: 0; }
 
-.bubble{
+.heroGroup{
   position: absolute;
   left: 765px;
   top: 245px;
+  width: 391px;
+  height: 452px;
+}
+
+.bubble{
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 391px;
   height: 90px;
   pointer-events: none;
@@ -35,8 +43,8 @@
 
 .bubbleText{
   position: absolute;
-  left: 765px;
-  top: 245px;
+  left: 0;
+  top: 0;
   width: 391px;
   height: 80px;
   display: flex;
@@ -60,8 +68,8 @@
 
 .mascot{
   position: absolute;
-  left: 772px;
-  top: 384px;
+  left: 7px;
+  top: 139px;
   width: 375px;
   height: 313px;
   pointer-events: none;
@@ -103,44 +111,105 @@
   background: var(--color-start);
 }
 
-
-/* Phone */
-@media (max-width: 768px) {
-
-  .bubble {
-    left: 50%;
-    transform: translateX(-50%);
-    top: 140px;
-    width: 300px;
-    height: auto;
+@media (max-width: 1180px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.58;
   }
 
-  .bubbleText {
+  .heroGroup{
     left: 50%;
+    top: 170px;
+    width: 360px;
+    height: 386px;
     transform: translateX(-50%);
-    top: 140px;
+  }
+
+  .bubble{
+    width: 360px;
+    height: 130px;
+  }
+
+  .bubbleText{
+    width: 360px;
+    height: 120px;
+    font-size: 20px;
+    line-height: 24px;
+  }
+
+  .mascot{
+    left: 18px;
+    top: 150px;
+    width: 324px;
+    height: 266px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 820px;
+    width: 430px;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 700px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.3;
+  }
+
+  .heroGroup{
+    left: 50%;
+    top: 198px;
     width: 300px;
+    height: 326px;
+    transform: translateX(-50%);
+  }
+
+  .bubble{
+    width: 300px;
+    height: 180px;
+  }
+
+  .bubbleText{
+    width: 300px;
+    height: 170px;
     font-size: 18px;
     line-height: 22px;
-    white-space: nowrap;
   }
 
-  .mascot {
-    left: 50%;
-    transform: translateX(-50%);
-    top: 260px;
-    width: 230px;
-    height: auto;
+  .mascot{
+    left: 16px;
+    top: 150px;
+    width: 268px;
+    height: 224px;
   }
 
-  .continueBtn {
+  .continueBtn{
     left: 50%;
-    transform: translateX(-50%);
-    top: 520px;
-    width: 90%;
-    max-width: 360px;
-    height: 56px;
+    top: 860px;
+    width: 360px;
+    height: 60px;
     font-size: 18px;
+    transform: translateX(-50%);
   }
-
 }
+
+.backBtn,
+.progressTrack,
+.heroGroup,
+.title,
+.description,
+.note,
+.levelBtn,
+.goalBtn,
+.cards,
+.continueBtn,
+.createBtn,
+.laterBtn{
+  margin-left: var(--lumino-stage-extra-x, 0px);
+}
+
+.mainSection{}
+.heroSection{}
+.actionSection{}

@@ -20,9 +20,25 @@
 }
 
 .stage{
+  --home-sidebar-width:350px;
+  --home-sidebar-padding-left:70px;
+  --home-content-left:370px;
+  --home-topbar-padding-right:70px;
+  --home-topbar-gap:55px;
+  --home-body-top:121px;
+  --home-body-bottom:45px;
+  --home-panel-back-left:62px;
+  --home-panel-back-top:87px;
+  --home-panel-header-left:164px;
+  --home-panel-header-top:93px;
+  --home-panel-divider-top:138px;
+  --home-panel-content-left:164px;
+  --home-panel-content-top:166px;
+  --home-panel-content-right-gap:179px;
+  --home-panel-content-width:calc(100% - var(--home-panel-content-left) - var(--home-panel-content-right-gap));
   position:relative;
-  width:1920px;
-  height:1080px;
+  width:var(--lumino-stage-width, 1920px);
+  height:var(--lumino-stage-height, 1080px);
   overflow:hidden;
   background:#ffffff;
   transform-origin:0 0;
@@ -49,7 +65,7 @@
 :global(body[data-lumino-theme="dark"]) .navButtonActive{
   background:#5B6F86;
   color:#D8E8FA;
-  box-shadow:inset 0 0 0 2px rgba(136,171,212,.28);
+  box-shadow:none;
 }
 
 .bgLeft{
@@ -57,7 +73,7 @@
   left:0;
   top:0;
   width:715px;
-  height:1080px;
+  height:var(--lumino-stage-height, 1080px);
   object-fit:fill;
   pointer-events:none;
   user-select:none;
@@ -67,18 +83,18 @@
   position:absolute;
   left:0;
   top:0;
-  width:350px;
-  height:1080px;
-  padding:54px 0 0 70px;
+  width:var(--home-sidebar-width);
+  height:var(--lumino-stage-height, 1080px);
+  padding:54px 0 0 var(--home-sidebar-padding-left);
   box-sizing:border-box;
 }
 
 .sidebarDivider{
   position:absolute;
-  left:350px;
+  left:var(--home-sidebar-width);
   top:0;
   width:5px;
-  height:1080px;
+  height:var(--lumino-stage-height, 1080px);
   background:#83A6CE;
 }
 
@@ -111,6 +127,8 @@
   gap:18px;
   background:transparent;
   box-shadow:none;
+  outline:none;
+  -webkit-tap-highlight-color:transparent;
   color:var(--home-blue-700);
   font-family:var(--home-font-ui);
   font-size:22px;
@@ -129,7 +147,16 @@
 .navButtonActive{
   background:#A5C3E5;
   color:var(--home-blue-900);
-  box-shadow:inset 0 0 0 2px rgba(38,65,94,.22);
+  box-shadow:none;
+}
+
+.navButton:focus,
+.navButton:focus-visible,
+.flagButton:focus,
+.flagButton:focus-visible,
+.counterButton:focus,
+.counterButton:focus-visible{
+  outline:none;
 }
 
 .navSvg{
@@ -141,7 +168,16 @@
 
 .topBar{
   position:absolute;
-  inset:0;
+  left:var(--home-content-left);
+  top:0;
+  right:0;
+  height:121px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:flex-end;
+  gap:var(--home-topbar-gap);
+  padding:39px var(--home-topbar-padding-right) 0 0;
+  box-sizing:border-box;
   z-index:60;
   pointer-events:none;
 }
@@ -154,6 +190,8 @@
   border-radius:24px;
   background:transparent;
   box-shadow:none;
+  outline:none;
+  -webkit-tap-highlight-color:transparent;
   pointer-events:auto;
 }
 
@@ -208,6 +246,21 @@
 .headerEnergySvg{
   width:60px;
   height:60px;
+}
+
+.topBar > .flagButton,
+.topBar > .counterButton,
+.topBar > .counterStatic{
+  position:relative !important;
+  left:auto !important;
+  right:auto !important;
+  top:auto !important;
+  bottom:auto !important;
+  flex-shrink:0;
+}
+
+.topBar > .counterStatic{
+  margin-top:18px;
 }
 
 .dropdownCard{
@@ -942,21 +995,22 @@
 }
 .body{
   position:absolute;
-  left:370px;
-  top:121px;
-  width:1550px;
-  height:914px;
+  left:var(--home-content-left);
+  top:var(--home-body-top);
+  right:0;
+  bottom:var(--home-body-bottom);
+  width:auto;
+  height:auto;
   z-index:10;
 }
 
 .bodyFull{
   top:40px;
-  height:995px;
 }
 
 .learningTrackViewport{
-  width:1550px;
-  height:914px;
+  width:100%;
+  height:100%;
   overflow-x:auto;
   overflow-y:hidden;
   cursor:grab;
@@ -979,6 +1033,10 @@
   top:0;
   width:879.47px;
   height:914px;
+}
+
+.sectionHeaderRow{
+  display:contents;
 }
 
 .topicCard{
@@ -1172,8 +1230,8 @@
 
 .coursesBackButton{
   position:absolute;
-  left:42px;
-  top:47px;
+  left:var(--home-panel-back-left);
+  top:var(--home-panel-back-top);
   width:36px;
   height:28px;
   border:0;
@@ -1193,18 +1251,18 @@
 
 .coursesDivider{
   position:absolute;
-  left:146px;
-  top:98px;
-  width:958px;
+  left:var(--home-panel-content-left);
+  top:var(--home-panel-divider-top);
+  width:var(--home-panel-content-width);
   height:4px;
   background:#83A6CE;
 }
 
 .coursesListWrap{
   position:absolute;
-  left:146px;
-  top:139px;
-  width:986px;
+  left:var(--home-panel-content-left);
+  top:var(--home-panel-content-top);
+  width:var(--home-panel-content-width);
   height:810px;
   overflow-y:auto;
   overflow-x:hidden;
@@ -1217,7 +1275,7 @@
 }
 
 .coursesList{
-  width:958px;
+  width:100%;
   display:flex;
   flex-direction:column;
   gap:27px;
@@ -1226,20 +1284,28 @@
 
 .courseStageCard{
   position:relative;
-  width:958px;
+  width:100%;
   min-height:147px;
   border:3px solid #83A6CE;
   border-radius:15px;
   background:#FFFFFF;
   box-sizing:border-box;
-  padding:0;
+  padding:28px 28px 24px;
+  display:grid;
+  grid-template-columns:minmax(0, 1fr);
+  grid-template-rows:auto auto;
+  align-items:start;
+  row-gap:18px;
   cursor:pointer;
 }
 
 .courseStageLevel{
-  position:absolute;
-  left:28px;
-  top:33px;
+  position:static;
+  grid-column:1;
+  grid-row:1;
+  justify-self:start;
+  align-self:start;
+  text-align:left;
   font-family:var(--font-ui);
   font-size:32px;
   line-height:22px;
@@ -1248,11 +1314,13 @@
 }
 
 .courseStageTrack{
-  position:absolute;
-  left:28px;
-  top:76px;
-  width:852px;
+  position:relative;
+  left:auto;
+  top:auto;
+  width:calc(100% - 34px);
   height:39px;
+  grid-column:1;
+  grid-row:2;
 }
 
 .courseStageTrackBase,
@@ -1265,13 +1333,13 @@
 }
 
 .courseStageTrackBase{
-  width:852px;
+  width:100%;
   border-radius:20px 0 0 20px;
   background:rgba(131,166,206,.65);
 }
 
 .courseStageTrackFill{
-  max-width:852px;
+  max-width:100%;
   min-width:0;
   border-radius:20px 0 0 20px;
   background:#83A6CE;
@@ -1287,22 +1355,27 @@
 
 .courseStageIcon{
   position:absolute;
+  right:12px;
+  bottom:30px;
   display:block;
   object-fit:contain;
   pointer-events:none;
   user-select:none;
+  z-index:2;
 }
 
 .courseStageIconProgress{
-  left:884px;
-  top:66px;
-  width:47px;
-  height:61px;
+  justify-self:end;
+  align-self:center;
+  width:48px;
+  height:58px;
+  right:6px;
+  bottom:28px;
 }
 
 .courseStageIconLock{
-  left:882px;
-  top:60px;
+  justify-self:end;
+  align-self:center;
   width:43px;
   height:54px;
 }
@@ -1315,8 +1388,8 @@
 
 .languageBackButton{
   position:absolute;
-  left:62px;
-  top:87px;
+  left:var(--home-panel-back-left);
+  top:var(--home-panel-back-top);
   width:36px;
   height:28px;
   border:0;
@@ -1336,9 +1409,11 @@
 
 .languagePageHeader{
   position:absolute;
-  left:164px;
-  top:93px;
-  width:1180px;
+  left:var(--home-panel-header-left);
+  top:var(--home-panel-header-top);
+  width:var(--home-panel-content-width);
+  display:flex;
+  flex-direction:column;
 }
 
 .languagePageTitle{
@@ -1352,26 +1427,26 @@
 
 .languagePageDivider{
   margin-top:23px;
-  width:1180px;
+  width:100%;
   height:4px;
   background:#83A6CE;
 }
 
 .languagePageGrid{
   position:absolute;
-  left:165px;
-  top:166px;
-  width:1180px;
+  left:var(--home-panel-content-left);
+  top:var(--home-panel-content-top);
+  width:var(--home-panel-content-width);
   display:grid;
-  grid-template-columns:repeat(4, 280px);
+  grid-template-columns:repeat(5, minmax(0, 1fr));
   grid-auto-rows:183px;
-  column-gap:20px;
+  column-gap:16px;
   row-gap:40px;
 }
 
 .languagePageCard{
   position:relative;
-  width:280px;
+  width:100%;
   height:183px;
   border:3px solid #83A6CE;
   border-radius:21px;
@@ -1380,7 +1455,7 @@
   display:flex;
   flex-direction:column;
   align-items:center;
-  justify-content:flex-start;
+  justify-content:start;
   padding:26px 18px 18px;
   cursor:pointer;
   transition:background .14s ease;
@@ -1893,8 +1968,8 @@
 
 .scenesBackButton{
   position:absolute;
-  left:62px;
-  top:87px;
+  left:var(--home-panel-back-left);
+  top:var(--home-panel-back-top);
   width:36px;
   height:28px;
   border:0;
@@ -1914,9 +1989,11 @@
 
 .scenesPageHeader{
   position:absolute;
-  left:164px;
-  top:93px;
-  width:1180px;
+  left:var(--home-panel-header-left);
+  top:var(--home-panel-header-top);
+  width:var(--home-panel-content-width);
+  display:flex;
+  flex-direction:column;
 }
 
 .scenesPageTitle{
@@ -1930,21 +2007,22 @@
 
 .scenesPageDivider{
   margin-top:23px;
-  width:1180px;
+  width:100%;
   height:4px;
   background:#83A6CE;
 }
 
 .scenesGridWrap{
   position:absolute;
-  left:164px;
-  top:163px;
-  width:1180px;
+  left:var(--home-panel-content-left);
+  top:var(--home-panel-content-top);
+  width:var(--home-panel-content-width);
   height:720px;
   overflow-y:auto;
   overflow-x:hidden;
   scrollbar-width:none;
   -ms-overflow-style:none;
+  container-type:inline-size;
 }
 
 .scenesGridWrap::-webkit-scrollbar{
@@ -1952,11 +2030,12 @@
 }
 
 .scenesGrid{
-  width:1180px;
+  width:100%;
   display:grid;
-  grid-template-columns:repeat(4, 170px);
+  grid-template-columns:repeat(6, 170px);
   grid-auto-rows:222px;
-  column-gap:166.67px;
+  justify-content:space-between;
+  column-gap:0;
   row-gap:27px;
   align-content:start;
   padding-bottom:0;
@@ -1971,7 +2050,7 @@
   display:flex;
   flex-direction:column;
   align-items:center;
-  justify-content:flex-start;
+  justify-content:start;
   cursor:pointer;
 }
 
@@ -2026,11 +2105,35 @@
 
 .scenesBottomDivider{
   position:absolute;
-  left:164px;
+  left:var(--home-panel-content-left);
   top:925px;
-  width:1180px;
+  width:var(--home-panel-content-width);
   height:4px;
   background:#D8C2CF;
+}
+
+@container (max-width: 1209px){
+  .scenesGrid{
+    grid-template-columns:repeat(5, 170px);
+  }
+}
+
+@container (max-width: 999px){
+  .scenesGrid{
+    grid-template-columns:repeat(4, 170px);
+  }
+}
+
+@container (max-width: 789px){
+  .scenesGrid{
+    grid-template-columns:repeat(3, 170px);
+  }
+}
+
+@container (max-width: 579px){
+  .scenesGrid{
+    grid-template-columns:repeat(2, 170px);
+  }
 }
 
 .homeWarningOverlay{
@@ -2157,7 +2260,7 @@
 :global(body[data-lumino-theme="dark"]) .navButtonActive{
   background:#5B6F86;
   color:#DCEAF8;
-  box-shadow:inset 0 0 0 2px rgba(136,171,212,.28);
+  box-shadow:none;
 }
 
 :global(body[data-lumino-theme="dark"]) .counterButton span,
@@ -2250,3 +2353,936 @@
   background:rgba(2, 11, 23, .52);
 }
 
+
+@media (max-width: 1180px){
+  .stage{
+    --home-sidebar-width:120px;
+    --home-sidebar-padding-left:24px;
+    --home-content-left:145px;
+    --home-topbar-padding-right:34px;
+    --home-topbar-gap:24px;
+  }
+
+  .sidebar{
+    padding-top:42px;
+  }
+
+  .logo{
+    position:absolute;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    width:auto;
+    font-size:32px;
+    line-height:1;
+  }
+
+  .nav{
+    align-items:center;
+  }
+
+  .navButton{
+    width:72px;
+    padding:10px;
+    justify-content:center;
+    gap:0;
+  }
+
+  .navButton span{
+    display:none;
+  }
+
+  .topBar{
+    left:var(--home-content-left);
+    right:0;
+    padding:34px 34px 0 34px;
+    align-items:center;
+    justify-content:space-between;
+    gap:clamp(16px, 3vw, 28px);
+  }
+
+  .topBar::before{
+    content:none;
+    display:none;
+  }
+
+  .topBar > .flagButton,
+  .topBar > .counterButton,
+  .topBar > .counterStatic{
+    width:auto !important;
+    height:auto !important;
+    min-height:48px;
+    padding:0 4px;
+    flex:0 0 auto;
+  }
+
+  .topBar > .counterStatic{
+    margin-top:0;
+  }
+
+  .coursesBackButton{
+    left:48px;
+    top:var(--home-panel-back-top);
+  }
+
+  .languageBackButton,
+  .scenesBackButton{
+    left:48px;
+    top:40px;
+  }
+
+  .languagePageHeader,
+  .scenesPageHeader{
+    left:48px;
+    top:92px;
+    width:calc(100% - 96px);
+  }
+
+  .languagePageTitle,
+  .scenesPageTitle{
+    font-size:28px;
+    line-height:1.12;
+  }
+
+  .languagePageDivider,
+  .scenesPageDivider{
+    margin-top:20px;
+  }
+
+  .coursesDivider{
+    left:48px;
+    top:var(--home-panel-divider-top);
+    width:calc(100% - 96px);
+  }
+
+  .coursesListWrap{
+    left:48px;
+    top:var(--home-panel-content-top);
+    width:calc(100% - 96px);
+    height:calc(100% - var(--home-panel-content-top) - 24px);
+  }
+
+  .coursesList{
+    gap:22px;
+  }
+
+  .courseStageCard{
+    min-height:132px;
+    padding:24px 24px 20px;
+    row-gap:16px;
+  }
+
+  .courseStageLevel{
+    font-size:28px;
+    line-height:1;
+  }
+
+  .courseStageTrack{
+    height:36px;
+  }
+
+  .courseStageTrackBase,
+  .courseStageTrackFill,
+  .courseStageTrackCutout{
+    height:36px;
+  }
+
+  .courseStageTrackCutout{
+    right:-32px;
+    width:38px;
+  }
+
+  .courseStageIconProgress{
+    width:44px;
+    height:56px;
+    right:6px;
+    bottom:20px;
+  }
+
+  .courseStageIconLock{
+    width:40px;
+    height:50px;
+    right:12px;
+    bottom:22px;
+  }
+
+  .languagePageGrid{
+    left:48px;
+    top:168px;
+    width:calc(100% - 96px);
+    grid-template-columns:repeat(auto-fit, 170px);
+    justify-content:start;
+    column-gap:16px;
+    row-gap:40px;
+  }
+
+  .scenesGridWrap{
+    left:48px;
+    top:168px;
+    width:calc(100% - 96px);
+    height:720px;
+  }
+
+  .scenesGrid{
+    grid-template-columns:repeat(auto-fit, 170px);
+    justify-content:start;
+    column-gap:16px;
+    row-gap:27px;
+  }
+
+  .calendarModal{
+    width:min(580px, calc(100% - 64px));
+    min-height:auto;
+    max-height:calc(100% - 112px);
+    border-radius:24px;
+    overflow-y:auto;
+  }
+
+  .calendarTop{
+    min-height:92px;
+  }
+
+  .calendarClose,
+  .panelClose{
+    left:22px;
+    top:18px;
+    font-size:42px;
+  }
+
+  .calendarTopTitle{
+    font-size:28px;
+    line-height:1.1;
+  }
+
+  .calendarTopDivider{
+    height:3px;
+  }
+
+  .calendarHero{
+    min-height:196px;
+    padding:38px 22px 24px;
+    gap:18px;
+  }
+
+  .calendarCurrentKyivDateTime{
+    left:22px;
+    top:12px;
+    font-size:14px;
+    line-height:1.2;
+  }
+
+  .calendarHeroCard{
+    width:232px;
+    min-height:154px;
+    border-radius:16px;
+    padding:20px 16px 18px;
+  }
+
+  .calendarHeroDays{
+    font-size:88px;
+    line-height:68px;
+    -webkit-text-stroke:3px #26415E;
+  }
+
+  .calendarHeroLabel{
+    margin-top:22px;
+    font-size:22px;
+    line-height:1.1;
+  }
+
+  .calendarHeroIcon{
+    width:126px;
+    height:126px;
+  }
+
+  .calendarSectionTitle{
+    margin:18px 0 14px;
+    padding:0 22px;
+    font-size:28px;
+    line-height:1.1;
+  }
+
+  .calendarMonthCard{
+    margin:0 14px 14px;
+    border-radius:24px;
+    padding:16px 0 0;
+  }
+
+  .calendarHeader{
+    gap:14px;
+    padding:0 18px 14px;
+  }
+
+  .calendarHeader span{
+    font-size:25px;
+    line-height:1.15;
+  }
+
+  .calendarHeaderActions{
+    gap:4px;
+  }
+
+  .calendarHeader button{
+    width:34px;
+    height:34px;
+    font-size:36px;
+  }
+
+  .calendarGridCard{
+    border-radius:22px;
+    padding:20px 14px 18px;
+  }
+
+  .calendarWeekdays,
+  .calendarGrid{
+    gap:12px 8px;
+  }
+
+  .calendarWeekdays span{
+    font-size:20px;
+    line-height:1.1;
+  }
+
+  .calendarGrid{
+    margin-top:16px;
+  }
+
+  .calendarCell{
+    min-height:26px;
+    font-size:21px;
+    line-height:1.1;
+  }
+
+  .calendarCellStar{
+    width:38px;
+    height:38px;
+  }
+
+  .scenesBottomDivider{
+    left:48px;
+    right:48px;
+    width:auto;
+  }
+}
+
+@media (max-width: 700px){
+  .stage{
+    --home-content-left:0px;
+    --home-topbar-padding-right:20px;
+    --home-topbar-gap:clamp(18px, 6vw, 44px);
+    --home-body-top:156px;
+    --home-body-bottom:148px;
+  }
+
+  .sidebar{
+    left:0;
+    top:auto;
+    bottom:0;
+    width:100%;
+    height:134px;
+    padding:0 24px 18px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    gap:0;
+    background:transparent;
+    border-top:none;
+    box-shadow:none;
+    z-index:70;
+  }
+
+  .sidebar::before{
+    content:"";
+    position:absolute;
+    left:0;
+    right:0;
+    top:0;
+    height:3px;
+    background:linear-gradient(90deg, rgba(222, 189, 211, .95) 0%, rgba(136, 171, 212, .95) 100%);
+    pointer-events:none;
+  }
+
+  .sidebarDivider{
+    display:none;
+  }
+
+  .logo{
+    display:none;
+    position:absolute;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    width:0;
+    height:0;
+    overflow:hidden;
+  }
+
+  .nav{
+    margin-top:0;
+    width:100%;
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+    gap:clamp(18px, 6vw, 44px);
+    flex:0 1 100%;
+    min-width:0;
+    overflow:visible;
+  }
+
+  .navButton{
+    width:72px;
+    min-width:72px;
+    min-height:72px;
+    padding:10px;
+    border-radius:18px;
+    justify-content:center;
+    gap:0;
+    flex:0 0 auto;
+  }
+
+  .navSvg{
+    width:45px;
+    height:47px;
+  }
+
+  .topBar{
+    left:0;
+    right:0;
+    height:126px;
+    padding:24px 28px 0;
+    gap:clamp(18px, 6vw, 44px);
+    align-items:center;
+    justify-content:space-between;
+  }
+
+  .topBar::before{
+    display:none;
+  }
+
+  .topBar::after{
+    content:"";
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    height:3px;
+    background:linear-gradient(90deg, rgba(222, 189, 211, .95) 0%, rgba(136, 171, 212, .95) 100%);
+    pointer-events:none;
+  }
+
+  .topBar > .flagButton,
+  .topBar > .counterButton,
+  .topBar > .counterStatic{
+    width:auto !important;
+    height:auto !important;
+    min-height:48px;
+    padding:0;
+    flex:0 0 auto;
+  }
+
+  .flagIcon{
+    width:54px;
+    height:40px;
+  }
+
+  .headerSvg{
+    width:45px;
+    height:45px;
+  }
+
+  .headerEnergySvg{
+    width:60px;
+    height:60px;
+  }
+
+  .counterButton span,
+  .counterStatic span{
+    font-size:22px;
+  }
+
+  .topBar > .counterStatic{
+    margin-top:0;
+  }
+
+  .body{
+    left:0;
+    right:0;
+    top:156px;
+    bottom:148px;
+    overflow:hidden;
+  }
+
+  .bodyFull{
+    top:156px;
+  }
+
+  .bodyWithoutTopBarMobile{
+    top:0;
+  }
+
+  .learningTrackViewport{
+    scroll-snap-type:x mandatory;
+    padding:0 clamp(0px, calc((100% - 930px) / 2), 999px);
+  }
+
+  .learningTrack{
+    width:max-content;
+    min-width:100%;
+    display:flex;
+    align-items:flex-start;
+  }
+
+  .section{
+    position:relative;
+    left:auto !important;
+    flex:0 0 879.47px;
+    scroll-snap-align:center;
+  }
+
+ .sectionHeaderRow{
+   position:absolute;
+   left:300px;
+   top:14px;
+   transform:translateX(-50%);
+   width:418px;
+   max-width:418px;
+   display:flex;
+   align-items:flex-start;
+   justify-content:flex-start;
+   gap:210px;
+   z-index:6;
+ }
+
+  .topicCard{
+    position:relative;
+    left:auto;
+    top:auto;
+    width:168px;
+    min-height:64px;
+    padding:9px 12px 10px;
+    border-radius:15px;
+    flex:0 0 168px;
+  }
+
+  .topicMeta{
+    font-size:11px;
+  }
+
+  .topicTitle{
+    margin-top:3px;
+    font-size:16px;
+  }
+
+  .orbitBox{
+    transform:translateY(-82px) scale(1.03);
+    transform-origin:top center;
+  }
+
+  .sceneButton{
+    position:relative;
+    left:auto;
+    right:auto;
+    top:auto;
+    bottom:auto;
+    width:40px;
+    height:50px;
+    flex:0 0 40px;
+    margin-left:0;
+    transform:none;
+  }
+
+
+  .sectionDivider{
+    top:50%;
+    transform:translateY(-50%);
+    height:clamp(420px, 62vh, 658px);
+    gap:14px;
+  }
+
+  .dividerTop,
+  .dividerBottom{
+    height:auto;
+    flex:1 1 auto;
+    min-height:0;
+  }
+
+  .languageDropdownCard,
+  .streakDropdownCard,
+  .energyDropdownCard{
+    right:20px !important;
+    left:auto !important;
+    max-width:calc(100% - 40px);
+  }
+
+  .languageDropdownCard{
+    top:108px !important;
+    width:min(402px, calc(100% - 40px)) !important;
+  }
+
+  .streakDropdownCard{
+    top:108px !important;
+    width:min(402px, calc(100% - 40px)) !important;
+  }
+
+  .energyDropdownCard{
+    top:108px !important;
+    width:min(402px, calc(100% - 40px)) !important;
+  }
+
+  .coursesPage,
+  .languagePage,
+  .scenesPage{
+    position:relative;
+    width:100%;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+  }
+
+  .coursesBackButton,
+  .languageBackButton,
+  .scenesBackButton{
+    position:static;
+    margin:22px 24px 0;
+    flex:0 0 auto;
+  }
+
+  .languagePageHeader,
+  .scenesPageHeader{
+    position:static;
+    width:auto;
+    margin:26px 24px 0;
+  }
+
+  .languageBackButton{
+    margin-top:22px;
+  }
+
+  .scenesBackButton,
+  .coursesBackButton{
+    margin-top:0px;
+  }
+
+  .languagePageHeader,
+  .scenesPageHeader{
+    margin-top:16px;
+  }
+
+  .languagePageTitle,
+  .scenesPageTitle{
+    font-size:32px;
+    line-height:1.08;
+  }
+
+  .languagePageDivider,
+  .scenesPageDivider{
+    margin-top:24px;
+  }
+
+  .coursesDivider{
+    position:static;
+    width:auto;
+    margin:34px 24px 0;
+  }
+
+  .coursesListWrap,
+  .languagePageGrid,
+  .scenesGridWrap{
+    position:static;
+    left:auto;
+    right:auto;
+    top:auto;
+    bottom:auto;
+    width:100%;
+    height:auto;
+    flex:1 1 auto;
+    box-sizing:border-box;
+    overflow-y:auto;
+    overflow-x:hidden;
+  }
+
+  .coursesListWrap{
+    padding:18px 24px 24px;
+  }
+
+  .coursesList{
+    gap:20px;
+    padding-bottom:24px;
+  }
+
+  .courseStageCard{
+    min-height:118px;
+    padding:18px 18px 16px;
+    border-radius:18px;
+    row-gap:14px;
+  }
+
+  .courseStageLevel{
+    font-size:26px;
+    line-height:1;
+  }
+
+  .courseStageTrack{
+    width:calc(100% - 22px);
+    height:24px;
+  }
+
+  .courseStageTrackBase,
+  .courseStageTrackFill,
+  .courseStageTrackCutout{
+    height:24px;
+  }
+
+  .courseStageTrackBase,
+  .courseStageTrackFill{
+    border-radius:14px 0 0 14px;
+  }
+
+  .courseStageTrackCutout{
+    right:-24px;
+    width:28px;
+    border-radius:14px 0 0 14px;
+  }
+
+  .courseStageIcon{
+    right:6px;
+    bottom:22px;
+  }
+
+  .courseStageIconProgress{
+    width:30px;
+    height:40px;
+    right:4px;
+    bottom:22px;
+  }
+
+  .courseStageIconLock{
+    width:30px;
+    height:38px;
+  }
+
+  .languagePageGrid{
+    padding:22px 24px 24px;
+    display:grid;
+    grid-template-columns:minmax(0, 1fr);
+    grid-auto-rows:auto;
+    justify-items:center;
+    row-gap:34px;
+    column-gap:0;
+  }
+
+  .languagePageCard{
+    width:min(330px, 100%);
+    height:212px;
+    margin:0;
+    padding:28px 20px 20px;
+    border-radius:21px;
+  }
+
+  .languagePageFlag{
+    width:140px;
+    height:106px;
+  }
+
+  .languagePageCardLabel{
+    margin-top:11px;
+    font-size:20px;
+    line-height:22px;
+  }
+
+  .languagePageCheckBadge{
+    top:12px;
+    right:14px;
+    width:39px;
+    height:35px;
+    border-radius:12px;
+  }
+
+  .languagePageCheckBadgeInner{
+    width:29px;
+    height:25px;
+    border-radius:9px;
+  }
+
+  .languagePageCheckBadgeInner svg{
+    width:18px;
+    height:14px;
+  }
+
+  .scenesGridWrap{
+    padding:22px 24px 24px;
+  }
+
+  .scenesGrid{
+    width:min(230px, 100%);
+    margin:0 auto;
+    grid-template-columns:minmax(0, 1fr);
+    grid-auto-rows:auto;
+    row-gap:38px;
+    column-gap:0;
+    justify-content:center;
+  }
+
+  .scenesCard{
+    width:min(230px, 100%);
+  }
+
+  .scenesCardPreview{
+    width:100%;
+    height:auto;
+    aspect-ratio:170 / 166;
+    border-radius:20px;
+  }
+
+  .scenesCardLabel{
+    min-height:44px;
+    margin-top:11px;
+    font-size:20px;
+    line-height:22px;
+  }
+
+  .calendarModal{
+    width:min(620px, calc(100% - 48px));
+    min-height:auto;
+    max-height:calc(100% - 168px);
+    border-radius:22px;
+    overflow-y:auto;
+  }
+
+  .calendarTop{
+    min-height:80px;
+  }
+
+  .calendarClose,
+  .panelClose{
+    left:18px;
+    top:16px;
+    font-size:40px;
+  }
+
+  .calendarTopTitle{
+    font-size:26px;
+    line-height:1.1;
+  }
+
+  .calendarTopDivider{
+    height:3px;
+  }
+
+  .calendarHero{
+    min-height:170px;
+    padding:34px 18px 20px;
+    gap:14px;
+  }
+
+  .calendarCurrentKyivDateTime{
+    left:18px;
+    top:10px;
+    font-size:12px;
+    line-height:1.2;
+  }
+
+  .calendarHeroCard{
+    width:175px;
+    min-height:126px;
+    border-radius:16px;
+    padding:16px 14px 14px;
+  }
+
+  .calendarHeroDays{
+    font-size:76px;
+    line-height:60px;
+    -webkit-text-stroke:3px #26415E;
+  }
+
+  .calendarHeroLabel{
+    margin-top:18px;
+    font-size:18px;
+    line-height:1.1;
+  }
+
+  .calendarHeroIcon{
+    width:98px;
+    height:98px;
+  }
+
+  .calendarSectionTitle{
+    margin:16px 0 12px;
+    padding:0 18px;
+    font-size:24px;
+    line-height:1.1;
+  }
+
+  .calendarMonthCard{
+    margin:0 12px 12px;
+    border-radius:22px;
+    padding:14px 0 0;
+  }
+
+  .calendarHeader{
+    gap:12px;
+    padding:0 16px 12px;
+  }
+
+  .calendarHeader span{
+    font-size:22px;
+    line-height:1.15;
+  }
+
+  .calendarHeaderActions{
+    gap:2px;
+  }
+
+  .calendarHeader button{
+    width:30px;
+    height:30px;
+    font-size:34px;
+  }
+
+  .calendarGridCard{
+    border-radius:20px;
+    padding:18px 12px 16px;
+  }
+
+  .calendarWeekdays,
+  .calendarGrid{
+    gap:12px 6px;
+  }
+
+  .calendarWeekdays span{
+    font-size:18px;
+    line-height:1.1;
+  }
+
+  .calendarGrid{
+    margin-top:14px;
+  }
+
+  .calendarCell{
+    min-height:24px;
+    font-size:18px;
+    line-height:1.1;
+  }
+
+  .calendarCellStar{
+    width:32px;
+    height:32px;
+  }
+
+  .scenesBottomDivider{
+    display:none;
+  }
+}
+
+@media (max-width: 700px){
+  :global(body[data-lumino-theme="dark"]) .sidebar{
+    background:transparent;
+    border-top-color:transparent;
+    box-shadow:none;
+  }
+
+  :global(body[data-lumino-theme="dark"]) .sidebar::before,
+  :global(body[data-lumino-theme="dark"]) .topBar::after{
+    background:linear-gradient(90deg, rgba(222, 189, 211, .9) 0%, rgba(136, 171, 212, .9) 100%);
+  }
+}

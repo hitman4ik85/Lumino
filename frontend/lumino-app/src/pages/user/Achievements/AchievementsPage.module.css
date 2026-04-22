@@ -9,16 +9,22 @@
 
 .viewport{
   position:relative;
-  width:1550px;
+  width:100%;
+  height:100%;
   min-height:995px;
   padding-bottom:61px;
+  box-sizing:border-box;
+}
+
+.mobileHeader{
+  display:none;
 }
 
 .topDivider,
 .bottomDivider{
   position:absolute;
   left:145px;
-  width:1070px;
+  right:145px;
   height:4px;
 }
 
@@ -28,20 +34,21 @@
 }
 
 .bottomDivider{
-  top:934px;
+  bottom:61px;
   background:var(--achievements-pink-400);
 }
 
 .achievementsBody{
   position:absolute;
   left:145px;
+  right:145px;
   top:106px;
-  width:1070px;
-  height:800px;
+  bottom:89px;
   overflow-y:auto;
   overflow-x:hidden;
   box-sizing:border-box;
   scrollbar-width:none;
+  container-type:inline-size;
 }
 
 .achievementsBody::-webkit-scrollbar{
@@ -49,10 +56,13 @@
 }
 
 .grid{
-  width:1070px;
+  width:100%;
+  max-width:none;
+  margin:0;
   display:grid;
-  grid-template-columns:repeat(4, 170px);
-  column-gap:130px;
+  grid-template-columns:repeat(6, 170px);
+  justify-content:space-between;
+  column-gap:0;
   row-gap:52px;
   align-content:start;
   padding-bottom:8px;
@@ -153,8 +163,8 @@
 
 .footerNote{
   position:absolute;
-  top:949px;
-  left:984px;
+  right:145px;
+  bottom:24px;
   width:231px;
   height:22px;
   font-family:var(--font-ui);
@@ -167,7 +177,8 @@
 
 /* dark theme visibility tuning */
 :global(body[data-lumino-theme="dark"]) .cardTitle,
-:global(body[data-lumino-theme="dark"]) .cardTitleLocked{
+:global(body[data-lumino-theme="dark"]) .cardTitleLocked,
+:global(body[data-lumino-theme="dark"]) .mobileTitle{
   color:#3E5A7C;
 }
 
@@ -184,3 +195,182 @@
   mix-blend-mode:normal;
 }
 
+@container (max-width: 1209px){
+  .grid{
+    max-width:100%;
+    grid-template-columns:repeat(5, 170px);
+  }
+}
+
+@container (max-width: 999px){
+  .grid{
+    grid-template-columns:repeat(4, 170px);
+  }
+}
+
+@container (max-width: 789px){
+  .grid{
+    grid-template-columns:repeat(3, 170px);
+  }
+}
+
+@container (max-width: 579px){
+  .grid{
+    grid-template-columns:repeat(2, 170px);
+  }
+}
+
+@media (max-width: 1180px){
+  .viewport{
+    min-height:100%;
+    padding-bottom:52px;
+  }
+
+  .topDivider,
+  .bottomDivider{
+    left:48px;
+    right:48px;
+  }
+
+  .topDivider{
+    top:42px;
+  }
+
+  .bottomDivider{
+    bottom:52px;
+  }
+
+  .achievementsBody{
+    left:48px;
+    right:48px;
+    top:96px;
+    bottom:78px;
+  }
+
+  .grid{
+    row-gap:44px;
+  }
+
+  .footerNote{
+    right:48px;
+    bottom:18px;
+  }
+}
+
+@media (max-width: 700px){
+  .viewport{
+    min-height:100%;
+    padding-bottom:0;
+    display:flex;
+    flex-direction:column;
+    overflow:visible;
+  }
+
+  .mobileHeader{
+    position:relative;
+    display:block;
+    min-height:auto;
+    margin-top:0;
+    padding:26px 24px 20px;
+    box-sizing:border-box;
+  }
+
+  .mobileHeader::after{
+    content:"";
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    height:3px;
+    background:linear-gradient(90deg, rgba(222, 189, 211, .95) 0%, rgba(136, 171, 212, .95) 100%);
+    pointer-events:none;
+  }
+
+  .mobileTitle{
+    font-family:var(--font-ui);
+    font-size:28px;
+    line-height:1.1;
+    font-weight:700;
+    text-align:center;
+    color:var(--achievements-blue-900);
+  }
+
+  .topDivider,
+  .bottomDivider,
+  .footerNote{
+    position:static;
+    right:auto;
+    left:auto;
+    width:auto;
+  }
+
+  .topDivider{
+    height:4px;
+    margin:18px 24px 0;
+  }
+
+  .bottomDivider,
+  .footerNote{
+    display:none;
+  }
+
+  .achievementsBody{
+    position:static;
+    left:auto;
+    right:auto;
+    top:auto;
+    bottom:auto;
+    flex:1 1 auto;
+    width:100%;
+    padding:8px 24px 24px;
+    box-sizing:border-box;
+    overflow-y:auto;
+    overflow-x:hidden;
+  }
+
+  .grid{
+    width:min(340px, 100%);
+    max-width:none;
+    margin:0 auto;
+    grid-template-columns:minmax(0, 1fr);
+    row-gap:48px;
+    column-gap:0;
+    padding-bottom:24px;
+  }
+
+  .card,
+  .cardLocked{
+    width:100%;
+  }
+
+  .cardVisual{
+    width:100%;
+    height:auto;
+    aspect-ratio:170 / 202;
+    border-radius:24px;
+  }
+
+  .cardImage,
+  .cardImagePlaceholder,
+  .cardImagePlaceholderEarned{
+    width:100%;
+    height:100%;
+    border-radius:24px;
+  }
+
+  .cardTitle,
+  .cardTitleLocked{
+    margin-top:18px;
+    min-height:auto;
+    font-size:30px;
+    line-height:1.08;
+  }
+
+  .cardDescription,
+  .cardDescriptionLocked{
+    min-height:auto;
+    margin-top:10px;
+    font-size:18px;
+    line-height:1.24;
+  }
+}

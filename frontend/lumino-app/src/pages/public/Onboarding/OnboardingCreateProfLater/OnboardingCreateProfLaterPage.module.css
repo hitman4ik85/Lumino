@@ -31,10 +31,18 @@
   composes: backIcon from "../shared/OnboardingStepCommon.module.css";
 }
 
-.bubble{
+.heroGroup{
   position: absolute;
   left: 745px;
   top: 186px;
+  width: 441px;
+  height: 555px;
+}
+
+.bubble{
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 430px;
   height: 149px;
   pointer-events: none;
@@ -43,8 +51,8 @@
 
 .bubbleText{
   position: absolute;
-  left: 787px;
-  top: 214px;
+  left: 42px;
+  top: 28px;
   width: 346px;
   margin: 0;
   display: flex;
@@ -66,8 +74,8 @@
 
 .mascotPlanet{
   position: absolute;
-  left: 760px;
-  top: 362px;
+  left: 15px;
+  top: 176px;
   width: 238px;
   height: 244px;
   pointer-events: none;
@@ -77,8 +85,8 @@
 
 .mascot{
   position: absolute;
-  left: 873px;
-  top: 428px;
+  left: 128px;
+  top: 242px;
   width: 313px;
   height: 313px;
   pointer-events: none;
@@ -111,3 +119,123 @@
 .continueBtn:hover{
   background: var(--color-primary);
 }
+
+@media (max-width: 1180px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.58;
+  }
+
+  .heroGroup{
+    left: 50%;
+    top: 142px;
+    width: 360px;
+    height: 456px;
+    transform: translateX(-50%);
+  }
+
+  .bubble{
+    width: 360px;
+    height: 126px;
+  }
+
+  .bubbleText{
+    left: 34px;
+    top: 24px;
+    width: 292px;
+    font-size: 20px;
+    line-height: 24px;
+  }
+
+  .mascotPlanet{
+    left: 8px;
+    top: 150px;
+    width: 196px;
+    height: 210px;
+  }
+
+  .mascot{
+    left: 100px;
+    top: 220px;
+    width: 256px;
+    height: 256px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 820px;
+    width: 430px;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 700px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.3;
+  }
+
+  .heroGroup{
+    left: 50%;
+    top: 174px;
+    width: 300px;
+    height: 382px;
+    transform: translateX(-50%);
+  }
+
+  .bubble{
+    width: 300px;
+    height: 130px;
+  }
+
+  .bubbleText{
+    left: 28px;
+    top: 30px;
+    width: 244px;
+    font-size: 17px;
+    line-height: 21px;
+  }
+
+  .mascotPlanet{
+    left: 8px;
+    top: 140px;
+    width: 164px;
+    height: 168px;
+  }
+
+  .mascot{
+    left: 86px;
+    top: 190px;
+    width: 214px;
+    height: 214px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 860px;
+    width: 360px;
+    height: 60px;
+    font-size: 18px;
+    transform: translateX(-50%);
+  }
+}
+
+.backBtn,
+.progressTrack,
+.heroGroup,
+.title,
+.description,
+.note,
+.levelBtn,
+.goalBtn,
+.cards,
+.continueBtn,
+.createBtn,
+.laterBtn{
+  margin-left: var(--lumino-stage-extra-x, 0px);
+}
+
+.headerSection{}
+.mainSection{}
+.heroSection{}
+.actionSection{}

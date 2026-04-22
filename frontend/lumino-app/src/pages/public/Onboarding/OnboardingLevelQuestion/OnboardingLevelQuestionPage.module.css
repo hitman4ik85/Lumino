@@ -7,8 +7,20 @@
   composes: viewport from "../shared/OnboardingSharedLayout.module.css";
 }
 
-.stage {
+.stage{
   composes: stage from "../shared/OnboardingSharedLayout.module.css";
+  --onboarding-tablet-back-left: 70px;
+  --onboarding-tablet-back-top: 50px;
+  --onboarding-tablet-progress-left: 118px;
+  --onboarding-tablet-progress-top: 48px;
+  --onboarding-tablet-progress-width: calc(100% - 236px);
+  --onboarding-tablet-progress-transform: none;
+  --onboarding-mobile-back-left: 30px;
+  --onboarding-mobile-back-top: 52px;
+  --onboarding-mobile-progress-left: 78px;
+  --onboarding-mobile-progress-top: 52px;
+  --onboarding-mobile-progress-width: calc(100% - 156px);
+  --onboarding-mobile-progress-transform: none;
 }
 
 .bg {
@@ -16,52 +28,47 @@
 }
 
 .backBtn {
-  position: absolute;
-  left: 73px;
-  top: 52px;
-  width: 36px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  composes: backBtn from "../shared/OnboardingStepCommon.module.css";
 }
 
 .backIcon {
   composes: backIcon from "../shared/OnboardingStepCommon.module.css";
 }
 
-
 .progressTrack {
   composes: progressTrack from "../shared/OnboardingStepCommon.module.css";
 }
 
 .progressFill {
-  width: 430px;
-  height: 28px;
+  width: min(430px, 29.0541%);
+  height: 100%;
   border-radius: 15px;
   background: #83a6ce;
 }
 
-.mascot {
+.heroGroup {
   position: absolute;
   left: 247px;
   top: 144px;
+  width: 650px;
+  height: 223.17px;
+}
+
+.mascot {
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 223.17px;
   height: 223.17px;
   pointer-events: none;
   user-select: none;
-
   z-index: 1;
 }
 
 .bubble {
   position: absolute;
-  left: 529px;
-  top: 212px;
+  left: 282px;
+  top: 68px;
   width: 368px;
   height: 86px;
   pointer-events: none;
@@ -70,8 +77,8 @@
 
 .bubbleText {
   position: absolute;
-  left: 557px;
-  top: 241px;
+  left: 310px;
+  top: 97px;
   width: 311px;
   height: 29px;
   margin: 0;
@@ -89,7 +96,6 @@
   left: 539px;
   top: 435px;
   width: 842px;
-  height: 49px;
   margin: 0;
   font-family: Montserrat, sans-serif;
   font-size: 40px;
@@ -98,6 +104,11 @@
   letter-spacing: 0;
   color: #0b1b32;
   white-space: nowrap;
+  text-align: center;
+}
+
+.levelsContainer {
+  position: static;
 }
 
 .levelBtn {
@@ -108,19 +119,16 @@
   border: 1px solid rgba(193, 210, 230, 0.35);
   background: #ffffff;
   cursor: pointer;
-
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-
   font-family: Montserrat, sans-serif;
   font-size: 24px;
   font-weight: 500;
   line-height: 29px;
   letter-spacing: 0;
   color: #0b1b32;
-
   box-shadow: 0 4px 14px rgba(11, 27, 50, 0.10);
 }
 
@@ -147,7 +155,6 @@
   border: none;
   background: #83a6ce;
   cursor: pointer;
-
   font-family: var(--font-ui);
   font-size: 20px;
   font-weight: 700;
@@ -173,59 +180,187 @@
   background: var(--color-start);
 }
 
-
 .bottomShade {
   composes: bottomShade from "../shared/OnboardingStepCommon.module.css";
 }
 
-/* PHONE */
-@media (max-width: 768px) {
-  .stage {
-    padding-top: 485px;
-    /* місце для title, bubble та mascot */
+@media (max-width: 1180px){
+  .heroGroup {
+    left: 50%;
+    top: 130px;
+    width: 520px;
+    height: 184px;
+    transform: translateX(-50%);
+  }
+
+  .mascot {
+    width: 184px;
+    height: 184px;
+  }
+
+  .bubble {
+    left: 214px;
+    top: 56px;
+    width: 290px;
+    height: 72px;
+  }
+
+  .bubbleText {
+    left: 236px;
+    top: 80px;
+    width: 246px;
+    font-size: 20px;
+    line-height: 24px;
+  }
+
+  .title {
+    left: 50%;
+    top: 372px;
+    width: 640px;
+    transform: translateX(-50%);
+    font-size: 32px;
+    line-height: 38px;
+    white-space: normal;
   }
 
   .levelsContainer {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    width: 80%;
-    margin: 0 auto;
-    align-items: center;
-    /* по центру горизонтально */
+    position: absolute;
+    left: 50%;
+    top: 500px;
+    width: 620px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    transform: translateX(-50%);
   }
 
   .levelBtn {
-    position: relative !important;
+    position: relative;
     left: auto !important;
     top: auto !important;
-    width: 50% !important;
-    justify-content: center;
-    align-items: center;
-    padding: 12px 16px;
+    width: 100% !important;
+    min-height: 66px;
+    padding: 0 18px;
+    font-size: 21px;
+    line-height: 25px;
+  }
+
+  .levelBtn:last-child {
+    grid-column: auto;
+    width: 100% !important;
+    justify-self: stretch;
+  }
+
+  .continueBtn {
+    left: 50%;
+    top: 820px;
+    width: 430px;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 700px){
+  .heroGroup {
+    left: 50%;
+    top: 116px;
+    width: 320px;
+    height: 150px;
+    transform: translateX(-50%);
+  }
+
+  .mascot {
+    width: 146px;
+    height: 146px;
+  }
+
+  .bubble {
+    left: 140px;
+    top: 48px;
+    width: 188px;
+    height: 56px;
+  }
+
+  .bubbleText {
+    left: 152px;
+    top: 66px;
+    width: 162px;
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .title {
+    left: 50%;
+    top: 300px;
+    width: 360px;
+    transform: translateX(-50%);
+    font-size: 24px;
+    line-height: 30px;
+    white-space: normal;
+  }
+
+  .levelsContainer {
+    position: absolute;
+    left: 50%;
+    top: 410px;
+    width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transform: translateX(-50%);
+  }
+
+  .levelBtn {
+    position: relative;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    min-height: 58px;
+    padding: 0 16px;
     font-size: 20px;
+    line-height: 24px;
+    border-radius: 16px;
   }
 
   .levelIcon {
-    width: 32px;
-    height: 32px;
+    width: 22px;
+    height: 22px;
   }
 
-    .bubble {
-      left: 50% !important;
-      transform: translateX(-50%);
-    }
-    
-    .mascot{
-      left: 35% !important;
-      transform: translateX(-40%);
-    }
-  
-    .bubbleText {
-      left: 50% !important;
-      transform: translateX(-50%);
-      text-align: center;
-      width: auto;
-      /* або конкретна ширина, наприклад 80% */
-    }
+  .levelBtn:last-child {
+    grid-column: auto;
+    width: 100% !important;
+    justify-self: auto;
+    align-self: stretch;
+  }
+
+  .continueBtn {
+    left: 50%;
+    top: 860px;
+    width: 360px;
+    height: 60px;
+    font-size: 18px;
+    transform: translateX(-50%);
+  }
 }
+
+.backBtn,
+.progressTrack,
+.heroGroup,
+.title,
+.description,
+.note,
+.levelBtn,
+.goalBtn,
+.cards,
+.continueBtn,
+.createBtn,
+.laterBtn{
+  margin-left: var(--lumino-stage-extra-x, 0px);
+}
+
+.headerSection{}
+.mainSection{}
+.heroSection{}
+.contentSection{}
+.levelsSection{}
+.actionSection{}

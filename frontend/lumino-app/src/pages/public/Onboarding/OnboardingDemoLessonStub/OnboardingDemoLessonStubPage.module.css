@@ -35,10 +35,18 @@
   composes: backIcon from "../shared/OnboardingStepCommon.module.css";
 }
 
-.mascot{
+.heroGroup{
   position: absolute;
   left: 248px;
   top: 130px;
+  width: 632px;
+  height: 223px;
+}
+
+.mascot{
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 223px;
   height: 223px;
   pointer-events: none;
@@ -47,8 +55,8 @@
 
 .bubble{
   position: absolute;
-  left: 520px;
-  top: 196px;
+  left: 272px;
+  top: 66px;
   width: 360px;
   height: 118px;
   pointer-events: none;
@@ -57,10 +65,9 @@
 
 .bubbleText{
   position: absolute;
-  left: 565px;
-  top: 225px;
+  left: 317px;
+  top: 95px;
   width: 270px;
-  height: 58px;
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -145,4 +152,159 @@
 
 .continueBtn:hover{
   background: var(--color-primary);
+}
+
+@media (max-width: 1180px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.58;
+  }
+
+  .heroGroup{
+    left: 50%;
+    top: 126px;
+    width: 520px;
+    height: 184px;
+    transform: translateX(-50%);
+  }
+
+  .mascot{
+    width: 184px;
+    height: 184px;
+  }
+
+  .bubble{
+    left: 230px;
+    top: 58px;
+    width: 290px;
+    height: 96px;
+  }
+
+  .bubbleText{
+    left: 266px;
+    top: 86px;
+    width: 218px;
+    font-size: 20px;
+    line-height: 24px;
+  }
+
+  .title{
+    left: 50%;
+    top: 360px;
+    width: 660px;
+    transform: translateX(-50%);
+    font-size: 32px;
+    line-height: 38px;
+  }
+
+  .description{
+    left: 50%;
+    top: 458px;
+    width: 640px;
+    transform: translateX(-50%);
+    font-size: 21px;
+    line-height: 30px;
+  }
+
+  .note{
+    left: 50%;
+    top: 598px;
+    width: 560px;
+    transform: translateX(-50%);
+    font-size: 18px;
+    line-height: 26px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 820px;
+    width: 430px;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 700px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.3;
+  }
+
+  .heroGroup{
+    left: 50%;
+    top: 112px;
+    width: 320px;
+    height: 150px;
+    transform: translateX(-50%);
+  }
+
+  .mascot{
+    width: 146px;
+    height: 146px;
+  }
+
+  .bubble{
+    left: 150px;
+    top: 48px;
+    width: 170px;
+    height: 64px;
+  }
+
+  .bubbleText{
+    left: 168px;
+    top: 66px;
+    width: 136px;
+    font-size: 14px;
+    line-height: 18px;
+  }
+
+  .title{
+    left: 50%;
+    top: 288px;
+    width: 360px;
+    transform: translateX(-50%);
+    font-size: 24px;
+    line-height: 30px;
+  }
+
+  .description{
+    left: 50%;
+    top: 392px;
+    width: 360px;
+    transform: translateX(-50%);
+    font-size: 17px;
+    line-height: 24px;
+  }
+
+  .note{
+    left: 50%;
+    top: 520px;
+    width: 340px;
+    transform: translateX(-50%);
+    font-size: 15px;
+    line-height: 22px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 860px;
+    width: 360px;
+    height: 60px;
+    font-size: 18px;
+    transform: translateX(-50%);
+  }
+}
+
+.backBtn,
+.progressTrack,
+.heroGroup,
+.title,
+.description,
+.note,
+.levelBtn,
+.goalBtn,
+.cards,
+.continueBtn,
+.createBtn,
+.laterBtn{
+  margin-left: var(--lumino-stage-extra-x, 0px);
 }

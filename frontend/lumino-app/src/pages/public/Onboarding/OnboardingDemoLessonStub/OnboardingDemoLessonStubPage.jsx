@@ -90,17 +90,19 @@ export default function OnboardingDemoLessonStubPage() {
           <img className={styles.backIcon} src={ArrowPrev} alt="back" />
         </button>
 
-        <AnimatedMascotBubble
-          key={loading ? "loading" : "error"}
-          mascotSrc={Mascot}
-          bubbleSrc={Bubble}
-          mascotClassName={styles.mascot}
-          bubbleClassName={styles.bubble}
-          textClassName={styles.bubbleText}
-        >
-          <span>{loading ? "Готуємо" : "Не вдалося"}</span>
-          <span>{loading ? "ваші демо-вправи" : "завантажити демо"}</span>
-        </AnimatedMascotBubble>
+        <div className={styles.heroGroup}>
+          <AnimatedMascotBubble
+            key={loading ? "loading" : "error"}
+            mascotSrc={Mascot}
+            bubbleSrc={Bubble}
+            mascotClassName={styles.mascot}
+            bubbleClassName={styles.bubble}
+            textClassName={styles.bubbleText}
+          >
+            <span>{loading ? "Готуємо" : "Не вдалося"}</span>
+            <span>{loading ? "ваші демо-вправи" : "завантажити демо"}</span>
+          </AnimatedMascotBubble>
+        </div>
 
         <h1 className={styles.title}>{loading ? "Зараз відкриємо перші 3 вправи" : "Демо-урок поки недоступний"}</h1>
         <p className={styles.description}>{loading ? "Завантажуємо перший демо-урок і одразу переходимо до вправ." : (error || "Спробуйте ще раз трохи пізніше.")}</p>

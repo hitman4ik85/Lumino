@@ -99,24 +99,34 @@ export default function OnboardingRunLessonPage() {
         <img className={styles.bgLeft} src={BgLeft} alt="" />
         <img className={styles.bgRight} src={BgRight} alt="" />
 
-        <button className={styles.backBtn} type="button" onClick={handleBack}>
-          <img className={styles.backIcon} src={ArrowPrev} alt="back" />
-        </button>
+        <div className={styles.headerSection}>
+          <button className={styles.backBtn} type="button" onClick={handleBack}>
+            <img className={styles.backIcon} src={ArrowPrev} alt="back" />
+          </button>
+        </div>
 
-        <AnimatedMascotBubble
-          mascotSrc={Mascot}
-          bubbleSrc={Bubble}
-          mascotClassName={styles.mascot}
-          bubbleClassName={styles.bubble}
-          textClassName={styles.bubbleText}
-          bubbleFirst
-        >
-          {lessonText}
-        </AnimatedMascotBubble>
+        <div className={styles.mainSection}>
+          <div className={styles.heroSection}>
+            <div className={styles.heroGroup}>
+          <AnimatedMascotBubble
+            mascotSrc={Mascot}
+            bubbleSrc={Bubble}
+            mascotClassName={styles.mascot}
+            bubbleClassName={styles.bubble}
+            textClassName={styles.bubbleText}
+            bubbleFirst
+          >
+            {lessonText}
+          </AnimatedMascotBubble>
+            </div>
+          </div>
 
-        <button className={styles.continueBtn} type="button" onClick={handleContinue} disabled={loading}>
-          {loading ? "ЗАВАНТАЖЕННЯ..." : "ПРОДОВЖИТИ"}
-        </button>
+          <div className={styles.actionSection}>
+            <button className={styles.continueBtn} type="button" onClick={handleContinue} disabled={loading}>
+              {loading ? "ЗАВАНТАЖЕННЯ..." : "ПРОДОВЖИТИ"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

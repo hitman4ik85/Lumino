@@ -160,6 +160,10 @@ export default function ResetPasswordPage() {
           <CloseIcon />
         </button>
 
+        <button className={styles.loginLink} type="button" onClick={() => navigate(PATHS.login)}>
+          УВІЙТИ
+        </button>
+
         <div className={styles.formWrap}>
           <h1 className={styles.title}>Новий пароль</h1>
           <p className={styles.subtitle}>Введіть новий пароль для вашого профілю.</p>

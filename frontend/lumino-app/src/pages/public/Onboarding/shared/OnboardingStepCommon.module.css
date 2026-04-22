@@ -50,7 +50,6 @@
   overflow: hidden;
 }
 
-
 .goalBtn{
   position: absolute;
   height: 70px;
@@ -72,10 +71,85 @@
   box-shadow: 0 4px 14px rgba(11,27,50,0.10);
 }
 
-
 .goalIcon{
   width: 24px;
   height: 24px;
   display: block;
   object-fit: contain;
+}
+
+@media (max-width: 1180px){
+  .bg{
+    opacity: 0.72;
+    background-size: 62% 100%, 62% 100%;
+  }
+
+  .bottomShade{
+    height: 300px;
+  }
+
+  .backBtn{
+    left: var(--onboarding-tablet-back-left, 40px);
+    top: var(--onboarding-tablet-back-top, 40px);
+    width: var(--onboarding-tablet-back-btn-width, 30px);
+    height: var(--onboarding-tablet-back-btn-height, 24px);
+  }
+
+  .backIcon{
+    width: var(--onboarding-tablet-back-icon-width, 30px);
+    height: var(--onboarding-tablet-back-icon-height, 24px);
+  }
+
+  .progressTrack{
+    left: var(--onboarding-tablet-progress-left, 50%);
+    top: var(--onboarding-tablet-progress-top, 40px);
+    width: var(--onboarding-tablet-progress-width, 760px);
+    transform: var(--onboarding-tablet-progress-transform, translateX(-50%));
+  }
+}
+
+@media (max-width: 700px){
+  .bg{
+    opacity: 0.46;
+    background-size: 78% 100%, 78% 100%;
+  }
+
+  .bottomShade{
+    height: 220px;
+  }
+
+  .backBtn{
+    left: var(--onboarding-mobile-back-left, 24px);
+    top: var(--onboarding-mobile-back-top, 32px);
+    width: var(--onboarding-mobile-back-btn-width, 28px);
+    height: var(--onboarding-mobile-back-btn-height, 22px);
+  }
+
+  .backIcon{
+    width: var(--onboarding-mobile-back-icon-width, 28px);
+    height: var(--onboarding-mobile-back-icon-height, 22px);
+  }
+
+  .progressTrack{
+    left: var(--onboarding-mobile-progress-left, 50%);
+    top: var(--onboarding-mobile-progress-top, 32px);
+    width: var(--onboarding-mobile-progress-width, 360px);
+    height: 22px;
+    border-radius: 12px;
+    transform: var(--onboarding-mobile-progress-transform, translateX(-50%));
+  }
+
+  .goalBtn{
+    height: 58px;
+    padding: 0 18px;
+    border-radius: 16px;
+    font-size: 20px;
+    line-height: 24px;
+    gap: 8px;
+  }
+
+  .goalIcon{
+    width: 22px;
+    height: 22px;
+  }
 }

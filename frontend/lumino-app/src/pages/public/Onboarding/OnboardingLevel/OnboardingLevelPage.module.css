@@ -23,10 +23,18 @@
 .bgLeft{ left: 0; }
 .bgRight{ right: 0; }
 
-.bubble{
+.heroGroup{
   position: absolute;
   left: 745px;
   top: 186px;
+  width: 430px;
+  height: 503px;
+}
+
+.bubble{
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 430px;
   height: 149px;
   pointer-events: none;
@@ -35,8 +43,8 @@
 
 .bubbleText{
   position: absolute;
-  left: 768px;
-  top: 211.71px;
+  left: 23px;
+  top: 25.71px;
   width: 385px;
   height: 87px;
   font-family: var(--font-ui);
@@ -54,11 +62,10 @@
   font-weight: 800;
 }
 
-
 .mascot{
   position: absolute;
-  left: 774px;
-  top: 358.9px;
+  left: 29px;
+  top: 172.9px;
   width: 371px;
   height: 330px;
   pointer-events: none;
@@ -99,3 +106,108 @@
 .continueBtn:disabled:hover{
   background: var(--color-start);
 }
+
+@media (max-width: 1180px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.58;
+  }
+
+  .heroGroup{
+    left: 50%;
+    top: 156px;
+    width: 390px;
+    height: 456px;
+    transform: translateX(-50%);
+  }
+
+  .bubble{
+    width: 390px;
+    height: 136px;
+  }
+
+  .bubbleText{
+    left: 26px;
+    top: 22px;
+    width: 338px;
+    font-size: 20px;
+    line-height: 24px;
+  }
+
+  .mascot{
+    left: 34px;
+    top: 156px;
+    width: 322px;
+    height: 286px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 820px;
+    width: 430px;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 700px){
+  .bgLeft,
+  .bgRight{
+    opacity: 0.3;
+  }
+
+  .heroGroup{
+    left: 50%;
+    top: 188px;
+    width: 312px;
+    height: 370px;
+    transform: translateX(-50%);
+  }
+
+  .bubble{
+    width: 312px;
+    height: 170px;
+  }
+
+  .bubbleText{
+    left: 20px;
+    top: 50px;
+    width: 272px;
+    font-size: 16px;
+    line-height: 19px;
+  }
+
+  .mascot{
+    left: 28px;
+    top: 150px;
+    width: 256px;
+    height: 228px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 860px;
+    width: 360px;
+    height: 60px;
+    font-size: 18px;
+    transform: translateX(-50%);
+  }
+}
+
+.backBtn,
+.progressTrack,
+.heroGroup,
+.title,
+.description,
+.note,
+.levelBtn,
+.goalBtn,
+.cards,
+.continueBtn,
+.createBtn,
+.laterBtn{
+  margin-left: var(--lumino-stage-extra-x, 0px);
+}
+
+.mainSection{}
+.heroSection{}
+.actionSection{}

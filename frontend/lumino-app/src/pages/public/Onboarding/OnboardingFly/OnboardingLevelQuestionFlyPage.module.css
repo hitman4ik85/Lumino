@@ -6,58 +6,55 @@
 
 .stage{
   composes: stage from "../shared/OnboardingSharedLayout.module.css";
+  --onboarding-tablet-back-left: 70px;
+  --onboarding-tablet-back-top: 50px;
+  --onboarding-tablet-progress-left: 118px;
+  --onboarding-tablet-progress-top: 48px;
+  --onboarding-tablet-progress-width: calc(100% - 236px);
+  --onboarding-tablet-progress-transform: none;
+  --onboarding-mobile-back-left: 30px;
+  --onboarding-mobile-back-top: 52px;
+  --onboarding-mobile-progress-left: 78px;
+  --onboarding-mobile-progress-top: 52px;
+  --onboarding-mobile-progress-width: calc(100% - 156px);
+  --onboarding-mobile-progress-transform: none;
 }
 
 .bg{
-  position:absolute;
-  inset:0;
-  background-repeat:no-repeat, no-repeat;
-  background-position:left top, right top;
-  background-size:55% 100%, 55% 100%;
-  pointer-events:none;
-  user-select:none;
+  composes: bg from "../shared/OnboardingStepCommon.module.css";
 }
 
 .backBtn{
-  position:absolute;
-  left:73px;
-  top:52px;
-  width:36px;
-  height:28px;
-  padding:0;
-  border:none;
-  background:transparent;
-  cursor:pointer;
+  composes: backBtn from "../shared/OnboardingStepCommon.module.css";
 }
 
 .backIcon{
-  width:36px;
-  height:28px;
-  display:block;
+  composes: backIcon from "../shared/OnboardingStepCommon.module.css";
 }
 
 .progressTrack{
-  position:absolute;
-  left:220px;
-  top:52px;
-  width:1480px;
-  height:28px;
-  border-radius:15px;
-  background:#c1d2e6;
-  overflow:hidden;
+  composes: progressTrack from "../shared/OnboardingStepCommon.module.css";
 }
 
 .progressFill{
-  width:430px;
-  height:28px;
+  width: min(430px, 29.0541%);
+  height: 100%;
   border-radius:15px;
   background:#83a6ce;
 }
 
+.heroGroup{
+  position:absolute;
+  left:680px;
+  top:227px;
+  width:560px;
+  height:593px;
+}
+
 .bubble{
   position:absolute;
-  left:800px;
-  top:227px;
+  left:120px;
+  top:0;
   width:320px;
   height:108px;
   pointer-events:none;
@@ -66,8 +63,8 @@
 
 .bubbleText{
   position:absolute;
-  left:834px;
-  top:247px;
+  left:154px;
+  top:20px;
   width:253px;
   height:58px;
   margin:0;
@@ -90,8 +87,8 @@
 
 .mascot{
   position:absolute;
-  left:680px;
-  top:260px;
+  left:0;
+  top:33px;
   width:560px;
   height:560px;
   pointer-events:none;
@@ -134,11 +131,105 @@
 }
 
 .bottomShade{
-  position:absolute;
-  left:0;
-  right:0;
-  bottom:0;
-  height:360px;
-  pointer-events:none;
-  background:linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(11,27,50,0.10) 55%, rgba(11,27,50,0.18) 100%);
+  composes: bottomShade from "../shared/OnboardingStepCommon.module.css";
 }
+
+@media (max-width: 1180px){
+  .heroGroup{
+    left: 50%;
+    top: 190px;
+    width: 420px;
+    height: 446px;
+    transform: translateX(-50%);
+  }
+
+  .bubble{
+    left: 90px;
+    width: 240px;
+    height: 220px;
+  }
+
+  .bubbleText{
+    left: 105px;
+    top: 80px;
+    width: 190px;
+    height: auto;
+    display: block;
+    font-size: 20px;
+    line-height: 24px;
+  }
+
+  .mascot{
+    top: 100px;
+    width: 420px;
+    height: 420px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 820px;
+    width: 430px;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 700px){
+  .heroGroup{
+    left: 50%;
+    top: 222px;
+    width: 296px;
+    height: 318px;
+    transform: translateX(-50%);
+  }
+
+  .bubble{
+    left: 72px;
+    width: 170px;
+    height: 258px;
+  }
+
+  .bubbleText{
+    left: 86px;
+    top: 110px;
+    width: 134px;
+    height: auto;
+    display: block;
+    font-size: 14px;
+    line-height: 17px;
+  }
+
+  .mascot{
+    top: 110px;
+    width: 320px;
+    height: 320px;
+  }
+
+  .continueBtn{
+    left: 50%;
+    top: 860px;
+    width: 360px;
+    height: 60px;
+    font-size: 18px;
+    transform: translateX(-50%);
+  }
+}
+
+.backBtn,
+.progressTrack,
+.heroGroup,
+.title,
+.description,
+.note,
+.levelBtn,
+.goalBtn,
+.cards,
+.continueBtn,
+.createBtn,
+.laterBtn{
+  margin-left: var(--lumino-stage-extra-x, 0px);
+}
+
+.headerSection{}
+.mainSection{}
+.heroSection{}
+.actionSection{}
