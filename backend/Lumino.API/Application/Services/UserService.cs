@@ -65,7 +65,10 @@ namespace Lumino.Api.Application.Services
 
         public UserProfileResponse UpdateProfile(int userId, UpdateProfileRequest request)
         {
-            _updateProfileRequestValidator.Validate(request);
+            if (request == null)
+            {
+                throw new ArgumentException("Request is required");
+            }
 
             var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
 
@@ -73,6 +76,18 @@ namespace Lumino.Api.Application.Services
             {
                 throw new KeyNotFoundException("User not found");
             }
+
+            var requestedAvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl.Trim();
+            var currentAvatarUrl = string.IsNullOrWhiteSpace(user.AvatarUrl) ? null : user.AvatarUrl.Trim();
+
+            var requestForValidation = new UpdateProfileRequest
+            {
+                Username = request.Username,
+                AvatarUrl = string.Equals(requestedAvatarUrl, currentAvatarUrl, StringComparison.Ordinal) ? null : request.AvatarUrl,
+                Theme = request.Theme
+            };
+
+            _updateProfileRequestValidator.Validate(requestForValidation);
 
             if (!string.IsNullOrWhiteSpace(request.Username))
             {

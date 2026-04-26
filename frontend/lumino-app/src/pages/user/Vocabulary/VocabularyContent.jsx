@@ -538,6 +538,15 @@ function ArrowIcon({ direction = "right" }) {
   );
 }
 
+function HeaderBackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M19 12H7" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" />
+      <path d="M11 7L6 12L11 17" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function LampIcon() {
   return (
     <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -663,6 +672,23 @@ function formatWordList(items) {
     .filter(Boolean);
 }
 
+function wordMatchesSearch(item, normalizedSearch) {
+  if (!normalizedSearch) {
+    return true;
+  }
+
+  const searchValues = [item?.word, item?.translation];
+
+  if (Array.isArray(item?.translations)) {
+    searchValues.push(...item.translations);
+  }
+
+  return searchValues.some((value) => String(value || "")
+    .trim()
+    .toLowerCase()
+    .includes(normalizedSearch));
+}
+
 function splitMultiValue(value, separator = ",") {
   return String(value || "")
     .split(separator)
@@ -773,9 +799,11 @@ export default function VocabularyContent() {
   const initialCacheRef = useRef(readVocabularyCache());
   const [loading, setLoading] = useState(initialCacheRef.current == null);
   const [saving, setSaving] = useState(false);
+  const reviewSavingRef = useRef(false);
   const [items, setItems] = useState(initialCacheRef.current?.items || []);
   const [dueItems, setDueItems] = useState(initialCacheRef.current?.dueItems || []);
   const [searchValue, setSearchValue] = useState("");
+  const [appliedSearchValue, setAppliedSearchValue] = useState("");
   const [activeFilter, setActiveFilter] = useState("list");
   const [deleteMode, setDeleteMode] = useState(false);
   const [rightMode, setRightMode] = useState("");
@@ -797,6 +825,8 @@ export default function VocabularyContent() {
   const [reviewPlanPeriod, setReviewPlanPeriod] = useState("today");
   const [reviewPlanDays, setReviewPlanDays] = useState("3");
   const [reviewPlanPage, setReviewPlanPage] = useState(0);
+  const [reviewPlanPageSize, setReviewPlanPageSize] = useState(15);
+  const reviewPlanWordsGridRef = useRef(null);
   const [addForm, setAddForm] = useState({
     word: "",
     translation: "",
@@ -817,6 +847,14 @@ export default function VocabularyContent() {
     synonyms: "",
     idioms: "",
   });
+  const [isMobileLayout, setIsMobileLayout] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.innerWidth <= 700;
+  });
+  const [isTabletLayout, setIsTabletLayout] = useState(false);
 
   const selectedGrammar = useMemo(() => GRAMMAR_TOPICS.find((item) => item.key === selectedGrammarKey) || GRAMMAR_TOPICS[0], [selectedGrammarKey]);
   const grammarCard = selectedGrammar.cards[grammarIndex] || selectedGrammar.cards[0];
@@ -835,26 +873,16 @@ export default function VocabularyContent() {
   }, [dueItems]);
 
   const filteredItems = useMemo(() => {
-    const normalizedSearch = searchValue.trim().toLowerCase();
+    const normalizedSearch = appliedSearchValue.trim().toLowerCase();
 
-    return items.filter((item) => {
-      if (!normalizedSearch) {
-        return true;
-      }
-
-      const translationsText = Array.isArray(item.translations) ? item.translations.join(" ") : "";
-      const exampleText = item.example || "";
-
-      return [item.word, item.translation, translationsText, exampleText]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedSearch);
-    });
-  }, [items, searchValue]);
+    return items.filter((item) => wordMatchesSearch(item, normalizedSearch));
+  }, [appliedSearchValue, items]);
 
   const sortedListItems = useMemo(() => {
     return filteredItems.slice().sort((a, b) => String(a?.word || "").localeCompare(String(b?.word || "")));
   }, [filteredItems]);
+
+  const hasAppliedSearch = appliedSearchValue.trim().length > 0;
 
   const reviewGroups = useMemo(() => {
     const groups = {
@@ -887,6 +915,52 @@ export default function VocabularyContent() {
   const reviewPlanItems = useMemo(() => {
     return filteredItems.slice().sort((a, b) => String(a.word || "").localeCompare(String(b.word || "")));
   }, [filteredItems]);
+
+  const updateReviewPlanPageSize = useCallback(() => {
+    if (!isMobileLayout || typeof window === "undefined") {
+      setReviewPlanPageSize((prev) => (prev === 15 ? prev : 15));
+      return;
+    }
+
+    const grid = reviewPlanWordsGridRef.current;
+
+    if (!grid) {
+      return;
+    }
+
+    const gridStyles = window.getComputedStyle(grid);
+    const columnGap = Number.parseFloat(gridStyles.columnGap || "0") || 16;
+    const minColumnWidth = 80;
+    const computedColumns = gridStyles.gridTemplateColumns.split(" ").filter(Boolean);
+    const columnsCount = Math.max(1, computedColumns.length || Math.floor((grid.clientWidth + columnGap) / (minColumnWidth + columnGap)));
+    const nextPageSize = columnsCount * 3;
+
+    setReviewPlanPageSize((prev) => (prev === nextPageSize ? prev : nextPageSize));
+  }, [isMobileLayout]);
+
+  useEffect(() => {
+    if (rightMode !== "reviewPlan") {
+      return undefined;
+    }
+
+    updateReviewPlanPageSize();
+
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    window.addEventListener("resize", updateReviewPlanPageSize);
+
+    return () => {
+      window.removeEventListener("resize", updateReviewPlanPageSize);
+    };
+  }, [rightMode, reviewPlanItems.length, updateReviewPlanPageSize]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(reviewPlanItems.length / reviewPlanPageSize) - 1);
+
+    setReviewPlanPage((prev) => (prev > maxPage ? maxPage : prev));
+  }, [reviewPlanItems.length, reviewPlanPageSize]);
 
   const setLevelGridRef = useCallback((level, node) => {
     if (node) {
@@ -943,14 +1017,16 @@ export default function VocabularyContent() {
   }, [activeFilter]);
 
   const reviewPlanPagedItems = useMemo(() => {
-    const startIndex = reviewPlanPage * 15;
+    const startIndex = reviewPlanPage * reviewPlanPageSize;
 
-    return reviewPlanItems.slice(startIndex, startIndex + 15);
-  }, [reviewPlanItems, reviewPlanPage]);
+    return reviewPlanItems.slice(startIndex, startIndex + reviewPlanPageSize);
+  }, [reviewPlanItems, reviewPlanPage, reviewPlanPageSize]);
 
   const reviewPlanHasMore = useMemo(() => {
-    return (reviewPlanPage + 1) * 15 < reviewPlanItems.length;
-  }, [reviewPlanItems.length, reviewPlanPage]);
+    return (reviewPlanPage + 1) * reviewPlanPageSize < reviewPlanItems.length;
+  }, [reviewPlanItems.length, reviewPlanPage, reviewPlanPageSize]);
+
+  const reviewPlanHasPrevious = reviewPlanPage > 0;
 
   const selectedReviewPlanItem = useMemo(() => {
     return items.find((item) => item.id === reviewPlanItemId) || null;
@@ -971,6 +1047,7 @@ export default function VocabularyContent() {
 
   const closeTransientState = useCallback(() => {
     setSearchValue("");
+    setAppliedSearchValue("");
     setDeleteMode(false);
     setSelectedItemId(0);
     setSelectedItemDetails(null);
@@ -1002,6 +1079,26 @@ export default function VocabularyContent() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [closeTransientState]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const syncLayout = () => {
+      const width = window.innerWidth;
+
+      setIsMobileLayout(width <= 700);
+      setIsTabletLayout(false);
+    };
+
+    syncLayout();
+    window.addEventListener("resize", syncLayout);
+
+    return () => {
+      window.removeEventListener("resize", syncLayout);
+    };
+  }, []);
 
   useEffect(() => {
     if (activeFilter !== "level") {
@@ -1139,14 +1236,18 @@ export default function VocabularyContent() {
   }, [activeFilter, rightMode]);
 
 
-  const openWordDetails = useCallback(async (item) => {
+  const openWordDetails = useCallback(async (item, options = {}) => {
     if (!item?.vocabularyItemId) {
       return;
     }
 
     setSaving(true);
     setSelectedItemId(item.id);
-    setRightMode("word");
+
+    if (!options.keepSearchPanel) {
+      setRightMode("word");
+    }
+
     setWordInUseOpen(true);
     setWordExampleIndex(0);
 
@@ -1327,20 +1428,17 @@ export default function VocabularyContent() {
         .filter(Boolean),
     };
 
-    setSaving(true);
     const res = await vocabularyService.addWord(payload);
 
     if (!res.ok) {
-      setSaving(false);
       setModal({ open: true, title: "Додавання", message: buildErrorText(res, "Не вдалося додати слово") });
       return;
     }
 
-    setSaving(false);
     setAddForm({ word: "", translation: "", partOfSpeech: "", transcription: "", definition: "", example: "", synonyms: "", idioms: "" });
     showModal("СЛОВО ДОДАНО");
-    loadVocabulary(true);
-  }, [addForm, loadVocabulary]);
+    await loadVocabulary(true, false);
+  }, [addForm, loadVocabulary, showModal]);
 
   const handleEditSubmit = useCallback(async () => {
     if (!selectedItemDetails?.userVocabularyId || !editForm.word.trim() || !editForm.translation.trim()) {
@@ -1386,6 +1484,7 @@ export default function VocabularyContent() {
     setActiveFilter(nextFilter);
     setDeleteMode(false);
     setSearchValue("");
+    setAppliedSearchValue("");
 
     if (nextFilter !== "review" && rightMode === "reviewPlan") {
       setRightMode("");
@@ -1408,6 +1507,10 @@ export default function VocabularyContent() {
     }
   }, [items, reviewPlanItemId, showModal]);
 
+  const handleReviewPlanItemClick = useCallback((itemId) => {
+    setReviewPlanItemId((prev) => prev === itemId ? 0 : itemId);
+  }, []);
+
   const handleSubmitReviewPlan = useCallback(async () => {
     if (!reviewPlanItemId) {
       showModal("ОБЕРІТЬ СЛОВО ЗІ СПИСКУ");
@@ -1429,9 +1532,7 @@ export default function VocabularyContent() {
       payload.days = daysValue;
     }
 
-    setSaving(true);
     const res = await vocabularyService.scheduleWord(reviewPlanItemId, payload);
-    setSaving(false);
 
     if (!res.ok) {
       setModal({ open: true, title: "Повторення", message: buildErrorText(res, "Не вдалося додати слово до повторення") });
@@ -1451,9 +1552,18 @@ export default function VocabularyContent() {
       return;
     }
 
-    setSaving(true);
+    setReviewItem({
+      ...queueItem,
+      details: null,
+      showTranslation: false,
+      hintUsed: false,
+    });
+    setWordInUseOpen(false);
+    setWordExampleIndex(0);
+
+    reviewSavingRef.current = true;
     const detailsRes = await vocabularyService.getItemDetails(queueItem.vocabularyItemId);
-    setSaving(false);
+    reviewSavingRef.current = false;
 
     if (!detailsRes.ok) {
       setReviewItem({
@@ -1491,7 +1601,7 @@ export default function VocabularyContent() {
   }, [dueReviewItems, openReviewQueueItem, showModal]);
 
   const handleReviewAction = useCallback(async (action) => {
-    if (!reviewItem?.id) {
+    if (!reviewItem?.id || reviewSavingRef.current) {
       return;
     }
 
@@ -1504,7 +1614,7 @@ export default function VocabularyContent() {
       return;
     }
 
-    setSaving(true);
+    reviewSavingRef.current = true;
     const reviewRes = await vocabularyService.reviewWord(reviewItem.id, {
       action,
       isCorrect: action === "correct",
@@ -1512,7 +1622,7 @@ export default function VocabularyContent() {
     });
 
     if (!reviewRes.ok) {
-      setSaving(false);
+      reviewSavingRef.current = false;
       setModal({ open: true, title: "Повторення", message: buildErrorText(reviewRes, "Не вдалося зберегти результат") });
       return;
     }
@@ -1528,7 +1638,7 @@ export default function VocabularyContent() {
     setReviewIndex(nextIndex);
 
     if (nextIndex >= reviewQueue.length) {
-      setSaving(false);
+      reviewSavingRef.current = false;
       setReviewItem(null);
       setRightMode("reviewResult");
       loadVocabulary(true, false);
@@ -1536,8 +1646,18 @@ export default function VocabularyContent() {
     }
 
     const nextQueueItem = reviewQueue[nextIndex];
+
+    setReviewItem({
+      ...nextQueueItem,
+      details: null,
+      showTranslation: false,
+      hintUsed: false,
+    });
+    setWordInUseOpen(false);
+    setWordExampleIndex(0);
+
     const detailsRes = await vocabularyService.getItemDetails(nextQueueItem.vocabularyItemId);
-    setSaving(false);
+    reviewSavingRef.current = false;
 
     if (!detailsRes.ok) {
       setReviewItem({
@@ -1606,11 +1726,12 @@ export default function VocabularyContent() {
 
   const handleOpenSearch = useCallback(() => {
     setRightMode("search");
+    setDeleteMode(false);
     setSelectedItemId(0);
     setSelectedItemDetails(null);
   }, []);
 
-  const handleSearchSubmit = useCallback(async () => {
+  const handleSearchSubmit = useCallback(() => {
     const normalizedSearch = searchValue.trim().toLowerCase();
 
     if (!normalizedSearch) {
@@ -1618,23 +1739,21 @@ export default function VocabularyContent() {
       return;
     }
 
-    const foundItem = items.find((item) => {
-      const translationsText = Array.isArray(item.translations) ? item.translations.join(" ") : "";
-      const exampleText = item.example || "";
+    const foundItems = items.filter((item) => wordMatchesSearch(item, normalizedSearch));
 
-      return [item.word, item.translation, translationsText, exampleText]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedSearch);
-    });
-
-    if (!foundItem) {
+    if (foundItems.length === 0) {
       showModal("НЕМАЄ СЛІВ ДЛЯ ПОШУКУ");
       return;
     }
 
-    await openWordDetails(foundItem);
-  }, [items, openWordDetails, searchValue, showModal]);
+    setAppliedSearchValue(searchValue.trim());
+    setActiveFilter("list");
+    setDeleteMode(false);
+    setSelectedItemId(0);
+    setSelectedItemDetails(null);
+    setWordInUseOpen(false);
+    setWordExampleIndex(0);
+  }, [items, searchValue, showModal]);
 
   const selectedWordExamples = useMemo(() => {
     if (!selectedItemDetails) {
@@ -1849,7 +1968,10 @@ export default function VocabularyContent() {
           <input
             className={styles.searchPanelInput}
             value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
+            onChange={(e) => {
+              setSearchValue(e.target.value);
+              setAppliedSearchValue("");
+            }}
             autoFocus
           />
         </div>
@@ -1857,6 +1979,23 @@ export default function VocabularyContent() {
         <div className={styles.sideActionDivider} />
 
         <button type="button" className={styles.searchPanelButton} onClick={handleSearchSubmit}>ЗНАЙТИ</button>
+
+        {isMobileLayout && hasAppliedSearch ? (
+          <div className={styles.mobileSearchResultsBlock}>
+            <div className={`${styles.mobileWordsGrid} ${styles.mobileSearchResultsGrid}`}>
+              {sortedListItems.map((item) => (
+                <div key={item.id} className={styles.mobileSearchResultWrap}>
+                  {renderMobileWordChip(item, { onClick: (selectedItem) => openWordDetails(selectedItem, { keepSearchPanel: true }) })}
+                  {selectedItemId === item.id && selectedItemDetails?.userVocabularyId === item.id ? (
+                    <div className={styles.mobileSearchWordDetails}>
+                      {renderWordPanel()}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -2060,24 +2199,31 @@ export default function VocabularyContent() {
         <div className={styles.reviewPlanTitle}>Список слів:</div>
         <div className={styles.reviewPlanTitleLine} />
 
-        <div className={styles.reviewPlanWordsGrid}>
-          {reviewPlanPagedItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`${styles.reviewPlanWordButton} ${reviewPlanItemId === item.id ? styles.reviewPlanWordButtonActive : ""}`}
-              onClick={() => setReviewPlanItemId(item.id)}
-            >
-              {item.word}
-            </button>
-          ))}
-        </div>
+        <div className={styles.reviewPlanWordsWrap}>
+          <div className={styles.reviewPlanWordsGrid} ref={reviewPlanWordsGridRef}>
+            {reviewPlanPagedItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`${styles.reviewPlanWordButton} ${reviewPlanItemId === item.id ? styles.reviewPlanWordButtonActive : ""}`}
+                onClick={() => handleReviewPlanItemClick(item.id)}
+              >
+                {item.word}
+              </button>
+            ))}
+          </div>
 
-        {reviewPlanHasMore ? (
-          <button type="button" className={styles.reviewPlanNextButton} onClick={() => setReviewPlanPage((prev) => prev + 1)} aria-label="Наступна сторінка слів">
-            <ArrowIcon direction="right" />
-          </button>
-        ) : null}
+          {reviewPlanItems.length > reviewPlanPageSize ? (
+            <div className={styles.reviewPlanPageButtons}>
+              <button type="button" className={styles.reviewPlanNextButton} onClick={() => setReviewPlanPage((prev) => prev + 1)} aria-label="Наступна сторінка слів" disabled={!reviewPlanHasMore}>
+                <ArrowIcon direction="right" />
+              </button>
+              <button type="button" className={styles.reviewPlanNextButton} onClick={() => setReviewPlanPage((prev) => Math.max(0, prev - 1))} aria-label="Попередня сторінка слів" disabled={!reviewPlanHasPrevious}>
+                <ArrowIcon direction="left" />
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className={styles.reviewPlanSection}>
@@ -2258,6 +2404,657 @@ export default function VocabularyContent() {
     setModal({ open: false, title: "", message: "", secondaryText: "", onSecondary: null, onPrimary: null });
   };
 
+  const renderMobileHeader = (title, withBack = false) => (
+    <div className={styles.mobileTopBar}>
+      {withBack ? (
+        <button type="button" className={styles.mobileBackButton} onClick={closeTransientState} aria-label="Назад"><HeaderBackIcon /></button>
+      ) : (
+        <span className={styles.mobileBackSpacer} aria-hidden="true" />
+      )}
+
+      <div className={styles.mobileTopBarTitle}>{title}</div>
+      <span className={styles.mobileBackSpacer} aria-hidden="true" />
+    </div>
+  );
+
+  const renderMobileWordChip = (item, options = {}) => {
+    const translation = options.hideTranslation ? "" : getPrimaryTranslation(item);
+    const chipTitle = options.hideTranslation ? getWordOnlyTitle(item) : getWordChipTitle(item);
+
+    return (
+      <div key={item.id} className={`${styles.mobileWordChipWrap} ${options.wrapClassName || ""}`}>
+        <button
+          type="button"
+          className={`${styles.wordChip} ${styles.mobileWordChip} ${options.buttonClassName || ""}`}
+          onClick={() => {
+            if (deleteMode) {
+              return;
+            }
+
+            if (typeof options.onClick === "function") {
+              options.onClick(item);
+              return;
+            }
+
+            openWordDetails(item);
+          }}
+          title={chipTitle}
+        >
+          <span className={`${styles.wordChipWord} ${styles.mobileWordChipWord}`}>{item.word}</span>
+          {translation ? <span className={`${styles.wordChipTranslation} ${styles.mobileWordChipTranslation}`}>({translation})</span> : null}
+        </button>
+
+        {options.showDelete ? (
+          <button
+            type="button"
+            className={`${styles.wordChipDeleteButton} ${styles.mobileWordChipDeleteButton}`}
+            aria-label={`Видалити слово ${item.word}`}
+            onClick={() => {
+              showModal("Впевнені, що хочете видалити це слово?", {
+                secondaryText: "ТАК",
+                onSecondary: () => {
+                  setModal({ open: false, title: "", message: "", secondaryText: "", onSecondary: null, onPrimary: null });
+                  handleDeleteWord(item);
+                },
+                onPrimary: () => setModal({ open: false, title: "", message: "", secondaryText: "", onSecondary: null, onPrimary: null }),
+              });
+            }}
+          >
+            <span className={`${styles.wordChipDeleteInner} ${styles.mobileWordChipDeleteInner}`}>
+              <span className={styles.wordChipDelete}>×</span>
+            </span>
+          </button>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderMobileReviewGroup = (title, reviewItems) => (
+    <div className={styles.mobileReviewGroup}>
+      <div className={styles.mobileReviewGroupTitle}>{title}</div>
+      {reviewItems.length > 0 ? (
+        <div className={styles.mobileWordsGrid}>
+          {reviewItems.map((item) => renderMobileWordChip(item, { hideTranslation: true }))}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const renderMobileLevelColumn = (level, title, itemsForLevel) => (
+    <div className={styles.mobileLevelColumn}>
+      <div className={styles.mobileLevelColumnHeader}>
+        <span>{title}</span>
+        <button type="button" className={styles.mobileLevelColumnArrow} onClick={handleLevelScrollToggle} aria-label={`Прокрутити ${title}`}>
+          <ArrowIcon direction="right" />
+        </button>
+      </div>
+
+      <div className={styles.mobileLevelColumnGrid} ref={(node) => setLevelGridRef(level, node)}>
+        {itemsForLevel.map((item) => renderMobileWordChip(item, {
+          hideTranslation: true,
+          buttonClassName: styles.mobileLevelWordChip,
+          wrapClassName: styles.mobileLevelWordChipWrap,
+        }))}
+      </div>
+    </div>
+  );
+
+  const renderMobileDictionaryScreen = () => (
+    <div className={styles.mobileShell}>
+      {renderMobileHeader("Словник")}
+
+      <div className={styles.mobileScrollArea}>
+        <div className={styles.mobileDictionarySection}>
+          <div className={styles.mobileDictionaryTitle}>МІЙ СЛОВНИК</div>
+
+          <div className={styles.mobileDictionaryTabsRow}>
+            <div className={styles.mobileDictionaryTabs}>
+              <button type="button" className={`${styles.filterTab} ${styles.mobileFilterTab} ${activeFilter === "list" ? styles.filterTabActive : ""}`} onClick={() => handleFilterChange("list")}>список</button>
+              <span className={`${styles.filterDivider} ${styles.mobileFilterDivider}`} />
+              <button type="button" className={`${styles.filterTab} ${styles.mobileFilterTab} ${activeFilter === "review" ? styles.filterTabActive : ""}`} onClick={() => handleFilterChange("review")}>повторення</button>
+              <span className={`${styles.filterDivider} ${styles.mobileFilterDivider}`} />
+              <button type="button" className={`${styles.filterTab} ${styles.mobileFilterTab} ${activeFilter === "level" ? styles.filterTabActive : ""}`} onClick={() => handleFilterChange("level")}>рівень</button>
+            </div>
+
+            <div className={styles.mobileHeaderIcons}>
+              <button type="button" className={`${styles.iconButton} ${styles.mobileIconButton}`} onClick={handleOpenSearch} aria-label="Пошук">
+                <img src={SearchIconAsset} alt="" className={styles.headerIconAsset} />
+              </button>
+
+              <button type="button" className={`${styles.iconButton} ${styles.mobileIconButton} ${deleteMode ? styles.iconButtonActive : ""}`} onClick={handleDeleteModeToggle} aria-label="Режим видалення">
+                <img src={DeleteIconAsset} alt="" className={styles.headerIconAsset} />
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.mobileBlueDivider} />
+
+          {activeFilter === "list" ? (
+            sortedListItems.length > 0 ? (
+              <div className={styles.mobileDictionaryContentViewport}>
+                <div className={styles.mobileWordsGrid}>
+                  {sortedListItems.map((item) => renderMobileWordChip(item, { showDelete: deleteMode }))}
+                </div>
+              </div>
+            ) : (
+              <div className={styles.mobileEmptyState}>немає слів у словнику</div>
+            )
+          ) : null}
+
+          {activeFilter === "review" ? (
+            <div className={`${styles.mobileDictionaryContentViewport} ${styles.mobileReviewContentViewport}`}>
+              <div className={styles.mobileReviewGroupsWrap}>
+                {renderMobileReviewGroup("Сьогодні:", reviewGroups.today)}
+                {renderMobileReviewGroup("Завтра:", reviewGroups.tomorrow)}
+                {renderMobileReviewGroup(getReviewLaterLabel(reviewGroups.later), reviewGroups.later)}
+              </div>
+            </div>
+          ) : null}
+
+          {activeFilter === "level" ? (
+            <div className={`${styles.mobileDictionaryContentViewport} ${styles.mobileLevelContentViewport}`}>
+              <div className={styles.mobileLevelColumnsWrap}>
+                {renderMobileLevelColumn(1, "Рівень 1", levelGroups[1])}
+                {renderMobileLevelColumn(2, "Рівень 2", levelGroups[2])}
+                {renderMobileLevelColumn(3, "Рівень 3", levelGroups[3])}
+              </div>
+            </div>
+          ) : null}
+
+          <div className={styles.mobileDividerActionRow}>
+            <div className={styles.mobilePinkDivider} />
+            {activeFilter !== "level" ? (
+              <button type="button" className={styles.mobilePlusButton} onClick={activeFilter === "review" ? handleOpenReviewPlan : handleOpenAdd} aria-label={activeFilter === "review" ? "Додати слово до повторення" : "Додати слово"}>
+                <PlusIcon />
+              </button>
+            ) : null}
+          </div>
+
+          <div className={styles.mobileGrammarHeader}>ГРАМАТИКА</div>
+          <div className={styles.mobileBlueDivider} />
+
+          <div className={styles.mobileGrammarButtonsColumn}>
+            {GRAMMAR_TOPICS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`${styles.grammarTopicButton} ${styles.mobileGrammarTopicButton}`}
+                onClick={() => handleOpenGrammar(item.key)}
+              >
+                <span>{item.title}</span>
+                <span className={styles.grammarTopicArrow}><ArrowIcon direction="right" /></span>
+              </button>
+            ))}
+          </div>
+
+          <button type="button" className={`${styles.repeatButton} ${styles.mobileRepeatButton}`} onClick={handleOpenReview}>Повторити слова</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMobileWordScreen = () => (
+    <div className={styles.mobileShell}>
+      {renderMobileHeader("Деталі слова", true)}
+
+      <div className={styles.mobileScrollArea}>
+        <div className={styles.mobileWordHero}>
+          <div className={styles.mobileWordTitleRow}>
+            <div className={styles.mobileWordTitle}>{selectedItemDetails?.word || "Слово"}</div>
+            {getAllTranslationsText(selectedItemDetails) ? <div className={styles.mobileWordTranslation}>({getAllTranslationsText(selectedItemDetails)})</div> : null}
+          </div>
+          {selectedItemDetails?.partOfSpeech ? <div className={styles.mobileWordPartOfSpeech}>{selectedItemDetails.partOfSpeech}</div> : null}
+        </div>
+
+        {selectedItemDetails?.definition ? (
+          <div className={styles.mobileInfoBlock}>
+            <div className={styles.mobileInfoLabel}>визначення</div>
+            <div className={styles.mobileInfoText}>{selectedItemDetails.definition}</div>
+          </div>
+        ) : null}
+
+        {selectedWordExamples.length > 0 ? (
+          <div className={styles.mobileInfoBlock}>
+            <div className={styles.mobileInfoHeaderRow}>
+              <div className={styles.mobileInfoLabel}>приклад</div>
+              {selectedWordExamples.length > 1 ? (
+                <div className={styles.mobileInfoArrowRow}>
+                  <button type="button" className={styles.mobileInfoArrowButton} onClick={() => setWordExampleIndex((prev) => prev > 0 ? prev - 1 : selectedWordExamples.length - 1)} aria-label="Попередній приклад">
+                    <ArrowIcon direction="left" />
+                  </button>
+                  <button type="button" className={styles.mobileInfoArrowButton} onClick={() => setWordExampleIndex((prev) => prev < selectedWordExamples.length - 1 ? prev + 1 : 0)} aria-label="Наступний приклад">
+                    <ArrowIcon direction="right" />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div className={styles.mobileInfoTextItalic}>{currentSelectedWordExample}</div>
+            {getAllTranslationsText(selectedItemDetails) ? <div className={styles.mobileInfoText}>{getAllTranslationsText(selectedItemDetails)}</div> : null}
+          </div>
+        ) : null}
+
+        {selectedWordSynonyms.length > 0 ? (
+          <div className={styles.mobileInfoBlock}>
+            <div className={styles.mobileInfoLabel}>подібні слова/синоніми</div>
+            <div className={styles.mobileInfoText}>{selectedWordSynonyms.join("\n")}</div>
+          </div>
+        ) : null}
+
+        {selectedWordIdioms.length > 0 ? (
+          <div className={styles.mobileInfoBlock}>
+            <div className={styles.mobileInfoLabel}>стійкі вирази, які варто знати</div>
+            <div className={styles.mobileInfoText}>{selectedWordIdioms.join("\n")}</div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  const renderMobileGrammarScreen = () => {
+    const isQuestionsNegations = selectedGrammar.key === "questions-negations";
+    const mobileSections = (selectedGrammar.sharedSections || grammarCard.sections || []);
+
+    return (
+      <div className={styles.mobileShell}>
+        {renderMobileHeader(selectedGrammar.title, true)}
+
+        <div className={styles.mobileScrollArea}>
+          {!isQuestionsNegations ? (
+            <>
+              <div className={styles.mobileGrammarCard}>
+                <div className={styles.mobileGrammarCardHeader}>
+                  <div>
+                    <div className={styles.mobileGrammarCardTitle}>{grammarCard.heading}</div>
+                    {grammarCard.subtitle ? <div className={styles.mobileGrammarCardSubtitle}>{grammarCard.subtitle}</div> : null}
+                  </div>
+
+                  <div className={styles.mobileGrammarArrows}>
+                    <button
+                      type="button"
+                      className={styles.mobileGrammarArrowButton}
+                      onClick={() => setGrammarIndex((prev) => (prev - 1 + selectedGrammar.cards.length) % selectedGrammar.cards.length)}
+                      aria-label="Попередній слайд"
+                    >
+                      <ArrowIcon direction="left" />
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.mobileGrammarArrowButton}
+                      onClick={() => setGrammarIndex((prev) => (prev + 1) % selectedGrammar.cards.length)}
+                      aria-label="Наступний слайд"
+                    >
+                      <ArrowIcon direction="right" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className={styles.mobileGrammarBody}>
+                  {grammarCard.body.map((item) => {
+                    const parts = item.split(":");
+
+                    if (parts.length > 1) {
+                      const label = `${parts[0]}:`;
+                      const value = parts.slice(1).join(":").trim();
+
+                      return (
+                        <div key={item} className={styles.mobileGrammarLine}>
+                          <span className={styles.mobileGrammarLineLabel}>{label}</span>{value ? ` ${value}` : ""}
+                        </div>
+                      );
+                    }
+
+                    return <div key={item} className={styles.mobileGrammarLine}>{item}</div>;
+                  })}
+                </div>
+              </div>
+
+              {grammarCard.example.length > 0 ? (
+                <div className={styles.mobileGrammarExampleCard}>
+                  <div className={styles.mobileGrammarExampleLabel}>{grammarCard.exampleLabel || "Приклад:"}</div>
+                  <div className={styles.mobileGrammarExampleDivider} />
+                  {grammarCard.example.map((item, index) => (
+                    <div key={item} className={`${styles.mobileGrammarExampleLine} ${index % 2 === 0 ? styles.mobileGrammarExampleLineAccent : styles.mobileGrammarExampleLinePlain}`}>{item}</div>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className={styles.mobileQuestionsBlocks}>
+              {(mobileSections[0]?.items || []).map((item, index) => (
+                <div key={`${item.title || index}`} className={styles.mobileQuestionBlock}>
+                  <div className={styles.mobilePinkDivider} />
+                  <div className={styles.mobileQuestionBlockTitle}>{item.title}</div>
+                  {item.lines.map((line, lineIndex) => (
+                    <div key={`${item.title}_${lineIndex}`} className={styles.mobileQuestionBlockLine}>{line}</div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className={styles.mobileBlueDivider} />
+
+          {!isQuestionsNegations ? (
+            <div className={styles.mobileGrammarSections}>
+              {mobileSections.map((section) => (
+                <div key={section.title} className={styles.mobileGrammarSection}>
+                  <div className={styles.mobileGrammarSectionTitle}>{section.title}</div>
+                  {section.items.map((item, index, items) => (
+                    <div key={`${section.title}_${index}`} className={styles.mobileGrammarSectionItemWrap}>
+                      {typeof item === "string" ? (
+                        <div className={styles.mobileGrammarSectionItem}>{item}</div>
+                      ) : (
+                        <>
+                          <div className={styles.mobileGrammarSectionItemTitle}>{item.title}</div>
+                          {item.lines.map((line, lineIndex) => (
+                            <div key={`${item.title}_${lineIndex}`} className={styles.mobileGrammarSectionLine}>{line}</div>
+                          ))}
+                        </>
+                      )}
+                      {index < items.length - 1 ? <div className={styles.mobileGrammarSectionDivider} /> : null}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
+
+  const renderMobileSearchScreen = () => (
+    <div className={styles.mobileShell}>
+      {renderMobileHeader("Знайти слово", true)}
+
+      <div className={styles.mobileScrollArea}>
+        <div className={styles.mobilePanelTitle}>Введіть слово для пошуку</div>
+        <input
+          className={styles.mobileSearchInput}
+          value={searchValue}
+          onChange={(event) => {
+            setSearchValue(event.target.value);
+            setAppliedSearchValue("");
+          }}
+          autoFocus
+        />
+        <div className={styles.mobileBlueDivider} />
+        <button type="button" className={styles.mobilePrimaryButton} onClick={handleSearchSubmit}>ЗНАЙТИ</button>
+      </div>
+    </div>
+  );
+
+  const renderMobileAddScreen = () => (
+    <div className={styles.mobileShell}>
+      {renderMobileHeader("Додати слово", true)}
+
+      <div className={styles.mobileScrollArea}>
+        <div className={styles.mobileAddGrid}>
+          <div className={styles.mobileAddRow}>
+            <label className={`${styles.mobileAddField} ${styles.mobileAddFieldHalf}`}>
+              <span className={styles.mobileAddFieldLabel}>слово</span>
+              <textarea className={`${styles.mobileAddFieldInput} ${styles.mobileAddFieldInputSmall}`} value={addForm.word} onChange={(event) => handleAddFormChange("word", event.target.value)} />
+            </label>
+
+            <label className={`${styles.mobileAddField} ${styles.mobileAddFieldHalf}`}>
+              <span className={styles.mobileAddFieldLabel}>переклад</span>
+              <textarea className={`${styles.mobileAddFieldInput} ${styles.mobileAddFieldInputSmall}`} value={addForm.translation} onChange={(event) => handleAddFormChange("translation", event.target.value)} />
+            </label>
+          </div>
+
+          <div className={styles.mobileAddRowSingle}>
+            <label className={`${styles.mobileAddField} ${styles.mobileAddFieldHalf}`}>
+              <span className={styles.mobileAddFieldLabel}>частина мови</span>
+              <textarea className={`${styles.mobileAddFieldInput} ${styles.mobileAddFieldInputSmall}`} value={addForm.partOfSpeech} onChange={(event) => handleAddFormChange("partOfSpeech", event.target.value)} />
+            </label>
+          </div>
+
+          <label className={styles.mobileAddField}>
+            <span className={styles.mobileAddFieldLabel}>визначення</span>
+            <textarea className={styles.mobileAddFieldInput} value={addForm.definition} onChange={(event) => handleAddFormChange("definition", event.target.value)} />
+          </label>
+          <div className={styles.mobileAddOptionalNote}>*не обов’язково</div>
+
+          <label className={styles.mobileAddField}>
+            <span className={styles.mobileAddFieldLabel}>приклад</span>
+            <textarea className={styles.mobileAddFieldInput} value={addForm.example} onChange={(event) => handleAddFormChange("example", event.target.value)} />
+          </label>
+          <div className={styles.mobileAddOptionalNote}>*не обов’язково</div>
+
+          <label className={styles.mobileAddField}>
+            <span className={styles.mobileAddFieldLabel}>подібні слова/синоніми</span>
+            <textarea className={styles.mobileAddFieldInput} value={addForm.synonyms} onChange={(event) => handleAddFormChange("synonyms", event.target.value)} />
+          </label>
+          <div className={styles.mobileAddOptionalNote}>*не обов’язково</div>
+
+          <label className={styles.mobileAddField}>
+            <span className={styles.mobileAddFieldLabel}>стійкі вирази, які варто знати</span>
+            <textarea className={styles.mobileAddFieldInput} value={addForm.idioms} onChange={(event) => handleAddFormChange("idioms", event.target.value)} />
+          </label>
+          <div className={styles.mobileAddOptionalNote}>*не обов’язково</div>
+        </div>
+
+        <div className={styles.mobileBlueDivider} />
+        <button type="button" className={styles.mobilePrimaryButton} onClick={handleAddSubmit}>ДОБАВИТИ</button>
+      </div>
+    </div>
+  );
+
+  const renderMobileReviewPlanScreen = () => (
+    <div className={styles.mobileShell}>
+      {renderMobileHeader("Додати слово для повторення", true)}
+
+      <div className={styles.mobileScrollArea}>
+        <div className={styles.mobilePanelSectionTitle}>Список слів:</div>
+        <div className={styles.mobilePinkDivider} />
+
+        <div className={styles.mobileReviewPlanWordsWrap}>
+          <div className={styles.mobileReviewPlanWordsGrid} ref={reviewPlanWordsGridRef}>
+            {reviewPlanPagedItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`${styles.mobileReviewPlanWordButton} ${reviewPlanItemId === item.id ? styles.mobileReviewPlanWordButtonActive : ""}`}
+                onClick={() => handleReviewPlanItemClick(item.id)}
+              >
+                {item.word}
+              </button>
+            ))}
+          </div>
+
+          {reviewPlanItems.length > reviewPlanPageSize ? (
+            <div className={styles.mobileReviewPlanPageButtons}>
+              <button type="button" className={styles.mobileReviewPlanNextButton} onClick={() => setReviewPlanPage((prev) => prev + 1)} aria-label="Наступна сторінка слів" disabled={!reviewPlanHasMore}>
+                <ArrowIcon direction="right" />
+              </button>
+              <button type="button" className={styles.mobileReviewPlanNextButton} onClick={() => setReviewPlanPage((prev) => Math.max(0, prev - 1))} aria-label="Попередня сторінка слів" disabled={!reviewPlanHasPrevious}>
+                <ArrowIcon direction="left" />
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        <div className={styles.mobilePanelSectionTitle}>Коли повторити:</div>
+        <div className={styles.mobilePinkDivider} />
+
+        <div className={styles.mobilePlanOptions}>
+          <label className={styles.mobilePlanOptionLabel}>
+            <span className={styles.mobilePlanOptionText}>Сьогодні</span>
+            <input type="checkbox" className={styles.reviewPlanCheckboxInput} checked={reviewPlanPeriod === "today"} onChange={() => setReviewPlanPeriod("today")} />
+            <span className={styles.mobilePlanCheckbox} aria-hidden="true" onClick={() => setReviewPlanPeriod("today")}>
+              <span className={styles.mobilePlanCheckboxInner}>{reviewPlanPeriod === "today" ? <span className={styles.mobilePlanCheckboxMark}>✓</span> : null}</span>
+            </span>
+          </label>
+
+          <label className={styles.mobilePlanOptionLabel}>
+            <span className={styles.mobilePlanOptionText}>Завтра</span>
+            <input type="checkbox" className={styles.reviewPlanCheckboxInput} checked={reviewPlanPeriod === "tomorrow"} onChange={() => setReviewPlanPeriod("tomorrow")} />
+            <span className={styles.mobilePlanCheckbox} aria-hidden="true" onClick={() => setReviewPlanPeriod("tomorrow")}>
+              <span className={styles.mobilePlanCheckboxInner}>{reviewPlanPeriod === "tomorrow" ? <span className={styles.mobilePlanCheckboxMark}>✓</span> : null}</span>
+            </span>
+          </label>
+
+          <label className={`${styles.mobilePlanOptionLabel} ${styles.mobilePlanOptionLabelWide}`}>
+            <span className={styles.mobilePlanOptionText}>Через N днів <span className={styles.mobilePlanOptionHint}>(ввести з клавіатури)</span></span>
+            <div className={styles.mobilePlanDaysWrap}>
+              <input type="number" min="2" className={styles.mobilePlanDaysInput} value={reviewPlanDays} onChange={(event) => { setReviewPlanPeriod("days"); setReviewPlanDays(event.target.value); }} />
+              <input type="checkbox" className={styles.reviewPlanCheckboxInput} checked={reviewPlanPeriod === "days"} onChange={() => setReviewPlanPeriod("days")} />
+              <span className={styles.mobilePlanCheckbox} aria-hidden="true" onClick={() => setReviewPlanPeriod("days")}>
+                <span className={styles.mobilePlanCheckboxInner}>{reviewPlanPeriod === "days" ? <span className={styles.mobilePlanCheckboxMark}>✓</span> : null}</span>
+              </span>
+            </div>
+          </label>
+        </div>
+
+        <div className={styles.mobileBlueDivider} />
+        <button type="button" className={styles.mobilePrimaryButton} onClick={handleSubmitReviewPlan}>ДОБАВИТИ</button>
+      </div>
+    </div>
+  );
+
+  const renderMobileReviewResultScreen = () => (
+    <div className={styles.mobileShell}>
+      {renderMobileHeader("Повторення слів", true)}
+
+      <div className={styles.mobileScrollArea}>
+        <div className={styles.mobileReviewResultTopDivider} />
+
+        <div className={styles.mobileReviewResultCardsWrap}>
+          <div className={styles.mobileReviewResultCard}>
+            <div className={styles.mobileReviewResultCardHead}>Знаю</div>
+            <div className={styles.mobileReviewResultCardValue}>{reviewStats.known}</div>
+          </div>
+
+          <div className={styles.mobileReviewResultCard}>
+            <div className={styles.mobileReviewResultCardHead}>Не знаю</div>
+            <div className={styles.mobileReviewResultCardValue}>{reviewStats.unknown}</div>
+          </div>
+
+          <div className={styles.mobileReviewResultCard}>
+            <div className={styles.mobileReviewResultCardHead}>Повторити</div>
+            <div className={styles.mobileReviewResultCardValue}>{reviewStats.repeat}</div>
+          </div>
+        </div>
+
+        <div className={styles.mobileBlueDivider} />
+        <button type="button" className={styles.mobilePrimaryButton} onClick={handleRetryReview}>ПЕРЕПРОЙТИ</button>
+      </div>
+    </div>
+  );
+
+  const renderMobileReviewCardScreen = () => (
+    <div className={styles.mobileShell}>
+      {renderMobileHeader("Повторення слів", true)}
+
+      <div className={styles.mobileScrollArea}>
+        <div className={styles.mobileReviewProgressWrap}>
+          <div className={styles.mobileReviewProgressBar}>
+            <div className={styles.mobileReviewProgressFill} style={{ width: `${reviewQueue.length > 0 ? ((reviewIndex + 1) / reviewQueue.length) * 100 : 0}%` }} />
+            <div className={styles.mobileReviewProgressText}>{reviewProgressCurrent}/{reviewQueue.length || 0}</div>
+          </div>
+        </div>
+
+        <button type="button" className={`${styles.mobileReviewCardButton} ${reviewItem?.showTranslation ? styles.mobileReviewCardButtonFlipped : ""}`} onClick={() => handleReviewAction("flip")}> 
+          <span className={`${styles.mobileReviewCardLayer} ${styles.mobileReviewCardLayerBack}`} />
+          <span className={`${styles.mobileReviewCardLayer} ${styles.mobileReviewCardLayerMiddle}`} />
+          <span className={styles.mobileReviewCardFlipWrap}>
+            <span className={`${styles.mobileReviewCardFace} ${styles.mobileReviewCardFaceFront}`}>
+              <span className={styles.mobileReviewCardFaceText}>{reviewItem?.word || "—"}</span>
+            </span>
+            <span className={`${styles.mobileReviewCardFace} ${styles.mobileReviewCardFaceBack}`}>
+              <span className={styles.mobileReviewCardFaceText}>{getPrimaryTranslation(reviewItem) || "—"}</span>
+            </span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.mobileWordInUseButton} ${!reviewItem?.showTranslation ? styles.mobileWordInUseButtonDisabled : ""}`}
+          onClick={() => {
+            if (!reviewItem?.showTranslation) {
+              return;
+            }
+
+            setWordInUseOpen((prev) => !prev);
+          }}
+          disabled={!reviewItem?.showTranslation}
+        >
+          <span className={styles.wordInUseLeft}><LampIcon /> Word in use</span>
+          <span className={styles.wordInUseArrow}><ChevronDownIcon opened={wordInUseOpen} /></span>
+        </button>
+
+        {wordInUseOpen ? (
+          <div className={styles.mobileWordInUseCard}>
+            {reviewItem?.details?.examples?.length ? (
+              <>
+                <div className={styles.wordInUseExample}>{reviewItem.details.examples[wordExampleIndex] || reviewItem.details.examples[0]}</div>
+                <div className={styles.wordInUseTranslation}>{getPrimaryTranslation(reviewItem.details)}</div>
+              </>
+            ) : (
+              <div className={styles.wordInUseEmpty}>Прикладів поки що немає</div>
+            )}
+          </div>
+        ) : null}
+
+        <div className={styles.mobileReviewActionsRow}>
+          <button type="button" className={`${styles.mobileReviewActionButton} ${styles.mobileReviewActionButtonWrong}`} onClick={() => handleReviewAction("wrong")} aria-label="Не знаю">
+            <ReviewWrongIcon />
+          </button>
+          <button
+            type="button"
+            className={`${styles.mobileReviewActionButton} ${styles.mobileReviewActionButtonCorrect} ${reviewItem?.hintUsed ? styles.mobileReviewActionButtonDisabled : ""}`}
+            onClick={() => {
+              if (reviewItem?.hintUsed) {
+                return;
+              }
+
+              handleReviewAction("correct");
+            }}
+            aria-label="Знаю"
+            disabled={reviewItem?.hintUsed}
+          >
+            <ReviewCorrectIcon />
+          </button>
+          <button type="button" className={`${styles.mobileReviewActionButton} ${styles.mobileReviewActionButtonSkip}`} onClick={() => handleReviewAction("skip")} aria-label="Далі">
+            <ReviewSkipIcon />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMobileLayout = () => {
+    if (rightMode === "word" && selectedItemDetails) {
+      return renderTabletPanel("Деталі слова", renderWordPanel(), `${styles.tabletPanelBodyWord} ${styles.mobileSidebarPanelBody}`);
+    }
+
+    if (rightMode === "grammar") {
+      return renderTabletPanel(selectedGrammar.title, renderGrammarPanel(), `${styles.tabletPanelBodyGrammar} ${styles.mobileSidebarPanelBody}`);
+    }
+
+    if (rightMode === "search") {
+      return renderTabletPanel("Знайти слово", renderSearchPanel(), `${styles.tabletPanelBodySearch} ${styles.mobileSidebarPanelBody}`);
+    }
+
+    if (rightMode === "add") {
+      return renderTabletPanel("Додати слово", renderAddPanel(), `${styles.tabletPanelBodyAdd} ${styles.mobileSidebarPanelBody}`);
+    }
+
+    if (rightMode === "reviewPlan") {
+      return renderTabletPanel("Додати слово для повторення", renderReviewPlanPanel(), `${styles.tabletPanelBodyReviewPlan} ${styles.mobileSidebarPanelBody}`);
+    }
+
+    if (rightMode === "reviewCard") {
+      return renderTabletPanel("Повторення слів", renderReviewCardPanel(), `${styles.tabletPanelBodyReviewCard} ${styles.mobileSidebarPanelBody}`);
+    }
+
+    if (rightMode === "reviewResult") {
+      return renderTabletPanel("Повторення слів", renderReviewResultPanel(), `${styles.tabletPanelBodyReviewResult} ${styles.mobileSidebarPanelBody}`);
+    }
+
+    return renderMobileDictionaryScreen();
+  };
+
   const messageModalNode = typeof document !== "undefined" ? document.getElementById("lumino-home-stage") : null;
   const messageModal = modal.open ? (
     <div className={styles.messageModalOverlay}>
@@ -2298,179 +3095,235 @@ export default function VocabularyContent() {
     </div>
   ) : null;
 
+  const renderDictionaryColumn = () => (
+    <section className={`${styles.dictionaryColumn} ${isReviewSessionActive ? styles.dictionaryColumnLocked : ""}`}>
+      <div className={styles.dictionaryTopLine} />
+
+      <div className={styles.dictionaryHeader}>
+        <div className={styles.dictionaryTitle}>МІЙ СЛОВНИК</div>
+
+        <div className={`${styles.dictionaryTabs} ${isReviewSessionActive ? styles.dictionaryTabsLocked : ""}`}>
+          <button type="button" className={`${styles.filterTab} ${activeFilter === "list" ? styles.filterTabActive : ""}`} onClick={() => handleFilterChange("list")}>список</button>
+          <span className={styles.filterDivider} />
+          <button type="button" className={`${styles.filterTab} ${activeFilter === "review" ? styles.filterTabActive : ""}`} onClick={() => handleFilterChange("review")}>повторення</button>
+          <span className={styles.filterDivider} />
+          <button type="button" className={`${styles.filterTab} ${activeFilter === "level" ? styles.filterTabActive : ""}`} onClick={() => handleFilterChange("level")}>рівень</button>
+        </div>
+
+        <div className={`${styles.headerIcons} ${isReviewSessionActive ? styles.headerIconsLocked : ""}`}>
+          <button type="button" className={styles.iconButton} onClick={handleOpenSearch} aria-label="Пошук">
+            <img src={SearchIconAsset} alt="" className={styles.headerIconAsset} />
+          </button>
+
+          <button type="button" className={`${styles.iconButton} ${deleteMode ? styles.iconButtonActive : ""}`} onClick={handleDeleteModeToggle} aria-label="Режим видалення">
+            <img src={DeleteIconAsset} alt="" className={styles.headerIconAsset} />
+          </button>
+        </div>
+      </div>
+
+      <div className={styles.dictionaryBottomLine} />
+
+      <div className={`${styles.wordsArea} ${isReviewSessionActive ? styles.wordsAreaLocked : ""}`}>
+        {activeFilter === "list" ? (
+          sortedListItems.length > 0 ? (
+            <div className={styles.wordGrid}>
+              {sortedListItems.map((item) => {
+                const active = selectedItemId === item.id;
+                const translation = getPrimaryTranslation(item);
+                const chipTitle = getWordChipTitle(item);
+
+                return (
+                  <div key={item.id} className={styles.wordChipWrap}>
+                    <button
+                      type="button"
+                      className={`${styles.wordChip} ${active ? styles.wordChipActive : ""}`}
+                      onClick={() => {
+                        if (deleteMode) {
+                          return;
+                        }
+
+                        openWordDetails(item);
+                      }}
+                      title={chipTitle}
+                    >
+                      <span className={styles.wordChipWord}>{item.word}</span>
+                      {translation ? <span className={styles.wordChipTranslation}>({translation})</span> : null}
+                    </button>
+
+                    {deleteMode ? (
+                      <button
+                        type="button"
+                        className={styles.wordChipDeleteButton}
+                        aria-label={`Видалити слово ${item.word}`}
+                        onClick={() => {
+                          showModal("Впевнені, що хочете видалити це слово?", {
+                            secondaryText: "ТАК",
+                            onSecondary: () => {
+                              setModal({ open: false, title: "", message: "", secondaryText: "", onSecondary: null, onPrimary: null });
+                              handleDeleteWord(item);
+                            },
+                            onPrimary: () => setModal({ open: false, title: "", message: "", secondaryText: "", onSecondary: null, onPrimary: null }),
+                          });
+                        }}
+                      >
+                        <span className={styles.wordChipDeleteInner}>
+                          <span className={styles.wordChipDelete}>×</span>
+                        </span>
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className={styles.emptyState}>немає слів у словнику</div>
+          )
+        ) : null}
+
+        {activeFilter === "review" ? (
+          <div className={styles.reviewGroupsWrap}>
+            {renderReviewGroup("Сьогодні:", reviewGroups.today)}
+            {renderReviewGroup("Завтра:", reviewGroups.tomorrow)}
+            {renderReviewGroup(getReviewLaterLabel(reviewGroups.later), reviewGroups.later)}
+          </div>
+        ) : null}
+
+        {activeFilter === "level" ? (
+          <div className={styles.levelColumnsWrap}>
+            {renderLevelColumn(1, "Рівень 1", levelGroups[1])}
+            {renderLevelColumn(2, "Рівень 2", levelGroups[2])}
+            {renderLevelColumn(3, "Рівень 3", levelGroups[3])}
+          </div>
+        ) : null}
+      </div>
+
+      {activeFilter !== "level" ? (
+        <button type="button" className={styles.floatingAddButton} onClick={activeFilter === "review" ? handleOpenReviewPlan : handleOpenAdd} aria-label={activeFilter === "review" ? "Додати слово до повторення" : "Додати слово"}>
+          <PlusIcon />
+        </button>
+      ) : null}
+
+      <div className={styles.dictionaryAddLine} />
+
+      <div className={styles.grammarHeader}>ГРАМАТИКА</div>
+      <div className={styles.grammarTopLine} />
+
+      <div className={`${styles.grammarButtonsColumn} ${isReviewSessionActive ? styles.grammarButtonsColumnLocked : ""}`}>
+        {GRAMMAR_TOPICS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={`${styles.grammarTopicButton} ${rightMode === "grammar" && selectedGrammarKey === item.key ? styles.grammarTopicButtonActive : ""}`}
+            onClick={() => handleOpenGrammar(item.key)}
+          >
+            <span>{item.title}</span>
+            <span className={styles.grammarTopicArrow}><ArrowIcon direction="right" /></span>
+          </button>
+        ))}
+      </div>
+
+      <button type="button" className={`${styles.repeatButton} ${isReviewSessionActive ? styles.repeatButtonLocked : ""}`} onClick={handleOpenReview} disabled={isReviewSessionActive}>Повторити слова</button>
+      {isReviewSessionActive ? <div className={styles.dictionaryReviewOverlay} aria-hidden="true" /> : null}
+    </section>
+  );
+
+  const renderTabletPanel = (title, content, className = "") => (
+    <div className={styles.tabletShell}>
+      <div className={styles.tabletTopBar}>
+        <button type="button" className={styles.tabletBackButton} onClick={closeTransientState} aria-label="Назад">
+          <HeaderBackIcon />
+        </button>
+
+        <div className={styles.tabletTopBarTitle}>{title}</div>
+        <span className={styles.tabletBackSpacer} aria-hidden="true" />
+      </div>
+
+      <div className={styles.tabletScrollArea}>
+        <div className={`${styles.tabletPanelBody} ${className}`}>{content}</div>
+      </div>
+    </div>
+  );
+
+  const renderTabletLayout = () => {
+    if (rightMode === "word" && selectedItemDetails) {
+      return renderTabletPanel("Деталі слова", renderWordPanel(), styles.tabletPanelBodyWord);
+    }
+
+    if (rightMode === "grammar") {
+      return renderTabletPanel(selectedGrammar.title, renderGrammarPanel(), styles.tabletPanelBodyGrammar);
+    }
+
+    if (rightMode === "search") {
+      return renderTabletPanel("Знайти слово", renderSearchPanel(), styles.tabletPanelBodySearch);
+    }
+
+    if (rightMode === "add") {
+      return renderTabletPanel("Додати слово", renderAddPanel(), styles.tabletPanelBodyAdd);
+    }
+
+    if (rightMode === "reviewPlan") {
+      return renderTabletPanel("Додати слово для повторення", renderReviewPlanPanel(), styles.tabletPanelBodyReviewPlan);
+    }
+
+    if (rightMode === "reviewCard") {
+      return renderTabletPanel("Повторення слів", renderReviewCardPanel(), styles.tabletPanelBodyReviewCard);
+    }
+
+    if (rightMode === "reviewResult") {
+      return renderTabletPanel("Повторення слів", renderReviewResultPanel(), styles.tabletPanelBodyReviewResult);
+    }
+
+    return <div className={`${styles.embeddedContent} ${styles.tabletContent}`}>{renderDictionaryColumn()}</div>;
+  };
+
+  const renderDesktopLayout = () => (
+    <div className={styles.embeddedContent}>
+      {renderDictionaryColumn()}
+
+      <aside className={styles.sidePanel}>
+        <div className={styles.sideDivider} />
+        {["grammar", "word", "search", "add", "reviewPlan", "reviewCard", "reviewResult"].includes(rightMode) ? (
+          <button type="button" className={`${styles.sideCloseButton} ${styles.sidePanelSharedCloseButton}`} onClick={closeTransientState} aria-label="Закрити">
+            <CloseIcon />
+          </button>
+        ) : null}
+        <div className={`${styles.sidePanelContent} ${rightMode === "grammar" ? styles.sidePanelContentGrammar : ""} ${rightMode === "word" ? styles.sidePanelContentWord : ""} ${rightMode === "search" ? styles.sidePanelContentSearch : ""} ${rightMode === "add" ? styles.sidePanelContentAdd : ""}`}>
+          {rightMode === "grammar" ? renderGrammarPanel() : null}
+          {rightMode === "word" && selectedItemDetails ? renderWordPanel() : null}
+          {rightMode === "search" ? renderSearchPanel() : null}
+          {rightMode === "add" ? renderAddPanel() : null}
+          {rightMode === "reviewStart" ? renderReviewStartPanel() : null}
+          {rightMode === "reviewCard" ? renderReviewCardPanel() : null}
+          {rightMode === "reviewResult" ? renderReviewResultPanel() : null}
+          {rightMode === "reviewPlan" ? renderReviewPlanPanel() : null}
+        </div>
+      </aside>
+
+      {(() => {
+        const modalStageNode = typeof document !== "undefined" ? document.getElementById("lumino-home-stage") : null;
+
+        if (rightMode === "edit" && selectedItemDetails) {
+          const editModal = (
+            <div className={styles.wordModalOverlay}>
+              <div className={`${styles.wordModalContent} ${styles.wordModalContentEdit}`} onClick={(e) => e.stopPropagation()}>
+                {renderEditPanel()}
+              </div>
+            </div>
+          );
+
+          return modalStageNode ? createPortal(editModal, modalStageNode) : editModal;
+        }
+
+        return null;
+      })()}
+    </div>
+  );
+
   return (
     <div className={styles.embeddedViewport}>
       <GlassLoading open={loading || saving} text={loading ? "Завантажуємо словник..." : "Оновлюємо словник..."} stageTargetId="lumino-home-stage" />
       {messageModalNode && messageModal ? createPortal(messageModal, messageModalNode) : messageModal}
-
-      <div className={styles.embeddedContent}>
-        <section className={`${styles.dictionaryColumn} ${isReviewSessionActive ? styles.dictionaryColumnLocked : ""}`}>
-          <div className={styles.dictionaryTopLine} />
-
-          <div className={styles.dictionaryHeader}>
-            <div className={styles.dictionaryTitle}>МІЙ СЛОВНИК</div>
-
-            <div className={`${styles.dictionaryTabs} ${isReviewSessionActive ? styles.dictionaryTabsLocked : ""}`}>
-              <button type="button" className={`${styles.filterTab} ${activeFilter === "list" ? styles.filterTabActive : ""}`} onClick={() => handleFilterChange("list")}>список</button>
-              <span className={styles.filterDivider} />
-              <button type="button" className={`${styles.filterTab} ${activeFilter === "review" ? styles.filterTabActive : ""}`} onClick={() => handleFilterChange("review")}>повторення</button>
-              <span className={styles.filterDivider} />
-              <button type="button" className={`${styles.filterTab} ${activeFilter === "level" ? styles.filterTabActive : ""}`} onClick={() => handleFilterChange("level")}>рівень</button>
-            </div>
-
-            <div className={`${styles.headerIcons} ${isReviewSessionActive ? styles.headerIconsLocked : ""}`}>
-              <button type="button" className={styles.iconButton} onClick={handleOpenSearch} aria-label="Пошук">
-                <img src={SearchIconAsset} alt="" className={styles.headerIconAsset} />
-              </button>
-
-              <button type="button" className={`${styles.iconButton} ${deleteMode ? styles.iconButtonActive : ""}`} onClick={handleDeleteModeToggle} aria-label="Режим видалення">
-                <img src={DeleteIconAsset} alt="" className={styles.headerIconAsset} />
-              </button>
-            </div>
-          </div>
-
-          <div className={styles.dictionaryBottomLine} />
-
-          <div className={`${styles.wordsArea} ${isReviewSessionActive ? styles.wordsAreaLocked : ""}`}>
-            {activeFilter === "list" ? (
-              sortedListItems.length > 0 ? (
-                <div className={styles.wordGrid}>
-                  {sortedListItems.map((item) => {
-                    const active = selectedItemId === item.id;
-                    const translation = getPrimaryTranslation(item);
-                    const chipTitle = getWordChipTitle(item);
-
-                    return (
-                      <div key={item.id} className={styles.wordChipWrap}>
-                        <button
-                          type="button"
-                          className={`${styles.wordChip} ${active ? styles.wordChipActive : ""}`}
-                          onClick={() => {
-                            if (deleteMode) {
-                              return;
-                            }
-
-                            openWordDetails(item);
-                          }}
-                          title={chipTitle}
-                        >
-                          <span className={styles.wordChipWord}>{item.word}</span>
-                          {translation ? <span className={styles.wordChipTranslation}>({translation})</span> : null}
-                        </button>
-
-                        {deleteMode ? (
-                          <button
-                            type="button"
-                            className={styles.wordChipDeleteButton}
-                            aria-label={`Видалити слово ${item.word}`}
-                            onClick={() => {
-                              showModal("Впевнені, що хочете видалити це слово?", {
-                                secondaryText: "ТАК",
-                                onSecondary: () => {
-                                  setModal({ open: false, title: "", message: "", secondaryText: "", onSecondary: null, onPrimary: null });
-                                  handleDeleteWord(item);
-                                },
-                                onPrimary: () => setModal({ open: false, title: "", message: "", secondaryText: "", onSecondary: null, onPrimary: null }),
-                              });
-                            }}
-                          >
-                            <span className={styles.wordChipDeleteInner}>
-                              <span className={styles.wordChipDelete}>×</span>
-                            </span>
-                          </button>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className={styles.emptyState}>немає слів у словнику</div>
-              )
-            ) : null}
-
-            {activeFilter === "review" ? (
-              <div className={styles.reviewGroupsWrap}>
-                {renderReviewGroup("Сьогодні:", reviewGroups.today)}
-                {renderReviewGroup("Завтра:", reviewGroups.tomorrow)}
-                {renderReviewGroup(getReviewLaterLabel(reviewGroups.later), reviewGroups.later)}
-              </div>
-            ) : null}
-
-            {activeFilter === "level" ? (
-              <div className={styles.levelColumnsWrap}>
-                {renderLevelColumn(1, "Рівень 1", levelGroups[1])}
-                {renderLevelColumn(2, "Рівень 2", levelGroups[2])}
-                {renderLevelColumn(3, "Рівень 3", levelGroups[3])}
-              </div>
-            ) : null}
-          </div>
-
-          {activeFilter !== "level" ? (
-            <button type="button" className={styles.floatingAddButton} onClick={activeFilter === "review" ? handleOpenReviewPlan : handleOpenAdd} aria-label={activeFilter === "review" ? "Додати слово до повторення" : "Додати слово"}>
-              <PlusIcon />
-            </button>
-          ) : null}
-
-          <div className={styles.dictionaryAddLine} />
-
-          <div className={styles.grammarHeader}>ГРАМАТИКА</div>
-          <div className={styles.grammarTopLine} />
-
-          <div className={`${styles.grammarButtonsColumn} ${isReviewSessionActive ? styles.grammarButtonsColumnLocked : ""}`}>
-            {GRAMMAR_TOPICS.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className={`${styles.grammarTopicButton} ${rightMode === "grammar" && selectedGrammarKey === item.key ? styles.grammarTopicButtonActive : ""}`}
-                onClick={() => handleOpenGrammar(item.key)}
-              >
-                <span>{item.title}</span>
-                <span className={styles.grammarTopicArrow}><ArrowIcon direction="right" /></span>
-              </button>
-            ))}
-          </div>
-
-          <button type="button" className={`${styles.repeatButton} ${isReviewSessionActive ? styles.repeatButtonLocked : ""}`} onClick={handleOpenReview} disabled={isReviewSessionActive}>Повторити слова</button>
-          {isReviewSessionActive ? <div className={styles.dictionaryReviewOverlay} aria-hidden="true" /> : null}
-        </section>
-
-        <aside className={styles.sidePanel}>
-          <div className={styles.sideDivider} />
-          {["grammar", "word", "search", "add", "reviewPlan", "reviewCard", "reviewResult"].includes(rightMode) ? (
-            <button type="button" className={`${styles.sideCloseButton} ${styles.sidePanelSharedCloseButton}`} onClick={closeTransientState} aria-label="Закрити">
-              <CloseIcon />
-            </button>
-          ) : null}
-          <div className={`${styles.sidePanelContent} ${rightMode === "grammar" ? styles.sidePanelContentGrammar : ""} ${rightMode === "word" ? styles.sidePanelContentWord : ""} ${rightMode === "search" ? styles.sidePanelContentSearch : ""} ${rightMode === "add" ? styles.sidePanelContentAdd : ""}`}>
-            {rightMode === "grammar" ? renderGrammarPanel() : null}
-            {rightMode === "word" && selectedItemDetails ? renderWordPanel() : null}
-            {rightMode === "search" ? renderSearchPanel() : null}
-            {rightMode === "add" ? renderAddPanel() : null}
-            {rightMode === "reviewStart" ? renderReviewStartPanel() : null}
-            {rightMode === "reviewCard" ? renderReviewCardPanel() : null}
-            {rightMode === "reviewResult" ? renderReviewResultPanel() : null}
-            {rightMode === "reviewPlan" ? renderReviewPlanPanel() : null}
-          </div>
-        </aside>
-
-        {(() => {
-          const modalStageNode = typeof document !== "undefined" ? document.getElementById("lumino-home-stage") : null;
-
-          if (rightMode === "edit" && selectedItemDetails) {
-            const editModal = (
-              <div className={styles.wordModalOverlay}>
-                <div className={`${styles.wordModalContent} ${styles.wordModalContentEdit}`} onClick={(e) => e.stopPropagation()}>
-                  {renderEditPanel()}
-                </div>
-              </div>
-            );
-
-            return modalStageNode ? createPortal(editModal, modalStageNode) : editModal;
-          }
-
-          return null;
-        })()}
-      </div>
+      {isMobileLayout ? renderMobileLayout() : renderDesktopLayout()}
     </div>
   );
 }

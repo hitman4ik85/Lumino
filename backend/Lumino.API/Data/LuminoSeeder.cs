@@ -60,10 +60,31 @@ namespace Lumino.Api.Data
         private static void SeedUser(LuminoDbContext dbContext)
         {
             var userEmail = "user@lumino.local";
+            var userName = "Кіра Шевчук";
+            var userAvatarUrl = "/uploads/kira_shevchuk.png";
 
             var user = dbContext.Users.FirstOrDefault(x => x.Email == userEmail);
             if (user != null)
             {
+                var isChanged = false;
+
+                if (user.Username != userName)
+                {
+                    user.Username = userName;
+                    isChanged = true;
+                }
+
+                if (user.AvatarUrl != userAvatarUrl)
+                {
+                    user.AvatarUrl = userAvatarUrl;
+                    isChanged = true;
+                }
+
+                if (isChanged)
+                {
+                    dbContext.SaveChanges();
+                }
+
                 return;
             }
 
@@ -71,8 +92,10 @@ namespace Lumino.Api.Data
 
             user = new User
             {
+                Username = userName,
                 Email = userEmail,
                 PasswordHash = hasher.Hash("User123!"),
+                AvatarUrl = userAvatarUrl,
                 Role = Role.User,
                 IsEmailVerified = true,
                 CreatedAt = DateTime.UtcNow

@@ -1,5 +1,5 @@
 import { apiClient } from "./apiClient.js";
-import { readUserScopedRequestCache, removeUserScopedRequestCache, writeUserScopedRequestCache } from "./userScopedRequestCache.js";
+import { getUserScopedRequestCacheOptions, readUserScopedRequestCache, removeUserScopedRequestCache, writeUserScopedRequestCache } from "./userScopedRequestCache.js";
 
 const USER_ME_CACHE_NAMESPACE = "user-me";
 const USER_EXTERNAL_LOGINS_CACHE_NAMESPACE = "user-external-logins";
@@ -14,7 +14,8 @@ export function clearUserExternalLoginsCache() {
 
 export const userService = {
   async getMe(options = {}) {
-    const cached = options.force ? null : readUserScopedRequestCache(USER_ME_CACHE_NAMESPACE);
+    const cacheOptions = getUserScopedRequestCacheOptions();
+    const cached = options.force ? null : readUserScopedRequestCache(USER_ME_CACHE_NAMESPACE, "", cacheOptions);
 
     if (cached) {
       return { ok: true, status: 200, data: cached, source: "cache" };
@@ -23,17 +24,18 @@ export const userService = {
     const res = await apiClient.get("/user/me");
 
     if (res.ok && res.data) {
-      writeUserScopedRequestCache(USER_ME_CACHE_NAMESPACE, "", res.data);
+      writeUserScopedRequestCache(USER_ME_CACHE_NAMESPACE, "", res.data, cacheOptions);
     }
 
     return res;
   },
 
   async updateProfile(dto) {
+    const cacheOptions = getUserScopedRequestCacheOptions();
     const res = await apiClient.put("/user/profile", dto);
 
     if (res.ok && res.data) {
-      writeUserScopedRequestCache(USER_ME_CACHE_NAMESPACE, "", res.data);
+      writeUserScopedRequestCache(USER_ME_CACHE_NAMESPACE, "", res.data, cacheOptions);
     } else {
       clearUserSummaryCache();
     }
@@ -57,7 +59,8 @@ export const userService = {
   },
 
   async getExternalLogins(options = {}) {
-    const cached = options.force ? null : readUserScopedRequestCache(USER_EXTERNAL_LOGINS_CACHE_NAMESPACE);
+    const cacheOptions = getUserScopedRequestCacheOptions();
+    const cached = options.force ? null : readUserScopedRequestCache(USER_EXTERNAL_LOGINS_CACHE_NAMESPACE, "", cacheOptions);
 
     if (cached) {
       return { ok: true, status: 200, data: cached, source: "cache" };
@@ -66,7 +69,7 @@ export const userService = {
     const res = await apiClient.get("/user/external-logins");
 
     if (res.ok && Array.isArray(res.data)) {
-      writeUserScopedRequestCache(USER_EXTERNAL_LOGINS_CACHE_NAMESPACE, "", res.data);
+      writeUserScopedRequestCache(USER_EXTERNAL_LOGINS_CACHE_NAMESPACE, "", res.data, cacheOptions);
     }
 
     return res;

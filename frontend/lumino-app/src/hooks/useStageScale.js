@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 
 export function getStageViewportMetrics(viewportWidth, viewportHeight, baseWidth = 1920, baseHeight = 1080) {
   const safeViewportWidth = Math.max(Number(viewportWidth) || 0, 1);
@@ -24,7 +24,7 @@ export function getStageViewportMetrics(viewportWidth, viewportHeight, baseWidth
 export function useStageScale(stageRef, options = {}) {
   const { width = 1920, height = 1080 } = options;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
 

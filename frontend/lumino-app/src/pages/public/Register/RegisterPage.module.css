@@ -307,6 +307,7 @@
   inset: 0;
   z-index: 2;
   opacity: 0.01;
+  pointer-events: none;
 }
 
 .googleOverlay > div,

@@ -292,6 +292,80 @@ public class AuthServiceRefreshTests
     }
 
     [Fact]
+    public void Logout_OlderActiveToken_WhenNewerTokenExists_ShouldNotInvalidateNewerSession()
+    {
+        var dbContext = TestDbContextFactory.Create();
+        var configuration = CreateConfiguration(maxActiveTokens: 3, expiresDays: 7);
+
+        var now = DateTime.UtcNow;
+        var olderRefreshToken = "older-refresh-token";
+        var newerRefreshToken = "newer-refresh-token";
+
+        dbContext.Users.Add(new User
+        {
+            Id = 7,
+            Email = "logout-race@mail.com",
+            PasswordHash = new PasswordHasher().Hash("123456"),
+            CreatedAt = now.AddMinutes(-5),
+            IsEmailVerified = true,
+            Role = Lumino.Api.Domain.Enums.Role.User,
+            NativeLanguageCode = "uk",
+            TargetLanguageCode = "en",
+            SessionVersion = 2
+        });
+
+        dbContext.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = 7,
+            TokenHash = HashRefreshToken(olderRefreshToken),
+            CreatedAt = now.AddMinutes(-2),
+            ExpiresAt = now.AddDays(7)
+        });
+
+        dbContext.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = 7,
+            TokenHash = HashRefreshToken(newerRefreshToken),
+            CreatedAt = now.AddMinutes(-1),
+            ExpiresAt = now.AddDays(7)
+        });
+
+        dbContext.SaveChanges();
+
+        var service = new AuthService(
+            dbContext,
+            configuration,
+            new FakeRegisterValidator(),
+            new FakeLoginValidator(),
+            new ForgotPasswordRequestValidator(),
+            new ResetPasswordRequestValidator(),
+            new VerifyEmailRequestValidator(),
+            new ResendVerificationRequestValidator(),
+            new FakeEmailSender(),
+            new FakeOpenIdTokenValidator(),
+            new FakeHostEnvironment(),
+            new PasswordHasher()
+        );
+
+        service.Logout(new RefreshTokenRequest { RefreshToken = olderRefreshToken });
+
+        var olderTokenHash = HashRefreshToken(olderRefreshToken);
+        var newerTokenHash = HashRefreshToken(newerRefreshToken);
+        var olderToken = dbContext.RefreshTokens.Single(x => x.TokenHash == olderTokenHash);
+        var newerToken = dbContext.RefreshTokens.Single(x => x.TokenHash == newerTokenHash);
+        var user = dbContext.Users.Single(x => x.Id == 7);
+
+        Assert.NotNull(olderToken.RevokedAt);
+        Assert.Null(newerToken.RevokedAt);
+        Assert.Equal(2, user.SessionVersion);
+
+        var refreshed = service.Refresh(new RefreshTokenRequest { RefreshToken = newerRefreshToken });
+
+        Assert.False(string.IsNullOrWhiteSpace(refreshed.Token));
+        Assert.False(string.IsNullOrWhiteSpace(refreshed.RefreshToken));
+    }
+
+    [Fact]
     public void Login_LegacySha256Hash_ShouldAutoUpgradeToPbkdf2()
     {
         var dbContext = TestDbContextFactory.Create();
@@ -353,10 +427,20 @@ public class AuthServiceRefreshTests
 
         var token = ExtractTokenFromEmailBody(emailSender.LastHtmlBody);
 
-        return service.VerifyEmail(new VerifyEmailRequest
+        var verify = service.VerifyEmail(new VerifyEmailRequest
         {
             Token = token
         }, null, null);
+
+        Assert.False(verify.RequiresEmailVerification);
+        Assert.True(string.IsNullOrWhiteSpace(verify.Token));
+        Assert.True(string.IsNullOrWhiteSpace(verify.RefreshToken));
+
+        return service.Login(new LoginRequest
+        {
+            Email = email,
+            Password = password
+        });
     }
 
     private static string ExtractTokenFromEmailBody(string? html)
@@ -413,6 +497,14 @@ public class AuthServiceRefreshTests
         return new ConfigurationBuilder()
             .AddInMemoryCollection(data)
             .Build();
+    }
+
+    private static string HashRefreshToken(string token)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(token);
+        var hash = sha256.ComputeHash(bytes);
+        return Convert.ToBase64String(hash);
     }
 
     private static string ComputeLegacySha256Base64(string password)

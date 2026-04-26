@@ -50,7 +50,9 @@ public class AuthServiceIntegrationTests
         }, ip: null, userAgent: null);
 
         Assert.False(verifyResponse.RequiresEmailVerification);
-        Assert.False(string.IsNullOrWhiteSpace(verifyResponse.Token));
+        Assert.True(string.IsNullOrWhiteSpace(verifyResponse.Token));
+        Assert.True(string.IsNullOrWhiteSpace(verifyResponse.RefreshToken));
+        Assert.Empty(dbContext.RefreshTokens);
 
         var loginResponse = service.Login(new LoginRequest
         {

@@ -11,6 +11,7 @@ import { validateAdminUserForm } from "../../utils/validation.js";
 import CourseIcon from "../../assets/admin/nav/Course.svg";
 import VocabularyIcon from "../../assets/admin/nav/Vocabulare.svg";
 import SceneIcon from "../../assets/admin/nav/Scene.svg";
+import UsersIcon from "../../assets/admin/nav/Users.svg";
 import AchievementIcon from "../../assets/admin/nav/Achivment.svg";
 import ServiceIcon from "../../assets/admin/nav/Service.svg";
 
@@ -42,7 +43,7 @@ const NAV_ITEMS = [
   { key: "vocabulary", label: "СЛОВНИК", icon: VocabularyIcon },
   { key: "scenes", label: "СЦЕНИ", icon: SceneIcon },
   { key: "achievements", label: "ДОСЯГНЕННЯ", icon: AchievementIcon },
-  { key: "users", label: "КОРИСТУВАЧІ", icon: SceneIcon },
+  { key: "users", label: "КОРИСТУВАЧІ", icon: UsersIcon },
   { key: "service", label: "СЕРВІСНІ ДІЇ", icon: ServiceIcon },
 ];
 
@@ -9883,7 +9884,7 @@ export default function AdminPage() {
           </div>
           <div className={styles.lessonPreviewEnergy}>
             <img src={LessonEnergyIcon} alt="" />
-            <span>{previewSteps.length || 0}</span>
+            <span>5</span>
           </div>
 
           <div className={`${styles.lessonPreviewCard} ${styles.scenePreviewCard}`.trim()}>
@@ -9957,7 +9958,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <button type="button" className={styles.lessonPreviewCheckButton}>ПРАВИЛЬНІ ВІДПОВІДІ</button>
+          <button type="button" className={`${styles.lessonPreviewCheckButton} ${styles.scenePreviewCheckButton}`.trim()}>ПРАВИЛЬНІ ВІДПОВІДІ</button>
         </div>
       );
     }

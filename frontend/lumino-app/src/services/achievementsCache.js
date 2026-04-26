@@ -130,6 +130,7 @@ export function writeAchievementsCache(items) {
 }
 
 export async function preloadAchievementsCache() {
+  const requestAuthSessionVersion = authStorage.getAuthSessionVersion();
   const res = await achievementsService.getMine();
 
   if (!res.ok) {
@@ -142,7 +143,10 @@ export async function preloadAchievementsCache() {
   }
 
   const list = normalizeAchievements(res.data);
-  writeAchievementsCache(list);
+
+  if (authStorage.isSameAuthSessionVersion(requestAuthSessionVersion)) {
+    writeAchievementsCache(list);
+  }
 
   return {
     ok: true,

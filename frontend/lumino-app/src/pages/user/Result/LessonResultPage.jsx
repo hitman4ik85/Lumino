@@ -48,6 +48,115 @@ function resolveAchievementImageUrl(url) {
   return `${mediaRoot}/${src.replace(/^\/+/, "")}`;
 }
 
+
+const COURSE_COMPLETION_FLAG_NAMES = [
+  "isCourseCompleted",
+  "courseCompleted",
+  "completedCourse",
+  "isCourseFinished",
+  "courseFinished",
+  "isCourseCompletedNow",
+  "courseCompletedNow",
+  "currentCourseCompleted",
+  "isCurrentCourseCompleted",
+];
+
+function isTruthyFlag(value) {
+  if (typeof value === "string") {
+    const normalizedValue = value.trim().toLowerCase();
+    return normalizedValue === "true" || normalizedValue === "1" || normalizedValue === "yes";
+  }
+
+  return Boolean(value);
+}
+
+function hasCourseCompletedFlag(result) {
+  if (!result) {
+    return false;
+  }
+
+  return COURSE_COMPLETION_FLAG_NAMES.some((name) => {
+    return isTruthyFlag(result?.[name]) || isTruthyFlag(result?.course?.[name]) || isTruthyFlag(result?.Course?.[name]);
+  });
+}
+
+function isLessonPassedValue(lesson) {
+  return Boolean(lesson?.isPassed ?? lesson?.passed ?? lesson?.isCompleted ?? lesson?.completed);
+}
+
+function isSceneCompletedValue(scene) {
+  return Boolean(scene?.isCompleted ?? scene?.completed);
+}
+
+function isResultPassed(result) {
+  return Boolean(result?.isPassed ?? result?.isCompleted ?? result?.passed ?? result?.completed);
+}
+
+function isLessonCompletingCourse(coursePath, lessonId, result) {
+  if (!coursePath || !lessonId || !isResultPassed(result)) {
+    return false;
+  }
+
+  const topics = Array.isArray(coursePath?.topics) ? coursePath.topics : [];
+  const scenes = Array.isArray(coursePath?.scenes) ? coursePath.scenes : [];
+
+  if (topics.length === 0) {
+    return false;
+  }
+
+  let currentLessonFound = false;
+
+  for (const topic of topics) {
+    const lessons = Array.isArray(topic?.lessons) ? topic.lessons : [];
+
+    for (const item of lessons) {
+      const isCurrentLesson = Number(item?.id || 0) === Number(lessonId || 0);
+
+      if (isCurrentLesson) {
+        currentLessonFound = true;
+        continue;
+      }
+
+      if (!isLessonPassedValue(item)) {
+        return false;
+      }
+    }
+  }
+
+  if (!currentLessonFound) {
+    return false;
+  }
+
+  for (const scene of scenes) {
+    if (!isSceneCompletedValue(scene)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function getCourseDisplayName(course) {
+  const title = String(course?.title || course?.name || course?.Title || "").trim();
+  const level = String(course?.level || course?.Level || title || "").match(/A1|A2|B1|B2|C1|C2/i)?.[0]?.toUpperCase() || "";
+
+  if (title) {
+    return title;
+  }
+
+  if (level) {
+    return level;
+  }
+
+  return "поточний курс";
+}
+
+function getCourseCompletionMessage(course) {
+  const courseName = getCourseDisplayName(course);
+
+  return "Вітаємо! Ти повністю пройшов курс «" + courseName + "». Продовжуй рухатися далі — попереду нові теми та завдання.";
+}
+
 function StatCard({ label, value, icon, prefix = "", suffix = "" }) {
   return (
     <div className={styles.statCard}>
@@ -70,9 +179,12 @@ export default function LessonResultPage() {
 
   const result = location.state?.result || null;
   const lesson = location.state?.lesson || null;
+  const course = location.state?.course || result?.course || result?.Course || null;
+  const coursePath = location.state?.coursePath || null;
   const isMistakesMode = location.state?.mode === "mistakes";
   const isDemoLesson = Boolean(location.state?.demoLesson);
   const newlyEarnedAchievements = Array.isArray(location.state?.newlyEarnedAchievements) ? location.state.newlyEarnedAchievements : [];
+  const [courseCompletionDismissed, setCourseCompletionDismissed] = useState(false);
   const [achievementModalOpen, setAchievementModalOpen] = useState(false);
   const [achievementModalIndex, setAchievementModalIndex] = useState(0);
   const currentAchievement = newlyEarnedAchievements[achievementModalIndex] || null;
@@ -95,8 +207,26 @@ export default function LessonResultPage() {
   const restoredHearts = Number(result?.restoredHearts || 0);
   const [showTitle, setShowTitle] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const shouldShowCourseCompletionModal = useMemo(() => {
+    if (isMistakesMode || isDemoLesson || !result) {
+      return false;
+    }
+
+    return hasCourseCompletedFlag(result) || (!isLessonPassedValue(lesson) && isLessonCompletingCourse(coursePath, lesson?.id || lessonId, result));
+  }, [coursePath, isDemoLesson, isMistakesMode, lesson, lesson?.id, lessonId, result]);
+  const courseCompletionMessage = useMemo(() => getCourseCompletionMessage(course), [course]);
 
   useEffect(() => {
+    setCourseCompletionDismissed(false);
+  }, [lessonId, result]);
+
+  useEffect(() => {
+    if (shouldShowCourseCompletionModal && !courseCompletionDismissed) {
+      setAchievementModalOpen(false);
+      setAchievementModalIndex(0);
+      return;
+    }
+
     if (!isMistakesMode && newlyEarnedAchievements.length > 0) {
       setAchievementModalIndex(0);
       setAchievementModalOpen(true);
@@ -105,7 +235,7 @@ export default function LessonResultPage() {
 
     setAchievementModalOpen(false);
     setAchievementModalIndex(0);
-  }, [isMistakesMode, newlyEarnedAchievements]);
+  }, [courseCompletionDismissed, isMistakesMode, newlyEarnedAchievements, shouldShowCourseCompletionModal]);
 
   useEffect(() => {
     if (isDemoLesson || !result) {
@@ -161,6 +291,10 @@ export default function LessonResultPage() {
 
     return "Ти отримав нову нагороду за проходження уроку.";
   }, [currentAchievement]);
+
+  const handleCloseCourseCompletionModal = () => {
+    setCourseCompletionDismissed(true);
+  };
 
   const handleCloseAchievementModal = () => {
     const nextIndex = achievementModalIndex + 1;
@@ -241,6 +375,15 @@ export default function LessonResultPage() {
             )}
 
             <div className={styles.bottomLine} />
+
+            <GlassModal
+              open={shouldShowCourseCompletionModal && !courseCompletionDismissed}
+              title="Курс завершено!"
+              message={courseCompletionMessage}
+              onClose={handleCloseCourseCompletionModal}
+              primaryText="Добре"
+              stageTargetId="lesson-result-stage-root"
+            />
 
             <GlassModal
               open={achievementModalOpen}

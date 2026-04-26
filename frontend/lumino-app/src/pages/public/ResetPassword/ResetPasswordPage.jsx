@@ -10,15 +10,7 @@ import styles from "./ResetPasswordPage.module.css";
 
 import BgLeft from "../../../assets/backgrounds/bg2-left.webp";
 import BgRight from "../../../assets/backgrounds/bg2-right.webp";
-
-function CloseIcon() {
-  return (
-    <svg width="35" height="35" viewBox="0 0 35 35" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M8 8L27 27" stroke="#26415E" strokeWidth="2.5" strokeLinecap="round" />
-      <path d="M27 8L8 27" stroke="#26415E" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
-  );
-}
+import ArrowPrev from "../../../assets/icons/arrow-previous.svg";
 
 function EyeIcon({ opened }) {
   return (
@@ -43,6 +35,14 @@ export default function ResetPasswordPage() {
 
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
+  const [focused, setFocused] = useState({
+    password: false,
+    repeatPassword: false,
+  });
+  const [touched, setTouched] = useState({
+    password: false,
+    repeatPassword: false,
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [inlineError, setInlineError] = useState("");
@@ -50,6 +50,9 @@ export default function ResetPasswordPage() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const token = searchParams.get("token") || "";
+  const emailFromQuery = searchParams.get("email") || "";
+  const storedEmail = localStorage.getItem("lumino_registered_email") || "";
+  const email = String(emailFromQuery || storedEmail || "").trim();
 
   const passwordError = useMemo(() => validateNewPassword(password, {
     required: true,
@@ -62,7 +65,41 @@ export default function ResetPasswordPage() {
     return "";
   }, [password, repeatPassword]);
 
-  const canSubmit = !passwordError && !repeatError && token && !submitting;
+  const hasToken = token.trim().length > 0;
+  const canSubmit = !passwordError && !repeatError && hasToken && !submitting;
+
+  const handleFocus = (field) => () => {
+    setFocused((prev) => ({
+      ...prev,
+      [field]: true,
+    }));
+  };
+
+  const handleBlur = (field) => () => {
+    setFocused((prev) => ({
+      ...prev,
+      [field]: false,
+    }));
+
+    setTouched((prev) => ({
+      ...prev,
+      [field]: true,
+    }));
+  };
+
+  const getInputClassName = (field, error) => {
+    if (!touched[field] || !error) {
+      return styles.input;
+    }
+
+    return `${styles.input} ${styles.inputError}`;
+  };
+
+  const getPlaceholder = (field, fallback, value) => {
+    if (focused[field]) return "";
+    if (value) return "";
+    return fallback;
+  };
 
   const mapBackendError = (errorText) => {
     const text = (errorText || "").toLowerCase();
@@ -109,6 +146,11 @@ export default function ResetPasswordPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    setTouched({
+      password: true,
+      repeatPassword: true,
+    });
+
     if (!canSubmit) {
       setInlineError(passwordError || repeatError || "Невірне або прострочене посилання.");
       return;
@@ -129,6 +171,7 @@ export default function ResetPasswordPage() {
         return;
       }
 
+      localStorage.removeItem("lumino_registered_email");
       setModalOpen(true);
     } catch {
       setInlineError("Сталася помилка. Спробуйте ще раз.");
@@ -147,7 +190,11 @@ export default function ResetPasswordPage() {
         message="Тепер ви можете увійти з новим паролем."
         onClose={() => {
           setModalOpen(false);
-          navigate(PATHS.login);
+          navigate(PATHS.login, {
+            state: {
+              prefillEmail: email,
+            },
+          });
         }}
         primaryText="До входу"
       />
@@ -157,7 +204,7 @@ export default function ResetPasswordPage() {
         <img className={styles.bgRight} src={BgRight} alt="" />
 
         <button className={styles.closeBtn} type="button" onClick={() => navigate(PATHS.login)}>
-          <CloseIcon />
+          <img className={styles.backIcon} src={ArrowPrev} alt="back" />
         </button>
 
         <button className={styles.loginLink} type="button" onClick={() => navigate(PATHS.login)}>
@@ -168,17 +215,32 @@ export default function ResetPasswordPage() {
           <h1 className={styles.title}>Новий пароль</h1>
           <p className={styles.subtitle}>Введіть новий пароль для вашого профілю.</p>
 
+          {email ? (
+            <div className={styles.emailBox}>
+              <div className={styles.emailLabel}>Електронна адреса</div>
+              <div className={styles.emailValue}>{email}</div>
+            </div>
+          ) : null}
+
+          {!hasToken ? (
+            <div className={`${styles.statusBox} ${styles.statusError}`}>
+              Посилання для зміни пароля не знайдено або воно вже неактуальне. Поверніться на сторінку входу та надішліть лист ще раз.
+            </div>
+          ) : null}
+
           <form className={styles.form} onSubmit={handleSubmit} noValidate>
             <div className={styles.inputWrap}>
               <input
-                className={styles.input}
+                className={getInputClassName("password", passwordError)}
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
                   setInlineError("");
                 }}
-                placeholder="Новий пароль"
+                onFocus={handleFocus("password")}
+                onBlur={handleBlur("password")}
+                placeholder={getPlaceholder("password", "Новий пароль", password)}
                 autoComplete="new-password"
               />
               <button className={styles.eyeBtn} type="button" onClick={() => setShowPassword((prev) => !prev)}>
@@ -188,14 +250,16 @@ export default function ResetPasswordPage() {
 
             <div className={styles.inputWrapRepeat}>
               <input
-                className={styles.input}
+                className={getInputClassName("repeatPassword", repeatError)}
                 type={showRepeatPassword ? "text" : "password"}
                 value={repeatPassword}
                 onChange={(e) => {
                   setRepeatPassword(e.target.value);
                   setInlineError("");
                 }}
-                placeholder="Повторіть пароль"
+                onFocus={handleFocus("repeatPassword")}
+                onBlur={handleBlur("repeatPassword")}
+                placeholder={getPlaceholder("repeatPassword", "Повторіть пароль", repeatPassword)}
                 autoComplete="new-password"
               />
               <button className={styles.eyeBtn} type="button" onClick={() => setShowRepeatPassword((prev) => !prev)}>

@@ -22,7 +22,6 @@ import FlagKo from "../../../assets/flags/flag-ko.svg";
 import FlagZn from "../../../assets/flags/flag-zn.svg";
 
 import GlassModal from "../../../components/common/GlassModal/GlassModal.jsx";
-import GlassLoading from "../../../components/common/GlassLoading/GlassLoading.jsx";
 
 const LANGS = [
   { code: "en", label: "АНГЛІЙСЬКА", src: FlagEn },
@@ -35,6 +34,45 @@ const LANGS = [
   { code: "ko", label: "КОРЕЙСЬКА", src: FlagKo },
   { code: "zh", label: "КИТАЙСЬКА", src: FlagZn },
 ];
+
+const START_IMAGES = [BgLeft, BgRight, Mascot, ArrowLeft, ArrowRight, ...LANGS.map((l) => l.src)];
+
+function loadStartImage(src) {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || typeof window.Image === "undefined" || !src) {
+      resolve();
+      return;
+    }
+
+    const image = new window.Image();
+    let done = false;
+
+    const finish = () => {
+      if (done) return;
+      done = true;
+      image.onload = null;
+      image.onerror = null;
+      resolve();
+    };
+
+    const decodeAndFinish = () => {
+      if (typeof image.decode === "function") {
+        image.decode().then(finish).catch(finish);
+        return;
+      }
+
+      finish();
+    };
+
+    image.onload = decodeAndFinish;
+    image.onerror = finish;
+    image.src = src;
+
+    if (image.complete) {
+      decodeAndFinish();
+    }
+  });
+}
 
 export default function Start() {
   const navigate = useNavigate();
@@ -50,7 +88,22 @@ export default function Start() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [selected, setSelected] = useState(null);
   const [checking, setChecking] = useState(false);
+  const [assetsReady, setAssetsReady] = useState(false);
   const [modal, setModal] = useState({ open: false, title: "", message: "" });
+
+  useEffect(() => {
+    let ignore = false;
+
+    Promise.all(START_IMAGES.map(loadStartImage)).then(() => {
+      if (!ignore) {
+        setAssetsReady(true);
+      }
+    });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   useEffect(() => {
     activeIndexRef.current = activeIndex;
@@ -181,8 +234,7 @@ export default function Start() {
   return (
     <div className={styles.viewport}>
       <GlassModal open={modal.open} title={modal.title} message={modal.message} onClose={closeModal} primaryText="Зрозуміло" />
-      <GlassLoading open={checking} text="Перевіряємо доступність курсу..." />
-      <div className={styles.stage} ref={stageRef}>
+      <div className={`${styles.stage} ${assetsReady ? "" : styles.stageHidden}`} ref={stageRef}>
         <img className={styles.bgLeft} src={BgLeft} alt="" aria-hidden="true" />
         <img className={styles.bgRight} src={BgRight} alt="" aria-hidden="true" />
 

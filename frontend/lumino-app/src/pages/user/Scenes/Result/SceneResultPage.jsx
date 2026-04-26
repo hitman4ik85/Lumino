@@ -46,6 +46,111 @@ function resolveAchievementImageUrl(url) {
   return `${mediaRoot}/${src.replace(/^\/+/, "")}`;
 }
 
+
+const COURSE_COMPLETION_FLAG_NAMES = [
+  "isCourseCompleted",
+  "courseCompleted",
+  "completedCourse",
+  "isCourseFinished",
+  "courseFinished",
+  "isCourseCompletedNow",
+  "courseCompletedNow",
+  "currentCourseCompleted",
+  "isCurrentCourseCompleted",
+];
+
+function isTruthyFlag(value) {
+  if (typeof value === "string") {
+    const normalizedValue = value.trim().toLowerCase();
+    return normalizedValue === "true" || normalizedValue === "1" || normalizedValue === "yes";
+  }
+
+  return Boolean(value);
+}
+
+function hasCourseCompletedFlag(result) {
+  if (!result) {
+    return false;
+  }
+
+  return COURSE_COMPLETION_FLAG_NAMES.some((name) => {
+    return isTruthyFlag(result?.[name]) || isTruthyFlag(result?.course?.[name]) || isTruthyFlag(result?.Course?.[name]);
+  });
+}
+
+function isLessonPassedValue(lesson) {
+  return Boolean(lesson?.isPassed ?? lesson?.passed ?? lesson?.isCompleted ?? lesson?.completed);
+}
+
+function isSceneCompletedValue(scene) {
+  return Boolean(scene?.isCompleted ?? scene?.completed);
+}
+
+function isSceneCompletedResult(result) {
+  return Boolean(result?.isCompleted ?? result?.completed ?? result?.isPassed ?? result?.passed);
+}
+
+function isSceneCompletingCourse(coursePath, sceneId, result) {
+  if (!coursePath || !sceneId || !isSceneCompletedResult(result)) {
+    return false;
+  }
+
+  const topics = Array.isArray(coursePath?.topics) ? coursePath.topics : [];
+  const scenes = Array.isArray(coursePath?.scenes) ? coursePath.scenes : [];
+
+  if (topics.length === 0 && scenes.length === 0) {
+    return false;
+  }
+
+  for (const topic of topics) {
+    const lessons = Array.isArray(topic?.lessons) ? topic.lessons : [];
+
+    for (const lesson of lessons) {
+      if (!isLessonPassedValue(lesson)) {
+        return false;
+      }
+    }
+  }
+
+  let currentSceneFound = false;
+
+  for (const item of scenes) {
+    const isCurrentScene = Number(item?.id || 0) === Number(sceneId || 0);
+
+    if (isCurrentScene) {
+      currentSceneFound = true;
+      continue;
+    }
+
+    if (!isSceneCompletedValue(item)) {
+      return false;
+    }
+  }
+
+  return currentSceneFound;
+}
+
+function getCourseDisplayName(course) {
+  const title = String(course?.title || course?.name || course?.Title || "").trim();
+  const level = String(course?.level || course?.Level || title || "").match(/A1|A2|B1|B2|C1|C2/i)?.[0]?.toUpperCase() || "";
+
+  if (title) {
+    return title;
+  }
+
+  if (level) {
+    return level;
+  }
+
+  return "поточний курс";
+}
+
+function getCourseCompletionMessage(course) {
+  const courseName = getCourseDisplayName(course);
+
+  return "Вітаємо! Ти повністю пройшов курс «" + courseName + "». Продовжуй рухатися далі — попереду нові теми та завдання.";
+}
+
 function StatCard({ label, value, icon, prefix = "", suffix = "" }) {
   return (
     <div className={styles.statCard}>
@@ -73,8 +178,11 @@ export default function SceneResultPage() {
 
   const result = location.state?.result || null;
   const scene = location.state?.scene || null;
+  const course = location.state?.course || result?.course || result?.Course || null;
+  const coursePath = location.state?.coursePath || null;
   const isMistakesMode = location.state?.mode === "mistakes";
   const newlyEarnedAchievements = Array.isArray(location.state?.newlyEarnedAchievements) ? location.state.newlyEarnedAchievements : [];
+  const [courseCompletionDismissed, setCourseCompletionDismissed] = useState(false);
 
   const accuracyPercent = useMemo(() => {
     const total = Number(result?.totalQuestions || 0);
@@ -95,8 +203,26 @@ export default function SceneResultPage() {
   const [showStats, setShowStats] = useState(false);
   const [achievementModalIndex, setAchievementModalIndex] = useState(0);
   const [achievementModalOpen, setAchievementModalOpen] = useState(false);
+  const shouldShowCourseCompletionModal = useMemo(() => {
+    if (isMistakesMode || !result) {
+      return false;
+    }
+
+    return hasCourseCompletedFlag(result) || (!isSceneCompletedValue(scene) && isSceneCompletingCourse(coursePath, scene?.id || sceneId, result));
+  }, [coursePath, isMistakesMode, result, scene, scene?.id, sceneId]);
+  const courseCompletionMessage = useMemo(() => getCourseCompletionMessage(course), [course]);
 
   useEffect(() => {
+    setCourseCompletionDismissed(false);
+  }, [sceneId, result]);
+
+  useEffect(() => {
+    if (shouldShowCourseCompletionModal && !courseCompletionDismissed) {
+      setAchievementModalOpen(false);
+      setAchievementModalIndex(0);
+      return;
+    }
+
     if (!isMistakesMode && newlyEarnedAchievements.length > 0) {
       setAchievementModalIndex(0);
       setAchievementModalOpen(true);
@@ -105,7 +231,7 @@ export default function SceneResultPage() {
 
     setAchievementModalOpen(false);
     setAchievementModalIndex(0);
-  }, [isMistakesMode, newlyEarnedAchievements]);
+  }, [courseCompletionDismissed, isMistakesMode, newlyEarnedAchievements, shouldShowCourseCompletionModal]);
 
   useEffect(() => {
     if (!result) {
@@ -158,6 +284,10 @@ export default function SceneResultPage() {
 
     return "Ти отримав нову нагороду за проходження сцени.";
   }, [currentAchievement]);
+
+  const handleCloseCourseCompletionModal = () => {
+    setCourseCompletionDismissed(true);
+  };
 
   const handleCloseAchievementModal = () => {
     const nextIndex = achievementModalIndex + 1;
@@ -219,6 +349,15 @@ export default function SceneResultPage() {
             </div>
 
             <div className={styles.bottomLine} />
+
+            <GlassModal
+              open={shouldShowCourseCompletionModal && !courseCompletionDismissed}
+              title="Курс завершено!"
+              message={courseCompletionMessage}
+              onClose={handleCloseCourseCompletionModal}
+              primaryText="Добре"
+              stageTargetId="scene-result-stage-root"
+            />
 
             <GlassModal
               open={achievementModalOpen}

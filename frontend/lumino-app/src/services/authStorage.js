@@ -2,6 +2,7 @@ const ACCESS_TOKEN_KEY = "lumino_access_token";
 const REFRESH_TOKEN_KEY = "lumino_refresh_token";
 const GUEST_PREVIEW_KEY = "lumino_guest_preview";
 const USER_CACHE_NAMESPACE_MAP_KEY = "lumino_user_cache_namespaces";
+let authSessionVersion = 0;
 const USER_CACHE_KEY_PREFIXES = [
   "lumino-home-cache:",
   "lumino-profile-cache:",
@@ -20,6 +21,10 @@ const USER_CACHE_KEY_PREFIXES = [
 
 function getTokenStore() {
   return window.sessionStorage;
+}
+
+function bumpAuthSessionVersion() {
+  authSessionVersion += 1;
 }
 
 function clearLegacyPersistentTokens() {
@@ -60,13 +65,13 @@ function clearStoreByPrefixes(store, prefixes) {
 }
 
 
-function readUserCacheNamespaceMap() {
-  if (typeof window === "undefined") {
+function readNamespaceMapFromStore(store) {
+  if (!store) {
     return {};
   }
 
   try {
-    const raw = window.localStorage.getItem(USER_CACHE_NAMESPACE_MAP_KEY);
+    const raw = store.getItem(USER_CACHE_NAMESPACE_MAP_KEY);
 
     if (!raw) {
       return {};
@@ -84,17 +89,116 @@ function readUserCacheNamespaceMap() {
   }
 }
 
+function readUserCacheNamespaceMap() {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  return {
+    ...readNamespaceMapFromStore(window.localStorage),
+    ...readNamespaceMapFromStore(window.sessionStorage),
+  };
+}
+
 function writeUserCacheNamespaceMap(value) {
   if (typeof window === "undefined") {
     return;
   }
 
+  const nextValue = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const serialized = JSON.stringify(nextValue);
+
   try {
-    const nextValue = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-    window.localStorage.setItem(USER_CACHE_NAMESPACE_MAP_KEY, JSON.stringify(nextValue));
+    window.localStorage.setItem(USER_CACHE_NAMESPACE_MAP_KEY, serialized);
   } catch {
     // ignore storage errors
   }
+
+  try {
+    window.sessionStorage.setItem(USER_CACHE_NAMESPACE_MAP_KEY, serialized);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function readCachePayloadSavedAt(store, key) {
+  if (!store || !key) {
+    return 0;
+  }
+
+  try {
+    const parsed = JSON.parse(store.getItem(key) || "");
+    return Number(parsed?.savedAt || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function collectUserCacheNamespacesFromStore(store, userId, result) {
+  if (!store || !userId || !result) {
+    return;
+  }
+
+  const userKeyStart = `user:${userId}:`;
+
+  try {
+    for (let index = 0; index < store.length; index += 1) {
+      const key = store.key(index);
+
+      if (!key) {
+        continue;
+      }
+
+      const prefix = USER_CACHE_KEY_PREFIXES.find((item) => key.startsWith(item));
+
+      if (!prefix) {
+        continue;
+      }
+
+      const remainder = key.slice(prefix.length);
+
+      if (!remainder.startsWith(userKeyStart)) {
+        continue;
+      }
+
+      const namespace = remainder.slice(userKeyStart.length).split(":")[0];
+
+      if (!namespace) {
+        continue;
+      }
+
+      const savedAt = readCachePayloadSavedAt(store, key);
+      const current = result.get(namespace) || 0;
+      result.set(namespace, Math.max(current, savedAt));
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function findExistingUserCacheNamespace(userId) {
+  const normalizedUserId = String(userId || "").trim();
+
+  if (!normalizedUserId || typeof window === "undefined") {
+    return "";
+  }
+
+  const namespaces = new Map();
+
+  collectUserCacheNamespacesFromStore(window.sessionStorage, normalizedUserId, namespaces);
+  collectUserCacheNamespacesFromStore(window.localStorage, normalizedUserId, namespaces);
+
+  let bestNamespace = "";
+  let bestSavedAt = -1;
+
+  namespaces.forEach((savedAt, namespace) => {
+    if (!bestNamespace || savedAt > bestSavedAt) {
+      bestNamespace = namespace;
+      bestSavedAt = savedAt;
+    }
+  });
+
+  return bestNamespace;
 }
 
 function createUserCacheNamespace() {
@@ -167,8 +271,19 @@ function ensureUserCacheNamespace(userId, options = {}) {
   const namespaceMap = readUserCacheNamespaceMap();
   let namespace = String(namespaceMap[normalizedUserId] || "").trim();
 
+  if (!shouldRotate) {
+    const existingNamespace = findExistingUserCacheNamespace(normalizedUserId);
+
+    if (existingNamespace && existingNamespace !== namespace) {
+      namespace = existingNamespace;
+    }
+  }
+
   if (!namespace || shouldRotate) {
     namespace = createUserCacheNamespace();
+  }
+
+  if (namespaceMap[normalizedUserId] !== namespace) {
     namespaceMap[normalizedUserId] = namespace;
     writeUserCacheNamespaceMap(namespaceMap);
   }
@@ -299,6 +414,7 @@ export const authStorage = {
     const store = getTokenStore();
     const shouldClearUserScopedCaches = Boolean(options?.clearUserScopedCaches);
     const shouldRotateUserCacheNamespace = Boolean(options?.rotateUserCacheNamespace);
+    const previousUserId = getUserIdFromPayload(parseJwtPayload(store.getItem(ACCESS_TOKEN_KEY) || ""));
 
     if (shouldClearUserScopedCaches) {
       clearUserScopedCaches();
@@ -318,6 +434,10 @@ export const authStorage = {
       ensureUserCacheNamespace(nextUserId, { rotate: shouldRotateUserCacheNamespace });
     }
 
+    if (previousUserId !== nextUserId || shouldClearUserScopedCaches || shouldRotateUserCacheNamespace) {
+      bumpAuthSessionVersion();
+    }
+
     localStorage.removeItem(GUEST_PREVIEW_KEY);
     clearLegacyPersistentTokens();
   },
@@ -326,9 +446,14 @@ export const authStorage = {
     const store = getTokenStore();
     const shouldClearUserScopedCaches = Boolean(options?.clearUserScopedCaches);
     const currentUserId = this.getUserId();
+    const hadTokens = Boolean(store.getItem(ACCESS_TOKEN_KEY) || store.getItem(REFRESH_TOKEN_KEY));
 
     store.removeItem(ACCESS_TOKEN_KEY);
     store.removeItem(REFRESH_TOKEN_KEY);
+
+    if (hadTokens || shouldClearUserScopedCaches) {
+      bumpAuthSessionVersion();
+    }
 
     if (shouldClearUserScopedCaches) {
       clearUserCacheNamespace(currentUserId);
@@ -340,6 +465,18 @@ export const authStorage = {
 
   clearUserScopedCaches() {
     clearUserScopedCaches();
+  },
+
+  getAuthSessionVersion() {
+    return authSessionVersion;
+  },
+
+  isSameAuthSessionVersion(version) {
+    return Number(version) === authSessionVersion;
+  },
+
+  isSameUserCacheKey(userKey) {
+    return String(userKey || "").trim() === this.getUserCacheKey();
   },
 
   enableGuestPreview() {

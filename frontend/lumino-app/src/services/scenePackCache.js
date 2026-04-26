@@ -142,6 +142,7 @@ export function clearCachedScenePack(sceneId, options = {}) {
 export async function preloadScenePack(sceneId, options = {}) {
   const normalizedSceneId = Number(sceneId || 0);
   const normalizedMode = normalizeScenePackMode(options.mode);
+  const requestAuthSessionVersion = authStorage.getAuthSessionVersion();
   const cached = options.force ? null : getCachedScenePack(normalizedSceneId, { mode: normalizedMode });
 
   if (cached) {
@@ -201,7 +202,7 @@ export async function preloadScenePack(sceneId, options = {}) {
       steps: Array.isArray(payloadData?.steps) ? payloadData.steps : [],
     };
 
-    if (data.scene && data.steps.length > 0) {
+    if (data.scene && data.steps.length > 0 && authStorage.isSameAuthSessionVersion(requestAuthSessionVersion)) {
       setCachedScenePack(normalizedSceneId, { mode: normalizedMode }, data);
     }
 

@@ -10,6 +10,12 @@ function normalizeScope(options = {}) {
     return "public";
   }
 
+  const userCacheKey = String(options.userCacheKey || "").trim();
+
+  if (userCacheKey) {
+    return userCacheKey;
+  }
+
   return authStorage.getUserCacheKey() || "";
 }
 
@@ -38,6 +44,10 @@ export function readUserScopedRequestCache(namespace, suffix = "", options = {})
 }
 
 export function writeUserScopedRequestCache(namespace, suffix = "", value, options = {}) {
+  if (options.authSessionVersion != null && !authStorage.isSameAuthSessionVersion(options.authSessionVersion)) {
+    return;
+  }
+
   const key = buildRequestCacheKey(namespace, suffix, options);
 
   if (!key) {
@@ -45,6 +55,13 @@ export function writeUserScopedRequestCache(namespace, suffix = "", value, optio
   }
 
   writePersistentUserCache(key, value);
+}
+
+export function getUserScopedRequestCacheOptions() {
+  return {
+    userCacheKey: authStorage.getUserCacheKey(),
+    authSessionVersion: authStorage.getAuthSessionVersion(),
+  };
 }
 
 export function removeUserScopedRequestCache(namespace, suffix = "", options = {}) {

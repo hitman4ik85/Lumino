@@ -4,6 +4,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 const AUTH_REFRESH_PATH = "/auth/refresh";
 
 let refreshPromise = null;
+let refreshPromiseSessionVersion = null;
 
 const buildUrl = (path) => {
   if (!path) return BASE_URL;
@@ -87,11 +88,17 @@ const shouldTryRefresh = (path) => {
   return !path.startsWith("/auth/");
 };
 
+const isSameAuthSession = (authSessionVersion) => authStorage.isSameAuthSessionVersion(authSessionVersion);
+
 const refreshTokens = async () => {
+  const requestAuthSessionVersion = authStorage.getAuthSessionVersion();
   const refreshToken = authStorage.getRefreshToken();
 
   if (!refreshToken) {
-    authStorage.clearTokens();
+    if (isSameAuthSession(requestAuthSessionVersion)) {
+      authStorage.clearTokens();
+    }
+
     return false;
   }
 
@@ -104,6 +111,10 @@ const refreshTokens = async () => {
   });
 
   const data = await safeJson(res);
+
+  if (!isSameAuthSession(requestAuthSessionVersion) || authStorage.getRefreshToken() !== refreshToken) {
+    return false;
+  }
 
   if (!res.ok) {
     authStorage.clearTokens();
@@ -134,9 +145,13 @@ const ensureFreshAccessToken = async (path) => {
     return accessToken;
   }
 
-  if (!refreshPromise) {
+  const currentAuthSessionVersion = authStorage.getAuthSessionVersion();
+
+  if (!refreshPromise || refreshPromiseSessionVersion !== currentAuthSessionVersion) {
+    refreshPromiseSessionVersion = currentAuthSessionVersion;
     refreshPromise = refreshTokens().finally(() => {
       refreshPromise = null;
+      refreshPromiseSessionVersion = null;
     });
   }
 
@@ -153,6 +168,7 @@ export const apiClient = {
   async request(path, options = {}) {
     const url = buildUrl(path);
     const accessToken = await ensureFreshAccessToken(path);
+    const requestAuthSessionVersion = authStorage.getAuthSessionVersion();
 
     const headers = {
       "Content-Type": "application/json",
@@ -167,16 +183,20 @@ export const apiClient = {
 
     let data = await safeJson(res);
 
-    if (res.status === 401 && shouldTryRefresh(path)) {
-      if (!refreshPromise) {
+    if (res.status === 401 && shouldTryRefresh(path) && isSameAuthSession(requestAuthSessionVersion)) {
+      const currentAuthSessionVersion = authStorage.getAuthSessionVersion();
+
+      if (!refreshPromise || refreshPromiseSessionVersion !== currentAuthSessionVersion) {
+        refreshPromiseSessionVersion = currentAuthSessionVersion;
         refreshPromise = refreshTokens().finally(() => {
           refreshPromise = null;
+          refreshPromiseSessionVersion = null;
         });
       }
 
       const refreshed = await refreshPromise;
 
-      if (refreshed) {
+      if (refreshed && isSameAuthSession(requestAuthSessionVersion)) {
         const retryAccessToken = authStorage.getAccessToken();
         const retryHeaders = {
           ...headers,
@@ -201,9 +221,11 @@ export const apiClient = {
       `HTTP ${res.status}`;
     const mustClearTokens = shouldClearTokens(res, data, error);
     const shouldClearUserScopedCaches = isUserNotFoundResponse(res, data, error);
+    const canClearTokens = mustClearTokens && isSameAuthSession(requestAuthSessionVersion);
+    const canClearUserScopedCaches = canClearTokens && shouldClearUserScopedCaches;
 
-    if (mustClearTokens) {
-      authStorage.clearTokens({ clearUserScopedCaches: shouldClearUserScopedCaches });
+    if (canClearTokens) {
+      authStorage.clearTokens({ clearUserScopedCaches: canClearUserScopedCaches });
     }
 
     return {
@@ -211,8 +233,8 @@ export const apiClient = {
       status: res.status,
       data,
       error,
-      shouldClearTokens: mustClearTokens,
-      shouldClearUserScopedCaches,
+      shouldClearTokens: canClearTokens,
+      shouldClearUserScopedCaches: canClearUserScopedCaches,
     };
   },
 

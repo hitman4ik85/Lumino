@@ -1,11 +1,12 @@
 import { apiClient } from "./apiClient.js";
-import { readUserScopedRequestCache, writeUserScopedRequestCache } from "./userScopedRequestCache.js";
+import { getUserScopedRequestCacheOptions, readUserScopedRequestCache, writeUserScopedRequestCache } from "./userScopedRequestCache.js";
 
 const AVATARS_CACHE_NAMESPACE = "avatars-all";
 
 export const avatarsService = {
   async getAll(options = {}) {
-    const cached = options.force ? null : readUserScopedRequestCache(AVATARS_CACHE_NAMESPACE);
+    const cacheOptions = getUserScopedRequestCacheOptions();
+    const cached = options.force ? null : readUserScopedRequestCache(AVATARS_CACHE_NAMESPACE, "", cacheOptions);
 
     if (Array.isArray(cached)) {
       return {
@@ -21,7 +22,7 @@ export const avatarsService = {
     const items = res.ok ? (Array.isArray(res.data) ? res.data : []) : [];
 
     if (res.ok) {
-      writeUserScopedRequestCache(AVATARS_CACHE_NAMESPACE, "", items);
+      writeUserScopedRequestCache(AVATARS_CACHE_NAMESPACE, "", items, cacheOptions);
     }
 
     return {

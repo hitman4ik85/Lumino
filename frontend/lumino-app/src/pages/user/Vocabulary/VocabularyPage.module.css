@@ -237,6 +237,8 @@
   column-gap:16px;
   row-gap:10px;
   align-items:flex-start;
+  padding-top:14px;
+  box-sizing:border-box;
 }
 
 .wordChipWrap{
@@ -1125,7 +1127,7 @@
   z-index:5;
 }
 
-@media (max-width: 768px){
+@media (max-width: 700px){
   .embeddedContent{
     width:100%;
     min-height:auto;
@@ -2088,14 +2090,23 @@
   background:var(--vocabulary-pink-500);
 }
 
+.reviewPlanWordsWrap{
+  position:relative;
+  width:382px;
+  max-width:100%;
+  padding-right:32px;
+  box-sizing:border-box;
+}
+
 .reviewPlanWordsGrid{
   display:grid;
   grid-template-columns:repeat(3, 1fr);
   gap:10px 18px;
-  max-width:350px;
+  width:100%;
 }
 
 .reviewPlanWordButton{
+  min-width:80px;
   min-height:39px;
   border:none;
   border-radius:10px;
@@ -2107,6 +2118,10 @@
   line-height:22px;
   cursor:pointer;
   padding:8px 12px;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  text-align:center;
 }
 
 .reviewPlanWordButtonActive{
@@ -2114,10 +2129,19 @@
   color:#FFFFFF;
 }
 
-.reviewPlanNextButton{
+.reviewPlanPageButtons{
   position:absolute;
   right:0;
-  top:120px;
+  top:0;
+  bottom:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+}
+
+.reviewPlanNextButton{
   width:24px;
   height:24px;
   border:none;
@@ -2125,6 +2149,14 @@
   color:#E0C9DC;
   cursor:pointer;
   padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.reviewPlanNextButton:disabled{
+  opacity:.45;
+  cursor:default;
 }
 
 .reviewPlanNextButton svg{
@@ -2594,4 +2626,1958 @@
   min-height:1080px;
   background:rgba(255, 255, 255, .01);
   z-index:4;
+}
+
+
+.tabletContent{
+  width:min(100%, 940px);
+  min-height:100%;
+}
+
+.tabletContent .dictionaryColumn,
+.tabletContent .dictionaryColumnLocked{
+  position:relative;
+  left:auto;
+  top:auto;
+  width:100%;
+  min-height:auto;
+  display:flex;
+  flex-direction:column;
+  padding-bottom:40px;
+}
+
+.tabletContent .dictionaryTopLine,
+.tabletContent .dictionaryBottomLine,
+.tabletContent .dictionaryAddLine,
+.tabletContent .grammarTopLine,
+.tabletContent .dictionaryHeader,
+.tabletContent .wordsArea,
+.tabletContent .grammarHeader,
+.tabletContent .grammarButtonsColumn,
+.tabletContent .floatingAddButton,
+.tabletContent .repeatButton,
+.tabletContent .dictionaryReviewOverlay{
+  position:static;
+}
+
+.tabletContent .dictionaryTopLine,
+.tabletContent .dictionaryBottomLine,
+.tabletContent .dictionaryAddLine,
+.tabletContent .grammarTopLine{
+  width:100%;
+  margin:0 0 18px;
+}
+
+.tabletContent .dictionaryHeader{
+  width:100%;
+  min-height:auto;
+  margin-bottom:12px;
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title title"
+    "tabs icons";
+  column-gap:16px;
+  row-gap:14px;
+  align-items:end;
+}
+
+.tabletContent .dictionaryTitle{
+  grid-area:title;
+  width:auto;
+  height:auto;
+  line-height:1.1;
+}
+
+.tabletContent .dictionaryTabs{
+  grid-area:tabs;
+  margin-left:0;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.tabletContent .headerIcons{
+  position:static;
+  grid-area:icons;
+  justify-self:end;
+}
+
+.tabletContent .wordsArea{
+  width:100%;
+  height:auto;
+  max-height:360px;
+  padding-right:8px;
+  margin-bottom:12px;
+}
+
+.tabletContent .emptyState{
+  position:static;
+  width:100%;
+  margin:42px 0;
+}
+
+.tabletContent .floatingAddButton{
+  align-self:flex-end;
+  margin:4px 0 22px;
+}
+
+.tabletContent .grammarHeader{
+  width:auto;
+  height:auto;
+  top:auto;
+  line-height:1.1;
+  margin-bottom:14px;
+}
+
+.tabletContent .grammarButtonsColumn{
+  width:100%;
+  gap:14px;
+}
+
+.tabletContent .grammarTopicButton{
+  width:100%;
+}
+
+.tabletContent .repeatButton,
+.tabletContent .primaryButton{
+  position:static;
+  width:100%;
+  margin-top:20px;
+}
+
+.tabletContent .levelColumnsWrap{
+  flex-direction:column;
+  gap:24px;
+}
+
+.tabletContent .levelColumn{
+  width:100%;
+}
+
+.tabletContent .levelColumnGrid{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  max-height:320px;
+}
+
+.tabletShell{
+  height:100%;
+  display:flex;
+  flex-direction:column;
+}
+
+.tabletTopBar{
+  position:relative;
+  flex:0 0 94px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:22px 24px 0;
+  box-sizing:border-box;
+}
+
+.tabletTopBar::after{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:4px;
+  background:#83A6CE;
+}
+
+.tabletBackButton,
+.tabletBackSpacer{
+  width:40px;
+  height:40px;
+  flex:0 0 40px;
+}
+
+.tabletBackButton{
+  border:none;
+  background:transparent;
+  color:#26415E;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  cursor:pointer;
+}
+
+.tabletBackButton svg{
+  width:20px;
+  height:28px;
+}
+
+.tabletTopBarTitle{
+  flex:1 1 auto;
+  min-width:0;
+  text-align:center;
+  font-family:var(--vocabulary-font);
+  font-weight:700;
+  font-size:clamp(28px, 3vw, 36px);
+  line-height:1.1;
+  color:#26415E;
+}
+
+.tabletScrollArea{
+  flex:1 1 auto;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:28px 24px 32px;
+  box-sizing:border-box;
+}
+
+.tabletScrollArea::-webkit-scrollbar{
+  width:8px;
+}
+
+.tabletScrollArea::-webkit-scrollbar-thumb{
+  background:#83A6CE;
+  border-radius:999px;
+}
+
+.tabletPanelBody{
+  width:100%;
+  max-width:920px;
+  margin:0 auto;
+  display:flex;
+  justify-content:center;
+}
+
+.tabletPanelBodyWord,
+.tabletPanelBodyGrammar,
+.tabletPanelBodySearch,
+.tabletPanelBodyAdd,
+.tabletPanelBodyReviewPlan,
+.tabletPanelBodyReviewCard,
+.tabletPanelBodyReviewResult{
+  align-items:flex-start;
+}
+
+.tabletPanelBodyWord .wordSidebarInner,
+.tabletPanelBodyGrammar .grammarPanelInner,
+.tabletPanelBodySearch .searchPanelInner,
+.tabletPanelBodyAdd .addPanelInner,
+.tabletPanelBodyReviewPlan .reviewPlanPanelInner,
+.tabletPanelBodyReviewCard .reviewDesignerPanel,
+.tabletPanelBodyReviewResult .reviewResultPanel{
+  width:min(100%, 640px);
+}
+
+.tabletPanelBodyWord .wordInfoBlock,
+.tabletPanelBodyWord .wordSidebarTitleWrap,
+.tabletPanelBodyWord .wordInUseButton,
+.tabletPanelBodyWord .wordInUseCard{
+  width:100%;
+}
+
+.tabletPanelBodyGrammar .grammarPanelTitle,
+.tabletPanelBodyGrammar .grammarInfoWrap,
+.tabletPanelBodyGrammar .grammarSections,
+.tabletPanelBodyGrammar .grammarBottomDivider{
+  width:100%;
+}
+
+.tabletPanelBodyGrammar .grammarExampleCardWide{
+  flex-direction:column;
+}
+
+.tabletPanelBodyGrammar .grammarExampleVerticalDivider{
+  width:100%;
+  height:2px;
+  margin:18px 0;
+}
+
+.tabletPanelBodySearch .searchPanelBody,
+.tabletPanelBodySearch .searchPanelInputBlock,
+.tabletPanelBodySearch .searchPanelInput,
+.tabletPanelBodySearch .sideActionDivider,
+.tabletPanelBodySearch .searchPanelButton{
+  width:100%;
+}
+
+.tabletPanelBodyAdd .addFormLayout,
+.tabletPanelBodyAdd .addFieldWide,
+.tabletPanelBodyAdd .addFieldWideAuto,
+.tabletPanelBodyAdd .addPanelDivider,
+.tabletPanelBodyAdd .addSubmitButton{
+  width:100%;
+}
+
+.tabletPanelBodyAdd .addRowTop,
+.tabletPanelBodyAdd .addRowSecond{
+  gap:12px;
+}
+
+.tabletPanelBodyReviewPlan .addSubmitButton,
+.tabletPanelBodyReviewResult .primaryButton{
+  position:static;
+  width:100%;
+}
+
+.tabletPanelBodyReviewCard .reviewProgressWrap,
+.tabletPanelBodyReviewCard .reviewCardStackButton,
+.tabletPanelBodyReviewCard .wordInUseButton,
+.tabletPanelBodyReviewCard .wordInUseCard,
+.tabletPanelBodyReviewCard .reviewActionsDesigner{
+  width:100%;
+}
+
+.tabletPanelBodyReviewCard .reviewActionsDesigner{
+  justify-content:space-between;
+}
+
+
+.mobileSidebarPanelBody{
+  width:100%;
+}
+
+@media (max-width: 700px){
+  .tabletShell{
+    height:100%;
+  }
+
+  .tabletTopBar{
+    flex:0 0 102px;
+    padding:20px 20px 0;
+  }
+
+  .tabletTopBarTitle{
+    font-size:28px;
+  }
+
+  .tabletScrollArea{
+    padding:20px 16px 24px;
+  }
+
+  .mobileSidebarPanelBody{
+    justify-content:flex-start;
+  }
+
+  .mobileSidebarPanelBody .wordSidebarInner,
+  .mobileSidebarPanelBody .grammarPanelInner,
+  .mobileSidebarPanelBody .searchPanelInner,
+  .mobileSidebarPanelBody .addPanelInner,
+  .mobileSidebarPanelBody .reviewPlanPanelInner,
+  .mobileSidebarPanelBody .reviewDesignerPanel,
+  .mobileSidebarPanelBody .reviewResultPanel{
+    width:100%;
+    max-width:none;
+  }
+
+  .mobileSidebarPanelBody .sideTitleWord{
+    font-size:30px;
+    line-height:1;
+  }
+
+  .mobileSidebarPanelBody .wordModalTranslation{
+    font-size:18px;
+    line-height:1.1;
+  }
+
+  .mobileSidebarPanelBody .wordMetaItalic,
+  .mobileSidebarPanelBody .wordModalTranscription{
+    font-size:15px;
+    line-height:1.2;
+  }
+
+  .mobileSidebarPanelBody .grammarPanelTitle{
+    font-size:24px;
+    line-height:1.1;
+  }
+
+  .mobileSidebarPanelBody .grammarCardHeader{
+    gap:12px;
+  }
+
+  .mobileSidebarPanelBody .grammarArrows{
+    gap:6px;
+  }
+
+  .mobileSidebarPanelBody .reviewActionsDesigner{
+    gap:10px;
+  }
+
+  .mobileSidebarPanelBody .reviewActionsDesigner button{
+    min-width:0;
+    flex:1 1 0;
+  }
+
+  .mobileSidebarPanelBody .reviewResultCardsWrap{
+    gap:12px;
+  }
+}
+
+@media (max-width: 860px){
+  .tabletContent .dictionaryHeader{
+    grid-template-columns:minmax(0, 1fr);
+    grid-template-areas:
+      "title"
+      "tabs"
+      "icons";
+  }
+
+  .tabletContent .headerIcons{
+    justify-self:start;
+  }
+
+  .tabletPanelBodyAdd .addRowTop,
+  .tabletPanelBodyAdd .addRowSecond{
+    flex-direction:column;
+  }
+
+  .tabletPanelBodyAdd .addFieldSmall,
+  .tabletPanelBodyAdd .addFieldSmallWide,
+  .tabletPanelBodyAdd .addFieldSingle{
+    width:100%;
+  }
+}
+
+@media (max-width: 1564px) and (min-width: 1202px){
+  .embeddedContent{
+    width:min(1565px, 100%);
+    min-height:1080px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns:minmax(640px, 1100px) minmax(354px, 524px);
+    column-gap:clamp(28px, 5vw, 100px);
+    align-items:start;
+  }
+
+  .dictionaryColumn,
+  .sidePanel,
+  .dictionaryColumnLocked{
+    position:relative;
+    left:auto;
+    top:auto;
+    width:100%;
+    min-width:0;
+  }
+
+  .dictionaryTopLine,
+  .dictionaryBottomLine,
+  .dictionaryAddLine,
+  .grammarTopLine,
+  .dictionaryHeader,
+  .dictionaryReviewOverlay{
+    width:100%;
+  }
+
+  .wordsArea{
+    width:calc(100% - 26px);
+  }
+
+  .floatingAddButton,
+  .repeatButton{
+    left:auto;
+    right:0;
+  }
+
+  .grammarButtonsColumn{
+    width:min(472px, calc(100% - 256px));
+  }
+}
+
+
+@media (max-width: 1201px) and (min-width: 701px){
+  .embeddedViewport{
+    overflow-x:auto;
+    overflow-y:hidden;
+  }
+
+  .embeddedContent{
+    width:1201px;
+    min-width:1201px;
+    min-height:1080px;
+    margin:0;
+    display:grid;
+    grid-template-columns:minmax(640px, 1100px) minmax(354px, 524px);
+    column-gap:clamp(28px, 5vw, 100px);
+    align-items:start;
+  }
+
+  .dictionaryColumn,
+  .sidePanel,
+  .dictionaryColumnLocked{
+    position:relative;
+    left:auto;
+    top:auto;
+    width:100%;
+    min-width:0;
+  }
+
+  .dictionaryTopLine,
+  .dictionaryBottomLine,
+  .dictionaryAddLine,
+  .grammarTopLine,
+  .dictionaryReviewOverlay{
+    width:100%;
+  }
+
+  .dictionaryHeader{
+    width:100%;
+    min-height:28px;
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    align-items:end;
+    column-gap:10px;
+    padding-right:0;
+    box-sizing:border-box;
+  }
+
+  .dictionaryTitle,
+  .grammarHeader{
+    font-size:26px;
+  }
+
+  .dictionaryTabs{
+    margin-left:0;
+    gap:8px;
+    flex-wrap:nowrap;
+    min-width:0;
+    overflow:hidden;
+  }
+
+  .filterTab{
+    flex:0 0 auto;
+    font-size:14px;
+  }
+
+  .filterDivider{
+    height:14px;
+  }
+
+  .headerIcons{
+    position:static;
+    gap:10px;
+    justify-self:end;
+  }
+
+  .iconButton,
+  .headerIconAsset{
+    width:24px;
+    height:24px;
+  }
+
+  .wordsArea{
+    width:calc(100% - 26px);
+  }
+
+  .floatingAddButton,
+  .repeatButton{
+    left:auto;
+    right:0;
+  }
+
+  .grammarButtonsColumn{
+    width:min(100%, 388px);
+  }
+
+  .grammarTopicButton{
+    width:100%;
+    height:46px;
+    font-size:18px;
+    padding:0 12px;
+  }
+
+  .repeatButton{
+    width:188px;
+    height:46px;
+    font-size:18px;
+  }
+}
+
+@media (max-width: 1500px) and (min-width: 701px){
+  .levelColumnsWrap{
+    gap:10px;
+  }
+
+  .levelColumn{
+    width:calc((100% - 20px) / 3);
+  }
+
+  .levelColumnGrid{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1260px) and (min-width: 701px){
+  .sidePanelSharedCloseButton{
+    right:20px;
+  }
+
+  .sidePanelContent,
+  .sidePanelContentWord,
+  .sidePanelContentGrammar{
+    left:20px;
+    width:calc(100% - 36px);
+  }
+
+  .sidePanelContentSearch{
+    left:20px;
+    width:calc(100% - 36px);
+  }
+
+  .sidePanelContentAdd{
+    left:20px;
+    width:min(354px, calc(100% - 36px));
+  }
+
+  .grammarPanelInner,
+  .searchPanelInner,
+  .searchPanelBody,
+  .searchPanelInputBlock,
+  .wordSidebarInner,
+  .addPanelInner,
+  .addFormLayout{
+    width:100%;
+  }
+
+  .searchPanelInput,
+  .sideActionDivider,
+  .searchPanelButton,
+  .addFieldWide,
+  .addFieldWideAuto,
+  .addPanelDivider,
+  .addSubmitButton{
+    width:100%;
+  }
+
+  .addRowTop,
+  .addRowSecond{
+    gap:12px;
+  }
+}
+
+@media (max-width: 700px){
+  .embeddedViewport{
+    height:100%;
+    min-width:430px;
+    overflow:hidden;
+  }
+
+  .mobileShell{
+    height:100%;
+    min-width:430px;
+    display:flex;
+    flex-direction:column;
+  }
+
+  .mobileTopBar{
+    position:relative;
+    flex:0 0 51px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:0px 26px 0;
+    box-sizing:border-box;
+  }
+
+  .mobileTopBar::after{
+    content:"";
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    height:3px;
+    background:linear-gradient(90deg, rgba(222, 189, 211, .95) 0%, rgba(136, 171, 212, .95) 100%);
+    pointer-events:none;
+  }
+
+  .mobileBackButton,
+  .mobileBackSpacer{
+    width:44px;
+    height:44px;
+    flex:0 0 44px;
+  }
+
+  .mobileBackButton{
+    position:relative;
+    border:none;
+    background:transparent;
+    padding:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#26415E;
+    cursor:pointer;
+  }
+
+  .mobileBackButton::before,
+  .mobileBackButton::after{
+    content:none;
+  }
+
+  .mobileBackButton svg{
+    width:24px;
+    height:24px;
+    display:block;
+  }
+
+  .mobileTopBarTitle{
+    flex:1 1 auto;
+    text-align:center;
+    font-weight:700;
+    font-size:30px;
+    line-height:1.1;
+    color:#26415E;
+  }
+
+  .mobileScrollArea{
+    flex:1 1 auto;
+    overflow-y:auto;
+    padding:16px 24px 28px;
+    box-sizing:border-box;
+  }
+
+  .mobileScrollArea::-webkit-scrollbar{
+    display:none;
+  }
+
+  .mobileDictionarySection{
+    min-height:100%;
+  }
+
+  .mobileDictionaryContentViewport{
+    margin-top:5px;
+    height:172px;
+    max-height:172px;
+    overflow-y:auto;
+    overflow-x:hidden;
+    padding-right:0px;
+    box-sizing:border-box;
+    -ms-overflow-style:none;
+    scrollbar-width:none;
+  }
+
+  .mobileDictionaryContentViewport::-webkit-scrollbar{
+    display:none;
+  }
+
+  .mobileReviewContentViewport{
+    height:172px;
+    max-height:172px;
+  }
+
+  .mobileLevelContentViewport{
+    height:172px;
+    max-height:172px;
+  }
+
+  .mobileDictionaryTitle,
+  .mobileGrammarHeader{
+    font-weight:700;
+    font-size:30px;
+    line-height:1.05;
+    color:#26415E;
+    text-transform:uppercase;
+  }
+
+  .mobileDictionaryTabsRow{
+    margin-top:0px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:20px;
+  }
+
+  .mobileDictionaryTabs{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    gap:6px;
+    flex:1 1 auto;
+    min-width:0;
+  }
+
+  .mobileFilterTab{
+    font-size:17px;
+    line-height:24px;
+  }
+
+  .mobileFilterDivider{
+    height:16px;
+  }
+
+  .mobileHeaderIcons{
+    display:flex;
+    align-items:center;
+    gap:0px;
+    flex:0 0 auto;
+  }
+
+  .mobileIconButton{
+    width:46px;
+    height:32px;
+  }
+
+  .mobileBlueDivider,
+  .mobilePinkDivider,
+  .mobileReviewResultTopDivider{
+    width:100%;
+    height:4px;
+  }
+
+  .mobileBlueDivider,
+  .mobileReviewResultTopDivider{
+    margin-top:4px;
+    background:#83A6CE;
+  }
+
+  .mobilePinkDivider{
+    background:#E5C9D7;
+  }
+
+  .mobileWordsGrid{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:18px 18px;
+    align-items:start;
+    padding:14px 10px 2px 0;
+    box-sizing:border-box;
+  }
+
+  .mobileWordChipWrap,
+  .mobileLevelWordChipWrap{
+    position:relative;
+    min-width:0;
+  }
+
+  .mobileWordChip,
+  .mobileLevelWordChip{
+    width:100%;
+    max-width:none;
+    min-width:0;
+    min-height:40px;
+    border-radius:10px;
+    padding:8px 18px;
+    display:flex;
+    flex-direction:row;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    text-align:center;
+  }
+
+  .mobileLevelWordChip{
+    min-height:40px;
+    padding:8px 18px;
+  }
+
+  .mobileWordChipWord{
+    max-width:100%;
+    font-size:16px;
+    line-height:22px;
+  }
+
+  .mobileWordChipTranslation{
+    flex:0 1 auto;
+    max-width:100%;
+    font-size:16px;
+    line-height:22px;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+
+  .mobileWordChipDeleteButton{
+    top:-14px;
+    right:-6px;
+    width:32px;
+    height:29px;
+    border-radius:8px;
+  }
+
+  .mobileWordChipDeleteInner{
+    width:24px;
+    height:21px;
+    border-radius:8px;
+  }
+
+  .mobileEmptyState{
+    height:172px;
+    min-height:172px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size:20px;
+    line-height:1.2;
+    color:rgba(137, 157, 180, .5);
+    text-align:center;
+  }
+
+  .mobileReviewGroupsWrap{
+    padding-right:4px;
+  }
+
+  .mobileReviewGroup + .mobileReviewGroup{
+    margin-top:18px;
+  }
+
+  .mobileReviewGroupTitle{
+    margin-bottom:10px;
+    font-weight:700;
+    font-size:20px;
+    line-height:1.1;
+    color:#26415E;
+  }
+
+  .mobileLevelColumnsWrap{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:12px;
+    align-items:start;
+  }
+
+  .mobileLevelColumn{
+    min-width:0;
+  }
+
+  .mobileLevelColumnHeader{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    font-weight:700;
+    font-size:16px;
+    line-height:1.1;
+    color:#26415E;
+  }
+
+  .mobileLevelColumnArrow{
+    border:none;
+    background:transparent;
+    color:#E0C9DC;
+    padding:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+  }
+
+  .mobileLevelColumnArrow svg{
+    width:10px;
+    height:16px;
+  }
+
+  .mobileLevelColumnGrid{
+    margin-top:14px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    max-height:141px;
+    overflow-y:auto;
+    padding-right:4px;
+    -ms-overflow-style:none;
+    scrollbar-width:none;
+  }
+
+  .mobileLevelColumnGrid::-webkit-scrollbar{
+    display:none;
+  }
+
+  .mobileDividerActionRow{
+    margin-top:6px;
+    display:flex;
+    align-items:center;
+    gap:18px;
+  }
+
+  .mobileDividerActionRow .mobilePinkDivider{
+    flex:1 1 auto;
+  }
+
+  .mobilePlusButton{
+    width:32px;
+    height:32px;
+    border:none;
+    background:transparent;
+    padding:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#26415E;
+    flex:0 0 auto;
+    cursor:pointer;
+  }
+
+  .mobilePlusButton svg{
+    width:32px;
+    height:32px;
+  }
+
+  .mobileGrammarHeader{
+    margin-top:4px;
+  }
+
+  .mobileGrammarButtonsColumn{
+    margin-top:20px;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:16px;
+  }
+
+  .mobileGrammarTopicButton{
+    width:min(100%, 472px);
+    height:50px;
+    border-radius:10px;
+    font-size:20px;
+    line-height:22px;
+    padding:0 12px;
+  }
+
+  .mobileRepeatButton,
+  .mobilePrimaryButton{
+    position:static;
+    width:min(100%, 320px);
+    height:60px;
+    margin-top:28px;
+    border-radius:18px;
+    font-size:24px;
+    line-height:1.1;
+    font-weight:700;
+    text-transform:none;
+  }
+
+  .mobileWordHero{
+    margin-bottom:22px;
+  }
+
+  .mobileWordTitleRow{
+    display:flex;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+
+  .mobileWordTitle{
+    font-weight:700;
+    font-size:54px;
+    line-height:.95;
+    color:#26415E;
+  }
+
+  .mobileWordTranslation{
+    font-weight:700;
+    font-size:22px;
+    line-height:1.1;
+    color:#899DB4;
+  }
+
+  .mobileWordPartOfSpeech{
+    margin-top:10px;
+    font-style:italic;
+    font-weight:600;
+    font-size:24px;
+    line-height:1.1;
+    color:#899DB4;
+  }
+
+  .mobileInfoBlock,
+  .mobileGrammarCard,
+  .mobileGrammarExampleCard,
+  .mobileReviewResultCard{
+    border-radius:22px;
+    background:#D3E1F0;
+    box-sizing:border-box;
+  }
+
+  .mobileInfoBlock{
+    margin-bottom:20px;
+    padding:20px 22px;
+  }
+
+  .mobileInfoLabel,
+  .mobilePanelTitle,
+  .mobilePanelSectionTitle{
+    color:#587089;
+    font-weight:600;
+    font-size:20px;
+    line-height:1.2;
+  }
+
+  .mobileInfoText,
+  .mobileInfoTextItalic{
+    white-space:pre-line;
+    color:#587089;
+    font-weight:700;
+    font-size:20px;
+    line-height:1.18;
+  }
+
+  .mobileInfoText{
+    margin-top:18px;
+  }
+
+  .mobileInfoTextItalic{
+    margin-top:14px;
+    font-style:italic;
+  }
+
+  .mobileInfoHeaderRow{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+
+  .mobileInfoArrowRow{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+
+  .mobileInfoArrowButton,
+  .mobileGrammarArrowButton{
+    width:24px;
+    height:24px;
+    border:none;
+    background:transparent;
+    padding:0;
+    color:#26415E;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+  }
+
+  .mobileInfoArrowButton svg,
+  .mobileGrammarArrowButton svg{
+    width:10px;
+    height:16px;
+  }
+
+  .mobileGrammarCard{
+    padding:24px 24px 22px;
+  }
+
+  .mobileGrammarCardHeader{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+  }
+
+  .mobileGrammarCardTitle{
+    font-weight:700;
+    font-size:22px;
+    line-height:1.1;
+    color:#26415E;
+    text-transform:uppercase;
+  }
+
+  .mobileGrammarCardSubtitle{
+    margin-top:10px;
+    font-weight:600;
+    font-size:16px;
+    line-height:1.15;
+    color:#587089;
+    text-transform:uppercase;
+  }
+
+  .mobileGrammarArrows{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex:0 0 auto;
+  }
+
+  .mobileGrammarBody{
+    margin-top:18px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .mobileGrammarLine,
+  .mobileQuestionBlockLine,
+  .mobileGrammarSectionItem,
+  .mobileGrammarSectionLine{
+    color:#587089;
+    font-weight:700;
+    font-size:20px;
+    line-height:1.18;
+    white-space:pre-line;
+  }
+
+  .mobileGrammarLineLabel,
+  .mobileQuestionBlockTitle,
+  .mobileGrammarSectionItemTitle{
+    color:#587089;
+    font-weight:700;
+  }
+
+  .mobileGrammarExampleCard{
+    margin-top:22px;
+    padding:20px 22px;
+  }
+
+  .mobileGrammarExampleLabel{
+    color:#587089;
+    font-weight:700;
+    font-size:20px;
+    line-height:1.1;
+  }
+
+  .mobileGrammarExampleDivider{
+    width:68%;
+    height:4px;
+    margin:12px 0 14px;
+    background:#89A2C0;
+  }
+
+  .mobileGrammarExampleLine{
+    white-space:pre-line;
+    font-size:20px;
+    line-height:1.18;
+  }
+
+  .mobileGrammarExampleLineAccent{
+    color:#587089;
+    font-weight:700;
+    font-style:italic;
+  }
+
+  .mobileGrammarExampleLinePlain{
+    color:#587089;
+    font-weight:600;
+    margin-top:4px;
+  }
+
+  .mobileQuestionsBlocks{
+    display:flex;
+    flex-direction:column;
+    gap:22px;
+  }
+
+  .mobileQuestionBlockTitle{
+    margin-top:18px;
+    font-size:22px;
+    line-height:1.12;
+  }
+
+  .mobileQuestionBlockLine{
+    margin-top:8px;
+  }
+
+  .mobileGrammarSections{
+    margin-top:24px;
+    display:flex;
+    flex-direction:column;
+    gap:22px;
+  }
+
+  .mobileGrammarSectionTitle{
+    color:#26415E;
+    font-weight:700;
+    font-size:22px;
+    line-height:1.12;
+    text-transform:uppercase;
+  }
+
+  .mobileGrammarSectionItemWrap{
+    margin-top:14px;
+  }
+
+  .mobileGrammarSectionDivider{
+    width:100%;
+    height:2px;
+    margin:12px 0 0;
+    background:#C0D2E7;
+  }
+
+  .mobilePanelTitle{
+    margin-bottom:22px;
+  }
+
+  .mobilePanelSectionTitle{
+    margin-top:34px;
+  }
+
+  .mobileSearchInput{
+    width:100%;
+    height:132px;
+    margin-top:22px;
+    border:1.5px solid #B2C3D5;
+    border-radius:18px;
+    background:#D3E1F0;
+    padding:0 18px;
+    box-sizing:border-box;
+    color:#26415E;
+    font-family:var(--vocabulary-font);
+    font-size:24px;
+    font-weight:600;
+    outline:none;
+  }
+
+  .mobileSearchResultsBlock{
+    width:100%;
+    margin-top:28px;
+  }
+
+  .mobileSearchResultsGrid{
+    width:100%;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    padding:0;
+  }
+
+  .mobileSearchResultWrap{
+    display:contents;
+  }
+
+  .mobileSearchWordDetails{
+    grid-column:1 / -1;
+    width:100%;
+    margin-top:4px;
+  }
+
+  .mobileSearchWordDetails .wordSidebarInner{
+    width:100%;
+    min-height:auto;
+  }
+
+  .mobileSearchWordDetails .wordSidebarTitleWrap,
+  .mobileSearchWordDetails .wordInfoBlock{
+    width:100%;
+  }
+
+  .mobileSearchWordDetails .wordSidebarTitleWrap{
+    padding-top:18px;
+  }
+
+  .mobileAddGrid{
+    display:flex;
+    flex-direction:column;
+  }
+
+  .mobileAddRow{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:18px;
+  }
+
+  .mobileAddRowSingle{
+    margin-top:18px;
+    display:flex;
+  }
+
+  .mobileAddField{
+    display:block;
+    border:1.5px solid #B2C3D5;
+    border-radius:18px;
+    background:#D3E1F0;
+    overflow:hidden;
+  }
+
+  .mobileAddFieldHalf{
+    width:calc(50% - 9px);
+  }
+
+  .mobileAddRow .mobileAddFieldHalf{
+    width:auto;
+  }
+
+  .mobileAddFieldLabel{
+    display:block;
+    padding:16px 18px 0;
+    color:#587089;
+    font-weight:600;
+    font-size:16px;
+    line-height:1.1;
+    text-transform:lowercase;
+  }
+
+  .mobileAddFieldInput{
+    width:100%;
+    min-height:92px;
+    border:none;
+    background:transparent;
+    padding:10px 18px 16px;
+    box-sizing:border-box;
+    resize:none;
+    outline:none;
+    color:#26415E;
+    font-family:var(--vocabulary-font);
+    font-size:18px;
+    font-weight:600;
+    line-height:1.2;
+  }
+
+  .mobileAddFieldInputSmall{
+    min-height:64px;
+  }
+
+  .mobileAddOptionalNote{
+    margin:10px 4px 18px auto;
+    color:#B2C3D5;
+    font-weight:600;
+    font-size:16px;
+    line-height:1.1;
+  }
+
+  .mobileReviewPlanWordsWrap{
+    position:relative;
+    margin-top:18px;
+    padding-right:32px;
+  }
+
+  .mobileReviewPlanWordsGrid{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:20px 16px;
+  }
+
+  .mobileReviewPlanWordButton{
+    min-height:72px;
+    border:none;
+    border-radius:16px;
+    background:#C5D7ED;
+    color:#26415E;
+    font-family:var(--vocabulary-font);
+    font-size:18px;
+    font-weight:700;
+    cursor:pointer;
+    padding:12px 10px;
+  }
+
+  .mobileReviewPlanWordButtonActive{
+    background:#AFC8E5;
+  }
+
+  .mobileReviewPlanNextButton{
+    position:absolute;
+    right:-2px;
+    top:50%;
+    transform:translateY(-50%);
+    width:24px;
+    height:24px;
+    border:none;
+    background:transparent;
+    padding:0;
+    color:#E0C9DC;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+  }
+
+  .mobileReviewPlanNextButton svg{
+    width:12px;
+    height:18px;
+  }
+
+  .mobilePlanOptions{
+    margin-top:28px;
+    display:flex;
+    flex-direction:column;
+    gap:22px;
+  }
+
+  .mobilePlanOptionLabel{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+  }
+
+  .mobilePlanOptionLabelWide{
+    align-items:flex-start;
+  }
+
+  .mobilePlanOptionText{
+    color:#557597;
+    font-weight:700;
+    font-size:18px;
+    line-height:1.15;
+  }
+
+  .mobilePlanOptionHint{
+    color:#8B9FB9;
+    font-size:14px;
+    font-weight:600;
+  }
+
+  .mobilePlanDaysWrap{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+
+  .mobilePlanDaysInput{
+    width:70px;
+    height:46px;
+    border:1.5px solid #B2C3D5;
+    border-radius:14px;
+    background:#D3E1F0;
+    text-align:center;
+    color:#26415E;
+    font-family:var(--vocabulary-font);
+    font-size:18px;
+    font-weight:700;
+    outline:none;
+  }
+
+  .mobilePlanCheckbox{
+    width:52px;
+    height:52px;
+    flex:0 0 52px;
+    border-radius:16px;
+    background:#D5E4F1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+  }
+
+  .mobilePlanCheckboxInner{
+    width:36px;
+    height:36px;
+    border-radius:14px;
+    background:#6481A2;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .mobilePlanCheckboxMark{
+    color:#FFFFFF;
+    font-size:22px;
+    line-height:1;
+  }
+
+  .mobileReviewResultCardsWrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:34px;
+    margin-top:34px;
+  }
+
+  .mobileReviewResultCard{
+    width:min(100%, 344px);
+    overflow:hidden;
+  }
+
+  .mobileReviewResultCardHead{
+    min-height:72px;
+    background:#89A9CF;
+    color:#FFFFFF;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size:24px;
+    line-height:1.1;
+  }
+
+  .mobileReviewResultCardValue{
+    min-height:110px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#26415E;
+    font-weight:700;
+    font-size:48px;
+    line-height:1;
+  }
+
+  .mobileReviewProgressWrap{
+    margin-top:8px;
+  }
+
+  .mobileReviewProgressBar{
+    position:relative;
+    width:100%;
+    height:44px;
+    border-radius:999px;
+    background:#C5D7ED;
+    overflow:hidden;
+  }
+
+  .mobileReviewProgressFill{
+    position:absolute;
+    left:0;
+    top:0;
+    bottom:0;
+    background:#89A9CF;
+    border-radius:999px;
+  }
+
+  .mobileReviewProgressText{
+    position:relative;
+    z-index:1;
+    width:100%;
+    height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#26415E;
+    font-weight:700;
+    font-size:24px;
+    line-height:1;
+  }
+
+  .mobileReviewCardButton{
+    position:relative;
+    width:100%;
+    max-width:520px;
+    aspect-ratio:1 / 1;
+    margin:32px auto 0;
+    border:none;
+    background:transparent;
+    padding:0;
+    cursor:pointer;
+    perspective:1500px;
+  }
+
+  .mobileReviewCardButtonFlipped .mobileReviewCardFlipWrap{
+    transform:rotateY(180deg);
+  }
+
+  .mobileReviewCardLayer{
+    position:absolute;
+    inset:0;
+    border-radius:48px;
+    background:linear-gradient(180deg, rgba(197, 215, 237, .94) 0%, rgba(218, 205, 229, .92) 100%);
+    border:2px solid rgba(215, 229, 244, .9);
+  }
+
+  .mobileReviewCardLayerBack{
+    transform:translate(22px, -14px) rotate(6deg);
+  }
+
+  .mobileReviewCardLayerMiddle{
+    transform:translate(-10px, 10px) rotate(-4deg);
+  }
+
+  .mobileReviewCardFlipWrap{
+    position:absolute;
+    inset:0;
+    transform-style:preserve-3d;
+    transition:transform .4s ease;
+  }
+
+  .mobileReviewCardFace{
+    position:absolute;
+    inset:0;
+    border-radius:48px;
+    backface-visibility:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(180deg, rgba(197, 215, 237, .98) 0%, rgba(218, 205, 229, .95) 100%);
+    border:2px solid rgba(215, 229, 244, .96);
+    padding:24px;
+    box-sizing:border-box;
+  }
+
+  .mobileReviewCardFaceBack{
+    transform:rotateY(180deg);
+  }
+
+  .mobileReviewCardFaceText{
+    color:#FFFFFF;
+    font-weight:700;
+    font-size:64px;
+    line-height:1.05;
+    text-align:center;
+    word-break:break-word;
+  }
+
+  .mobileWordInUseButton{
+    width:100%;
+    min-height:64px;
+    margin-top:28px;
+    border:1.5px solid #B4C0CD;
+    border-radius:20px;
+    background:#F5F5F5;
+    color:#26415E;
+    padding:0 18px 0 16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    cursor:pointer;
+    font-size:18px;
+    font-weight:700;
+  }
+
+  .mobileWordInUseButtonDisabled{
+    opacity:.55;
+    cursor:default;
+  }
+
+  .mobileWordInUseCard{
+    margin-top:14px;
+    border-radius:24px;
+    background:#FFFFFF;
+    border:1.6px solid #2D4869;
+    padding:18px 20px;
+  }
+
+  .mobileReviewActionsRow{
+    margin-top:28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+  }
+
+  .mobileReviewActionButton{
+    width:96px;
+    height:96px;
+    border:none;
+    border-radius:28px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    color:#FFFFFF;
+    flex:0 0 auto;
+  }
+
+  .mobileReviewActionButton svg{
+    width:44px;
+    height:44px;
+  }
+
+  .mobileReviewActionButtonWrong,
+  .mobileReviewActionButtonSkip{
+    background:#BDD1EA;
+    color:#FFFFFF;
+  }
+
+  .mobileReviewActionButtonCorrect{
+    flex:1 1 auto;
+    background:#E5C9D7;
+    color:#C88DBD;
+  }
+
+  .mobileReviewActionButtonDisabled{
+    opacity:.5;
+    cursor:default;
+  }
+}
+
+@media (max-width: 700px){
+  .tabletTopBar{
+    flex:0 0 51px;
+    align-items:center;
+    padding:0 26px;
+  }
+
+  .tabletTopBar::after{
+    height:3px;
+    background:linear-gradient(90deg, rgba(222, 189, 211, .95) 0%, rgba(136, 171, 212, .95) 100%);
+  }
+
+  .tabletBackButton,
+  .tabletBackSpacer{
+    width:44px;
+    height:44px;
+    flex:0 0 44px;
+  }
+
+  .tabletBackButton svg,
+  .mobileBackButton svg{
+    width:28px;
+    height:28px;
+  }
+
+  .tabletTopBarTitle{
+    font-size:30px;
+    line-height:1.1;
+  }
+
+  .tabletPanelBodyAdd.mobileSidebarPanelBody{
+    width:100%;
+    max-width:354px;
+    margin:0 auto;
+  }
+
+  .tabletPanelBodyAdd.mobileSidebarPanelBody .addPanelInner,
+  .tabletPanelBodyAdd.mobileSidebarPanelBody .addFormLayout{
+    width:100%;
+    max-width:354px;
+  }
+
+  .tabletPanelBodyAdd.mobileSidebarPanelBody .addRowTop,
+  .tabletPanelBodyAdd.mobileSidebarPanelBody .addRowSecond{
+    flex-direction:row;
+    gap:20px;
+  }
+
+  .tabletPanelBodyAdd.mobileSidebarPanelBody .addFieldSmallWide,
+  .tabletPanelBodyAdd.mobileSidebarPanelBody .addFieldSingle{
+    width:calc((100% - 20px) / 2);
+  }
+
+  .tabletPanelBodyAdd.mobileSidebarPanelBody .addFieldWideAuto,
+  .tabletPanelBodyAdd.mobileSidebarPanelBody .addPanelDivider,
+  .tabletPanelBodyAdd.mobileSidebarPanelBody .addSubmitButton{
+    width:100%;
+  }
+}
+
+@media (max-width: 700px){
+  .mobileDictionaryContentViewport .mobileWordsGrid,
+  .mobileReviewGroupsWrap .mobileWordsGrid{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-start;
+    justify-content:flex-start;
+    gap:18px;
+  }
+
+  .mobileDictionaryContentViewport .mobileWordChipWrap,
+  .mobileReviewGroupsWrap .mobileWordChipWrap{
+    flex:0 0 auto;
+    width:auto;
+  }
+
+  .mobileDictionaryContentViewport .mobileWordChip,
+  .mobileReviewGroupsWrap .mobileWordChip{
+    width:auto;
+    min-width:110px;
+    max-width:min(210px, 100%);
+    height:auto;
+    white-space:normal;
+  }
+
+  .mobileDictionaryContentViewport .mobileWordChipWord,
+  .mobileDictionaryContentViewport .mobileWordChipTranslation,
+  .mobileReviewGroupsWrap .mobileWordChipWord,
+  .mobileReviewGroupsWrap .mobileWordChipTranslation{
+    flex:0 1 auto;
+    min-width:0;
+    max-width:100%;
+    white-space:normal;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+
+  .mobileSearchResultsGrid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .mobileSearchResultsGrid .mobileWordChipWrap{
+    width:auto;
+  }
+
+  .mobileSearchResultsGrid .mobileWordChip{
+    width:100%;
+    min-width:0;
+    max-width:none;
+  }
+
+  .mobileLevelWordChip{
+    width:100%;
+    max-width:100%;
+    min-width:0;
+  }
+
+  .tabletPanelBodyReviewPlan.mobileSidebarPanelBody .reviewPlanWordsWrap{
+    width:100%;
+    max-width:none;
+    padding-right:32px;
+    box-sizing:border-box;
+  }
+
+  .tabletPanelBodyReviewPlan.mobileSidebarPanelBody .reviewPlanWordsGrid{
+    width:100%;
+    max-width:none;
+    grid-template-columns:repeat(auto-fill, minmax(80px, max-content));
+    justify-content:start;
+  }
+
+  .tabletPanelBodyReviewPlan.mobileSidebarPanelBody .reviewPlanWordButton{
+    width:max-content;
+    min-width:80px;
+    max-width:180px;
+    white-space:normal;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+    text-align:center;
+  }
+
+  .mobileReviewPlanWordsGrid{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-start;
+    justify-content:flex-start;
+    gap:20px 16px;
+  }
+
+  .mobileReviewPlanWordButton{
+    width:auto;
+    min-width:80px;
+    max-width:180px;
+    min-height:39px;
+    border-radius:10px;
+    font-size:15px;
+    line-height:22px;
+    padding:8px 12px;
+    white-space:normal;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+    text-align:center;
+  }
+
+  .tabletPanelBodyReviewPlan.mobileSidebarPanelBody .addSubmitButton,
+  .tabletPanelBodyReviewResult.mobileSidebarPanelBody .primaryButton{
+    width:320px;
+    max-width:100%;
+    margin-left:auto;
+    margin-right:auto;
+  }
+
+  .tabletPanelBodyReviewCard.mobileSidebarPanelBody .reviewActionsDesigner{
+    justify-content:center;
+    gap:29px;
+  }
+
+  .tabletPanelBodyReviewCard.mobileSidebarPanelBody .reviewActionsDesigner button{
+    flex:0 0 auto;
+    min-width:0;
+  }
+
+  .tabletPanelBodyReviewCard.mobileSidebarPanelBody .reviewDesignerActionWrong,
+  .tabletPanelBodyReviewCard.mobileSidebarPanelBody .reviewDesignerActionSkip{
+    width:76.09px;
+    height:62px;
+  }
+
+  .tabletPanelBodyReviewCard.mobileSidebarPanelBody .reviewDesignerActionCorrect{
+    width:108px;
+    height:88px;
+  }
+}
+
+
+@media (max-width: 700px){
+  .mobileReviewPlanPageButtons{
+    position:absolute;
+    right:-2px;
+    top:0;
+    bottom:0;
+    transform:none;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+  }
+
+  .mobileReviewPlanNextButton{
+    position:static;
+    transform:none;
+  }
+
+  .mobileReviewPlanNextButton:disabled{
+    opacity:.45;
+    cursor:default;
+  }
 }

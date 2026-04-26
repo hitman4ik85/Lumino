@@ -159,6 +159,7 @@ export function normalizeVocabularyCacheSnapshot(items, dueItems) {
 }
 
 export async function preloadVocabularyCache() {
+  const requestAuthSessionVersion = authStorage.getAuthSessionVersion();
   const [itemsRes, dueItemsRes] = await Promise.all([
     vocabularyService.getMyVocabulary(),
     typeof vocabularyService.getDueVocabulary === "function"
@@ -181,7 +182,9 @@ export async function preloadVocabularyCache() {
       : []
   );
 
-  writeVocabularyCache(normalizedSnapshot.items, normalizedSnapshot.dueItems);
+  if (authStorage.isSameAuthSessionVersion(requestAuthSessionVersion)) {
+    writeVocabularyCache(normalizedSnapshot.items, normalizedSnapshot.dueItems);
+  }
 
   return {
     ok: true,

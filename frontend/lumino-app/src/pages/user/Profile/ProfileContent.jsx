@@ -29,6 +29,7 @@ import PointsIcon from "../../../assets/home/shared/points.svg";
 import LightThemeIcon from "../../../assets/icons/theme/light_theme.svg";
 import DarkThemeIcon from "../../../assets/icons/theme/dark_theme.svg";
 import PencilIcon from "../../../assets/profile/pencil-icon.svg";
+import SettingsIcon from "../../../assets/profile/settings.svg";
 
 const FLAG_MAP = {
   en: FlagEn,
@@ -62,6 +63,14 @@ const SETTINGS_ITEMS = [
   { key: "linkedAccounts", label: "Зв'язані облікові записи" },
 ];
 
+const PANEL_TITLES = {
+  parameters: "УРОКИ",
+  myData: "МОЇ ДАНІ",
+  changePassword: "ЗМІНА ПАРОЛЯ",
+  languages: "МОВИ",
+  linkedAccounts: "ЗВ'ЯЗАНІ ОБЛІКОВІ ЗАПИСИ",
+};
+
 function normalizeCode(code) {
   return String(code || "").trim().toLowerCase();
 }
@@ -91,7 +100,7 @@ function formatRegistrationDate(value) {
 
   const [year, month, day] = iso.split("-");
 
-  return `${day}.${month}.${year}`;
+  return `${day}.${month}.${year} Р.`;
 }
 
 function formatProfileName(value) {
@@ -194,7 +203,33 @@ function buildChartSeries(week, previousWeek) {
 }
 
 function Chart({ currentWeek, previousWeek }) {
-  const width = 1100;
+  const chartRef = useRef(null);
+  const [chartWidth, setChartWidth] = useState(1100);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+
+    if (!chart) return;
+
+    const updateWidth = () => {
+      setChartWidth(Math.max(Math.round(chart.clientWidth || 0), 320));
+    };
+
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateWidth);
+
+      return () => window.removeEventListener("resize", updateWidth);
+    }
+
+    const resizeObserver = new ResizeObserver(updateWidth);
+    resizeObserver.observe(chart);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  const width = chartWidth;
   const height = 248;
   const left = 70;
   const right = 20;
@@ -211,7 +246,7 @@ function Chart({ currentWeek, previousWeek }) {
   const buildLine = (items) => items.map((item, index) => `${index === 0 ? "M" : "L"} ${getX(index)} ${getY(item)}`).join(" ");
 
   return (
-    <svg className={styles.chartSvg} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Прогрес за тиждень">
+    <svg ref={chartRef} className={styles.chartSvg} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Прогрес за тиждень">
       {steps.map((item, index) => (
         <g key={item}>
           <text x="18" y={top + index * (innerHeight / 3) + 8} className={styles.chartAxisLabel}>{item}</text>
@@ -269,7 +304,11 @@ export default function ProfileContent({ onProfileChange = null }) {
   const [savingName, setSavingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const nameInputRef = useRef(null);
+  const viewportRef = useRef(null);
   const [stageNode, setStageNode] = useState(null);
+  const [isMobileLayout, setIsMobileLayout] = useState(() => typeof window !== "undefined" && window.innerWidth <= 900);
+  const [mobileView, setMobileView] = useState("main");
+  const [viewportDrag, setViewportDrag] = useState({ active: false, startX: 0, startScrollLeft: 0 });
 
   const theme = useMemo(() => {
     if (profile?.theme === "dark") {
@@ -324,8 +363,95 @@ export default function ProfileContent({ onProfileChange = null }) {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const handleResize = () => {
+      setIsMobileLayout(window.innerWidth <= 900);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileLayout) {
+      setMobileView("main");
+      return;
+    }
+
+    if (activePanel) {
+      setMobileView("panel");
+      return;
+    }
+
+    if (mobileView === "panel") {
+      setMobileView("menu");
+    }
+  }, [activePanel, isMobileLayout, mobileView]);
+
+  useEffect(() => {
+    if (!viewportDrag.active) {
+      return undefined;
+    }
+
+    const handleMouseMove = (event) => {
+      const viewport = viewportRef.current;
+
+      if (!viewport) {
+        return;
+      }
+
+      viewport.scrollLeft = viewportDrag.startScrollLeft - (event.clientX - viewportDrag.startX);
+    };
+
+    const handleMouseUp = () => {
+      setViewportDrag((current) => current.active ? { ...current, active: false } : current);
+    };
+
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [viewportDrag]);
+
+  useEffect(() => {
     onProfileChangeRef.current = onProfileChange;
   }, [onProfileChange]);
+
+  const handleViewportMouseDown = useCallback((event) => {
+    if (isMobileLayout || event.button !== 0) {
+      return;
+    }
+
+    const viewport = viewportRef.current;
+
+    if (!viewport || viewport.scrollWidth <= viewport.clientWidth) {
+      return;
+    }
+
+    if (event.target.closest("button, input, textarea, select, a, label, [role='button']")) {
+      return;
+    }
+
+    event.preventDefault();
+
+    setViewportDrag({
+      active: true,
+      startX: event.clientX,
+      startScrollLeft: viewport.scrollLeft,
+    });
+  }, [isMobileLayout]);
 
   const notifyProfileChange = useCallback((nextProfile) => {
     if (typeof onProfileChangeRef.current === "function") {
@@ -362,6 +488,39 @@ export default function ProfileContent({ onProfileChange = null }) {
       window.removeEventListener("keydown", handleModalEscape);
     };
   }, [avatarModalOpen, closeModal, isDeleteAccountModal, isLanguageWarningModal]);
+
+  const handleOpenPanel = useCallback((panelKey) => {
+    setActivePanel(panelKey);
+
+    if (isMobileLayout) {
+      setMobileView("panel");
+    }
+  }, [isMobileLayout]);
+
+  const handleClosePanel = useCallback(() => {
+    setActivePanel("");
+
+    if (isMobileLayout) {
+      setMobileView("menu");
+    }
+  }, [isMobileLayout]);
+
+  const handleOpenMobileSettings = useCallback(() => {
+    setActivePanel("");
+    setMobileView("menu");
+  }, []);
+
+  const handleCloseMobileSettings = useCallback(() => {
+    setActivePanel("");
+    setMobileView("main");
+  }, []);
+
+  const handleBackToMobileMenu = useCallback(() => {
+    setActivePanel("");
+    setMobileView("menu");
+  }, []);
+
+  const activePanelTitle = activePanel ? (PANEL_TITLES[activePanel] || "") : "";
 
   const showInfo = useCallback((title, message) => {
     setModal({
@@ -691,14 +850,16 @@ export default function ProfileContent({ onProfileChange = null }) {
     });
   }, [loadProfile, showInfo]);
 
-  const renderPanelContent = () => {
+  const renderPanelContent = (showHeader = true) => {
     if (activePanel === "parameters") {
       return (
         <div className={styles.panelContent}>
-          <div className={styles.panelHeaderRow}>
-            <div className={styles.panelTitle}>УРОКИ</div>
-            <button type="button" className={styles.panelClose} onClick={() => setActivePanel("")} aria-label="Закрити" />
-          </div>
+          {showHeader ? (
+            <div className={styles.panelHeaderRow}>
+              <div className={styles.panelTitle}>УРОКИ</div>
+              <button type="button" className={styles.panelClose} onClick={handleClosePanel} aria-label="Закрити" />
+            </div>
+          ) : null}
 
           <div className={styles.parameterRow}>
             <div className={styles.parameterLabel}>Тема</div>
@@ -720,10 +881,12 @@ export default function ProfileContent({ onProfileChange = null }) {
     if (activePanel === "myData") {
       return (
         <div className={styles.myDataPanel}>
-          <div className={`${styles.panelHeaderRow} ${styles.myDataHeaderRow}`}>
-            <div className={styles.panelTitle}>МОЇ ДАНІ</div>
-            <button type="button" className={`${styles.panelClose} ${styles.myDataClose}`} onClick={() => setActivePanel("")} aria-label="Закрити" />
-          </div>
+          {showHeader ? (
+            <div className={`${styles.panelHeaderRow} ${styles.myDataHeaderRow}`}>
+              <div className={styles.panelTitle}>МОЇ ДАНІ</div>
+              <button type="button" className={`${styles.panelClose} ${styles.myDataClose}`} onClick={handleClosePanel} aria-label="Закрити" />
+            </div>
+          ) : null}
 
           <div className={styles.myDataLabel}>ІМ'Я</div>
           <div className={`${styles.myDataField} ${styles.myDataFieldWithAction} ${editingName ? styles.myDataFieldEditing : ""}`}>
@@ -780,10 +943,12 @@ export default function ProfileContent({ onProfileChange = null }) {
     if (activePanel === "changePassword") {
       return (
         <div className={styles.changePasswordPanel}>
-          <div className={`${styles.panelHeaderRow} ${styles.changePasswordHeaderRow}`}>
-            <div className={styles.panelTitle}>ЗМІНА ПАРОЛЯ</div>
-            <button type="button" className={`${styles.panelClose} ${styles.changePasswordClose}`} onClick={() => setActivePanel("")} aria-label="Закрити" />
-          </div>
+          {showHeader ? (
+            <div className={`${styles.panelHeaderRow} ${styles.changePasswordHeaderRow}`}>
+              <div className={styles.panelTitle}>ЗМІНА ПАРОЛЯ</div>
+              <button type="button" className={`${styles.panelClose} ${styles.changePasswordClose}`} onClick={handleClosePanel} aria-label="Закрити" />
+            </div>
+          ) : null}
 
           <div className={styles.changePasswordLabel}>СТАРИЙ ПАРОЛЬ</div>
           <div className={styles.changePasswordFieldWrap}>
@@ -848,10 +1013,12 @@ export default function ProfileContent({ onProfileChange = null }) {
     if (activePanel === "languages") {
       return (
         <div className={styles.panelContent}>
-          <div className={styles.panelHeaderRow}>
-            <div className={styles.panelTitle}>МОВИ</div>
-            <button type="button" className={styles.panelClose} onClick={() => setActivePanel("")} aria-label="Закрити" />
-          </div>
+          {showHeader ? (
+            <div className={styles.panelHeaderRow}>
+              <div className={styles.panelTitle}>МОВИ</div>
+              <button type="button" className={styles.panelClose} onClick={handleClosePanel} aria-label="Закрити" />
+            </div>
+          ) : null}
 
           <div className={styles.languageList}>
             {displayLanguages.map((item) => {
@@ -879,10 +1046,12 @@ export default function ProfileContent({ onProfileChange = null }) {
 
       return (
         <div className={styles.panelContent}>
-          <div className={styles.panelHeaderRow}>
-            <div className={styles.panelTitle}>ЗВ'ЯЗАНІ ОБЛІКОВІ ЗАПИСИ</div>
-            <button type="button" className={styles.panelClose} onClick={() => setActivePanel("")} aria-label="Закрити" />
-          </div>
+          {showHeader ? (
+            <div className={styles.panelHeaderRow}>
+              <div className={styles.panelTitle}>ЗВ'ЯЗАНІ ОБЛІКОВІ ЗАПИСИ</div>
+              <button type="button" className={styles.panelClose} onClick={handleClosePanel} aria-label="Закрити" />
+            </div>
+          ) : null}
 
           <div className={styles.linkedAccountRow}>
             <div className={styles.linkedAccountLeft}>
@@ -906,8 +1075,153 @@ export default function ProfileContent({ onProfileChange = null }) {
     );
   };
 
+  const renderProfileMainSection = () => (
+    <section className={styles.profileColumn}>
+      {isMobileLayout ? (
+        <>
+          <div className={styles.mobilePageHeader}>
+            <span className={styles.mobilePageHeaderSpacer} aria-hidden="true" />
+            <div className={styles.mobilePageHeaderTitle}>Профіль</div>
+            <span className={styles.mobilePageHeaderSpacer} aria-hidden="true" />
+          </div>
+          <div className={styles.mobilePageHeaderDivider} />
+        </>
+      ) : null}
+
+      <div className={styles.heroCard}>
+        <div className={styles.heroName}>{profileName}</div>
+        {isMobileLayout ? (
+          <button type="button" className={styles.mobileSettingsButton} onClick={handleOpenMobileSettings} aria-label="Відкрити налаштування профілю">
+            <img className={styles.mobileSettingsIcon} src={SettingsIcon} alt="" aria-hidden="true" />
+          </button>
+        ) : null}
+        {activeAvatarUrl ? <img className={styles.heroAvatar} src={resolveAssetUrl(activeAvatarUrl)} alt="Аватар користувача" /> : null}
+      </div>
+
+      <div className={styles.profileMeta}>@{(profile?.email || "").split("@")[0].toUpperCase()} РЕЄСТРАЦІЯ: {formatRegistrationDate(profile?.createdAt)}</div>
+      <div className={styles.topDivider} />
+
+      <div className={styles.statsRow}>
+        <div className={`${styles.statCard} ${styles.statCardLanguage}`}>
+          <img className={styles.statIconFlag} src={getFlagByCode(activeTargetLanguageCode || profile?.targetLanguageCode)} alt="" aria-hidden="true" />
+          <span>{activeLanguageText}</span>
+        </div>
+
+        <div className={`${styles.statCard} ${styles.statCardStreak}`}>
+          <img className={styles.statIcon} src={HeaderStreak} alt="" aria-hidden="true" />
+          <span>{profile?.currentStreakDays || 0} день</span>
+        </div>
+
+        <div className={`${styles.statCard} ${styles.statCardPoints}`}>
+          <img className={styles.statIcon} src={PointsIcon} alt="" aria-hidden="true" />
+          <span>{weeklyProgress.totalPoints || 0} балів</span>
+        </div>
+
+        <div className={`${styles.statCard} ${styles.statCardCrystals}`}>
+          <img className={styles.statIcon} src={HeaderCrystal} alt="" aria-hidden="true" />
+          <span>{profile?.crystals || 0}</span>
+        </div>
+
+        <div className={`${styles.statCard} ${styles.statCardEnergy}`}>
+          <img className={styles.statIcon} src={HeaderEnergy} alt="" aria-hidden="true" />
+          <span>{profile?.hearts || 0}</span>
+        </div>
+      </div>
+
+      <div className={styles.sectionTitle}>ПРОГРЕС ЗА ТИЖДЕНЬ</div>
+      <div className={styles.chartWrap}>
+        <Chart currentWeek={chartSeries.current} previousWeek={chartSeries.previous} />
+      </div>
+      <div className={styles.bottomDivider} />
+
+      <div className={styles.legend}>
+        <div className={styles.legendRow}>
+          <span className={`${styles.legendDot} ${styles.legendDotPrevious}`} />
+          <span className={styles.legendLabel}>Минулий</span>
+          <span className={styles.legendValue}>{chartSeries.previous.reduce((sum, item) => sum + item, 0)} балів</span>
+        </div>
+        <div className={styles.legendRow}>
+          <span className={`${styles.legendDot} ${styles.legendDotCurrent}`} />
+          <span className={styles.legendLabel}>Цей</span>
+          <span className={styles.legendValue}>{chartSeries.current.reduce((sum, item) => sum + item, 0)} балів</span>
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderDesktopSettingsColumn = () => (
+    <>
+      <div className={styles.contentDivider} />
+
+      <aside className={styles.settingsColumn}>
+        <div className={styles.settingsTitle}>Налаштування</div>
+        <div className={styles.accountTitle}>ОБЛІКОВИЙ ЗАПИС</div>
+
+        <div className={styles.settingsNav}>
+          {settingsItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={`${styles.settingsButton} ${activePanel === item.key ? styles.settingsButtonActive : ""}`}
+              onClick={() => handleOpenPanel(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <div className={styles.settingsDivider} />
+        {renderPanelContent()}
+      </aside>
+    </>
+  );
+
+  const renderMobileSettingsMenu = () => (
+    <section className={styles.mobileScreen}>
+      <div className={styles.mobilePageHeader}>
+        <button type="button" className={`${styles.mobilePageHeaderAction} ${styles.mobilePageHeaderActionClose}`} onClick={handleCloseMobileSettings} aria-label="Закрити налаштування" />
+        <div className={styles.mobilePageHeaderTitle}>Налаштування</div>
+        <span className={styles.mobilePageHeaderSpacer} aria-hidden="true" />
+      </div>
+      <div className={styles.mobilePageHeaderDivider} />
+
+      <div className={styles.accountTitle}>ОБЛІКОВИЙ ЗАПИС</div>
+
+      <div className={styles.settingsNav}>
+        {settingsItems.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={`${styles.settingsButton} ${activePanel === item.key ? styles.settingsButtonActive : ""}`}
+            onClick={() => handleOpenPanel(item.key)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      <div className={styles.settingsDivider} />
+      {renderPanelContent()}
+    </section>
+  );
+
+  const renderMobilePanelScreen = () => (
+    <section className={styles.mobileScreen}>
+      <div className={styles.mobilePageHeader}>
+        <button type="button" className={`${styles.mobilePageHeaderAction} ${styles.mobilePageHeaderActionBack}`} onClick={handleBackToMobileMenu} aria-label="Назад до налаштувань" />
+        <div className={styles.mobilePageHeaderTitle}>{activePanelTitle}</div>
+        <span className={styles.mobilePageHeaderSpacer} aria-hidden="true" />
+      </div>
+      <div className={styles.mobilePageHeaderDivider} />
+
+      <div className={styles.mobilePanelBody}>
+        {renderPanelContent(false)}
+      </div>
+    </section>
+  );
+
   return (
-    <div className={`${styles.embeddedViewport} ${theme === "dark" ? styles.viewportDark : ""}`}>
+    <div ref={viewportRef} className={`${styles.embeddedViewport} ${theme === "dark" ? styles.viewportDark : ""} ${viewportDrag.active ? styles.embeddedViewportDragging : ""}`} onMouseDown={handleViewportMouseDown}>
       <GlassLoading open={loading || savingTheme || savingAvatar} text={loading ? "Завантажуємо профіль..." : "Зберігаємо зміни..."} stageTargetId="lumino-home-stage" />
       {!isLanguageWarningModal && !isDeleteAccountModal ? (
         <GlassModal
@@ -1014,84 +1328,14 @@ export default function ProfileContent({ onProfileChange = null }) {
       ) : null}
 
       <div className={styles.embeddedContent}>
-        <section className={styles.profileColumn}>
-          <div className={styles.heroCard}>
-            <div className={styles.heroName}>{profileName}</div>
-            {activeAvatarUrl ? <img className={styles.heroAvatar} src={resolveAssetUrl(activeAvatarUrl)} alt="Аватар користувача" /> : null}
-          </div>
-
-          <div className={styles.profileMeta}>@{(profile?.email || "").split("@")[0].toUpperCase()} РЕЄСТРАЦІЯ: {formatRegistrationDate(profile?.createdAt)}</div>
-          <div className={styles.topDivider} />
-
-          <div className={styles.statsRow}>
-            <div className={`${styles.statCard} ${styles.statCardLanguage}`}>
-              <img className={styles.statIconFlag} src={getFlagByCode(activeTargetLanguageCode || profile?.targetLanguageCode)} alt="" aria-hidden="true" />
-              <span>{activeLanguageText}</span>
-            </div>
-
-            <div className={`${styles.statCard} ${styles.statCardStreak}`}>
-              <img className={styles.statIcon} src={HeaderStreak} alt="" aria-hidden="true" />
-              <span>{profile?.currentStreakDays || 0} день</span>
-            </div>
-
-            <div className={`${styles.statCard} ${styles.statCardPoints}`}>
-              <img className={styles.statIcon} src={PointsIcon} alt="" aria-hidden="true" />
-              <span>{weeklyProgress.totalPoints || 0} балів</span>
-            </div>
-
-            <div className={`${styles.statCard} ${styles.statCardCrystals}`}>
-              <img className={styles.statIcon} src={HeaderCrystal} alt="" aria-hidden="true" />
-              <span>{profile?.crystals || 0}</span>
-            </div>
-
-            <div className={`${styles.statCard} ${styles.statCardEnergy}`}>
-              <img className={styles.statIcon} src={HeaderEnergy} alt="" aria-hidden="true" />
-              <span>{profile?.hearts || 0}</span>
-            </div>
-          </div>
-
-          <div className={styles.sectionTitle}>ПРОГРЕС ЗА ТИЖДЕНЬ</div>
-          <div className={styles.chartWrap}>
-            <Chart currentWeek={chartSeries.current} previousWeek={chartSeries.previous} />
-          </div>
-          <div className={styles.bottomDivider} />
-
-          <div className={styles.legend}>
-            <div className={styles.legendRow}>
-              <span className={`${styles.legendDot} ${styles.legendDotPrevious}`} />
-              <span className={styles.legendLabel}>Минулий</span>
-              <span className={styles.legendValue}>{chartSeries.previous.reduce((sum, item) => sum + item, 0)} балів</span>
-            </div>
-            <div className={styles.legendRow}>
-              <span className={`${styles.legendDot} ${styles.legendDotCurrent}`} />
-              <span className={styles.legendLabel}>Цей</span>
-              <span className={styles.legendValue}>{chartSeries.current.reduce((sum, item) => sum + item, 0)} балів</span>
-            </div>
-          </div>
-        </section>
-
-        <div className={styles.contentDivider} />
-
-        <aside className={styles.settingsColumn}>
-          <div className={styles.settingsTitle}>Налаштування</div>
-          <div className={styles.accountTitle}>ОБЛІКОВИЙ ЗАПИС</div>
-
-          <div className={styles.settingsNav}>
-            {settingsItems.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className={`${styles.settingsButton} ${activePanel === item.key ? styles.settingsButtonActive : ""}`}
-                onClick={() => setActivePanel(item.key)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div className={styles.settingsDivider} />
-          {renderPanelContent()}
-        </aside>
+        {isMobileLayout ? (
+          mobileView === "main" ? renderProfileMainSection() : mobileView === "menu" ? renderMobileSettingsMenu() : renderMobilePanelScreen()
+        ) : (
+          <>
+            {renderProfileMainSection()}
+            {renderDesktopSettingsColumn()}
+          </>
+        )}
       </div>
     </div>
   );

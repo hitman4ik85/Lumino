@@ -954,9 +954,10 @@ function setCachedHomeSnapshot(value) {
     setCachedCoursePath(activeLanguageCode, activeCourseId, normalizedPath);
   }
 
-  const { path, ...compactValue } = value;
-
-  writePersistentUserCache(key, compactValue);
+  writePersistentUserCache(key, {
+    ...value,
+    path: normalizedPath,
+  });
 }
 
 function resolveMediaUrl(value) {
@@ -1779,6 +1780,9 @@ export default function HomePage() {
 
   const loadHome = useCallback(async (preferredLanguageCode = "", showBlocking = true) => {
     const requestId = loadHomeRequestRef.current + 1;
+    const requestAuthSessionVersion = authStorage.getAuthSessionVersion();
+    const isCurrentHomeRequest = () => loadHomeRequestRef.current === requestId && authStorage.isSameAuthSessionVersion(requestAuthSessionVersion);
+
     loadHomeRequestRef.current = requestId;
     loadHomeStartedRef.current = true;
 
@@ -1791,7 +1795,7 @@ export default function HomePage() {
         ? normalizeCode(preferredLanguageCode || localStorage.getItem("targetLanguage") || guestTargetLanguageCode || "en")
         : normalizeCode(preferredLanguageCode || languageState.activeTargetLanguageCode || "");
       onboardingService.getSupportedLanguages().then((supportedRes) => {
-        if (supportedRes.ok) {
+        if (supportedRes.ok && authStorage.isSameAuthSessionVersion(requestAuthSessionVersion)) {
           const nextSupportedLanguages = Array.isArray(supportedRes.items) ? supportedRes.items : [];
           setSupportedLanguages(nextSupportedLanguages);
           setCachedSupportedLanguages(nextSupportedLanguages);
@@ -1800,6 +1804,11 @@ export default function HomePage() {
 
       if (isGuest) {
         const publicCoursesRes = await coursesService.getPublishedCourses(preferred);
+
+        if (!isCurrentHomeRequest()) {
+          return { hasCourses: false, activeTargetLanguageCode: preferred };
+        }
+
         const publicCourses = publicCoursesRes.items || [];
         const nextCourse = publicCourses[0] || null;
         const todayIso = getKyivTodayIso();
@@ -1821,6 +1830,10 @@ export default function HomePage() {
       }
 
       const [userRes, languagesRes] = await Promise.all([userService.getMe({ force: true }), onboardingService.getMyLanguages()]);
+
+      if (!isCurrentHomeRequest()) {
+        return { hasCourses: false, activeTargetLanguageCode: preferred };
+      }
 
       if (isAuthExpiredResponse(userRes) || isAuthExpiredResponse(languagesRes)) {
         return { hasCourses: courses.length > 0, activeTargetLanguageCode: preferred };
@@ -1846,12 +1859,17 @@ export default function HomePage() {
       });
 
       const myCoursesRes = await coursesService.getMyCourses(targetCode);
+
+      if (!isCurrentHomeRequest()) {
+        return { hasCourses: false, activeTargetLanguageCode: targetCode };
+      }
+
       const nextCourses = myCoursesRes.items || [];
 
       if (nextCourses.length === 0) {
         const availabilityRes = await onboardingService.getLanguageAvailability(targetCode);
 
-        if (loadHomeRequestRef.current !== requestId) {
+        if (!isCurrentHomeRequest()) {
           return { hasCourses: false, activeTargetLanguageCode: targetCode };
         }
 
@@ -1899,7 +1917,22 @@ export default function HomePage() {
 
       let nextPathForCache = cachedPath;
 
-      setPathLoading(Boolean(activeCourse?.id) && !cachedPath);
+      if (activeCourse?.id && !nextPathForCache) {
+        setPathLoading(true);
+
+        const pathRes = await learningService.getMyCoursePath(activeCourse.id);
+
+        if (!isCurrentHomeRequest()) {
+          return { hasCourses: false, activeTargetLanguageCode: targetCode };
+        }
+
+        if (pathRes?.ok) {
+          nextPathForCache = normalizeCoursePath(pathRes.data);
+          setCachedCoursePath(targetCode, activeCourse.id, nextPathForCache);
+        }
+      }
+
+      setPathLoading(Boolean(activeCourse?.id) && !nextPathForCache);
       setCourses(nextCourses);
       setCourse(activeCourse);
       setPath(nextPathForCache);
@@ -1923,21 +1956,22 @@ export default function HomePage() {
       });
       setLoading(false);
 
+      const shouldLoadPathInBackground = Boolean(activeCourse?.id) && !nextPathForCache;
       const backgroundRequests = [
         streakService.getMyStreak(),
         streakService.getMyCalendarMonth(calendarMonth.year, calendarMonth.month),
       ];
 
-      if (activeCourse?.id) {
+      if (shouldLoadPathInBackground) {
         backgroundRequests.unshift(learningService.getMyCoursePath(activeCourse.id));
       }
 
       Promise.all(backgroundRequests).then((responses) => {
-        if (loadHomeRequestRef.current !== requestId) {
+        if (!isCurrentHomeRequest()) {
           return;
         }
 
-        const hasPathResponse = Boolean(activeCourse?.id);
+        const hasPathResponse = shouldLoadPathInBackground;
         const pathRes = hasPathResponse ? responses[0] : null;
         const streakRes = responses[hasPathResponse ? 1 : 0];
         const calendarRes = responses[hasPathResponse ? 2 : 1];
@@ -2004,14 +2038,14 @@ export default function HomePage() {
           calendarMonth,
         });
       }).catch(() => {
-        if (loadHomeRequestRef.current === requestId) {
+        if (isCurrentHomeRequest()) {
           setPathLoading(false);
         }
       });
 
       return { hasCourses: nextCourses.length > 0, activeTargetLanguageCode: targetCode };
     } finally {
-      if (loadHomeRequestRef.current === requestId) {
+      if (isCurrentHomeRequest()) {
         setLoading(false);
       }
     }
@@ -2312,10 +2346,15 @@ export default function HomePage() {
 
     const targetCode = normalizeCode(item?.languageCode || activeLanguageCode || languageState.activeTargetLanguageCode || "");
     const cachedPath = getCachedCoursePath(targetCode, item.id);
+    const requestAuthSessionVersion = authStorage.getAuthSessionVersion();
 
     setPath(cachedPath);
 
     learningService.getMyCoursePath(item.id).then((pathRes) => {
+      if (!authStorage.isSameAuthSessionVersion(requestAuthSessionVersion)) {
+        return;
+      }
+
       if (pathRes.ok) {
         const normalizedPath = normalizeCoursePath(pathRes.data);
         setPath(normalizedPath);
@@ -2336,6 +2375,7 @@ export default function HomePage() {
     }
 
     const requestId = scenesRequestRef.current + 1;
+    const requestAuthSessionVersion = authStorage.getAuthSessionVersion();
     scenesRequestRef.current = requestId;
 
     const sourceCourses = [currentCourseForScenes].filter(Boolean);
@@ -2367,7 +2407,7 @@ export default function HomePage() {
       const responses = await Promise.all(sourceCourses.map((item) => scenesService.getForMe(item?.id)));
       const nextScenes = mergeScenesOverviewWithPath(buildScenesOverviewItems(sourceCourses, responses), path);
 
-      if (scenesRequestRef.current !== requestId) {
+      if (scenesRequestRef.current !== requestId || !authStorage.isSameAuthSessionVersion(requestAuthSessionVersion)) {
         return;
       }
 
@@ -2378,7 +2418,7 @@ export default function HomePage() {
         return;
       }
     } finally {
-      if (scenesRequestRef.current === requestId) {
+      if (scenesRequestRef.current === requestId && authStorage.isSameAuthSessionVersion(requestAuthSessionVersion)) {
         setLoading(false);
       }
     }
@@ -2479,9 +2519,11 @@ export default function HomePage() {
       state: {
         topic,
         scene,
+        course,
+        coursePath: path,
       },
     });
-  }, [navigate]);
+  }, [course, navigate, path]);
 
   const handleSceneSunClick = useCallback(async (topic, scene, disabled) => {
     if (isGuest) {
@@ -2541,9 +2583,11 @@ export default function HomePage() {
       state: {
         topic,
         lesson,
+        course,
+        coursePath: path,
       },
     });
-  }, [guestPrompt, isGuest, navigate, showInfo, user.hearts, warmSceneForLastLesson]);
+  }, [course, guestPrompt, isGuest, navigate, path, showInfo, user.hearts, warmSceneForLastLesson]);
 
   const handleTrackMouseDown = useCallback((event) => {
     const track = trackRef.current;
@@ -3225,7 +3269,7 @@ export default function HomePage() {
           </div>
         ) : null}
 
-        <main className={`${styles.body} ${isFullPanelView ? styles.bodyFull : ""} ${(bodyView === "achievements" || bodyView === "languages") ? styles.bodyWithoutTopBarMobile : ""}`}>{renderBody()}</main>
+        <main className={`${styles.body} ${isFullPanelView ? styles.bodyFull : ""} ${["achievements", "languages", "dictionary", "profile"].includes(bodyView) ? styles.bodyWithoutTopBarMobile : ""}`}>{renderBody()}</main>
       </div>
     </div>
   );

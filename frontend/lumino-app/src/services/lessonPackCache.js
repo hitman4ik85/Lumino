@@ -126,6 +126,7 @@ export function clearCachedLessonPack(lessonId, options = {}) {
 export async function preloadLessonPack(lessonId, options = {}) {
   const normalizedLessonId = Number(lessonId || 0);
   const normalizedMode = normalizeLessonPackMode(options.mode);
+  const requestAuthSessionVersion = authStorage.getAuthSessionVersion();
   const cached = options.force ? null : getCachedLessonPack(normalizedLessonId, { mode: normalizedMode });
 
   if (cached) {
@@ -183,7 +184,7 @@ export async function preloadLessonPack(lessonId, options = {}) {
       exercises,
     };
 
-    if (data.lesson && data.exercises.length > 0) {
+    if (data.lesson && data.exercises.length > 0 && authStorage.isSameAuthSessionVersion(requestAuthSessionVersion)) {
       setCachedLessonPack(normalizedLessonId, { mode: normalizedMode }, data);
     }
 

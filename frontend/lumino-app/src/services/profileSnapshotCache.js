@@ -107,6 +107,7 @@ export function mergeCachedProfileSnapshot(patch = {}) {
 }
 
 export async function preloadProfileSnapshot(seed = {}) {
+  const requestAuthSessionVersion = authStorage.getAuthSessionVersion();
   const profileSeed = seed.profile && typeof seed.profile === "object" ? seed.profile : null;
   const languagesSeed = Array.isArray(seed.languages) ? seed.languages : [];
   const activeTargetLanguageCodeSeed = String(seed.activeTargetLanguageCode || profileSeed?.targetLanguageCode || "");
@@ -144,7 +145,9 @@ export async function preloadProfileSnapshot(seed = {}) {
     },
   });
 
-  setCachedProfileSnapshot(snapshot);
+  if (authStorage.isSameAuthSessionVersion(requestAuthSessionVersion)) {
+    setCachedProfileSnapshot(snapshot);
+  }
 
   return {
     ok: true,

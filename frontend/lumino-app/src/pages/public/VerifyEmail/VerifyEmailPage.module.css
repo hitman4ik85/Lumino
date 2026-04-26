@@ -34,7 +34,7 @@
   right: 0;
 }
 
-.closeBtn{
+.backBtn{
   position: absolute;
   left: 72px;
   top: 52px;
@@ -78,9 +78,9 @@
 .formWrap{
   position: absolute;
   left: 50%;
-  top: 213px;
+  top: 168px;
   width: 1228px;
-  height: 700px;
+  height: 744px;
   border-radius: 46px;
   border: 1px solid rgba(255,255,255,0.52);
   background: linear-gradient(90deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.28) 52%, rgba(255,255,255,0.18) 100%);
@@ -93,13 +93,11 @@
 
 .title{
   position: absolute;
-  left: 339px;
-  top: 95.71px;
-  width: 550px;
-  height: 78px;
+  left: 0;
+  top: 88px;
+  width: 1228px;
   margin: 0;
   text-align: center;
-  white-space: nowrap;
   font-family: var(--font-ui);
   font-size: 65px;
   font-weight: 700;
@@ -109,91 +107,101 @@
 
 .subtitle{
   position: absolute;
-  left: 371px;
-  top: 203.71px;
-  width: 486px;
-  height: 48px;
+  left: 0;
+  top: 188px;
+  width: 1228px;
   margin: 0;
   text-align: center;
   font-family: var(--font-ui);
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 500;
   line-height: 24px;
   color: var(--color-primary);
 }
 
-.form{
-  position: absolute;
-  inset: 0;
-}
-
-.infoBox{
+.emailBox{
   position: absolute;
   left: 324px;
-  top: 292px;
+  top: 296px;
   width: 580px;
   min-height: 86px;
   border-radius: 22px;
-  border: 1px solid rgba(83, 129, 111, .44);
-  background: rgba(228, 245, 236, .78);
+  border: 1px solid rgba(106,125,144,.42);
+  background: rgba(255,255,255,.28);
   box-sizing: border-box;
   padding: 18px 24px;
+}
+
+.emailLabel{
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 20px;
+  color: #6A7D90;
+}
+
+.emailValue{
+  margin-top: 8px;
+  font-family: var(--font-ui);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 29px;
+  color: var(--color-primary);
+  word-break: break-word;
+}
+
+.statusBox{
+  position: absolute;
+  left: 324px;
+  top: 406px;
+  width: 580px;
+  min-height: 92px;
+  border-radius: 22px;
+  border: 1px solid rgba(106,125,144,.42);
+  background: rgba(255,255,255,.32);
+  box-sizing: border-box;
+  padding: 22px 24px;
   text-align: center;
   font-family: var(--font-ui);
   font-size: 20px;
   font-weight: 500;
   line-height: 28px;
   color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+.statusSuccess{
+  border-color: rgba(83, 129, 111, .44);
+  background: rgba(228, 245, 236, .78);
+}
 
-.inputWrap{
+.statusError{
+  border-color: rgba(208, 144, 189, .42);
+  background: rgba(253, 236, 247, .78);
+}
+
+.actions{
   position: absolute;
   left: 324px;
-  top: 402px;
+  top: 534px;
   width: 580px;
-  height: 70px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
-.input{
-  width: 100%;
-  height: 100%;
-  border-radius: 18px;
-  border: 1px solid #6A7D90;
-  background: transparent;
-  box-sizing: border-box;
-  padding: 0 26px;
-  outline: none;
-  font-family: var(--font-ui);
-  font-size: 24px;
-  font-weight: 500;
-  line-height: 29px;
-  color: var(--color-primary);
+.actionsCompact{
+  top: 496px;
 }
 
-.input::placeholder{
-  color: #6A7D90;
-  opacity: 1;
-}
-
-.input:focus{
-  border-color: var(--color-primary);
-}
-
-.inputError{
-  border-color: #d090bd;
-}
-
-.sendBtn{
-  position: absolute;
-  left: 324px;
-  top: 487px;
+.primaryBtn,
+.secondaryBtn{
   width: 580px;
   height: 70px;
   border-radius: 15px;
   border: 0;
-  background: var(--color-start);
-  color: #ffffff;
   cursor: pointer;
   padding: 0;
   display: inline-flex;
@@ -203,33 +211,55 @@
   font-size: 20px;
   font-weight: 700;
   line-height: 24px;
-  transition: background 120ms ease, opacity 120ms ease;
+  transition: background 120ms ease, opacity 120ms ease, color 120ms ease;
 }
 
-.sendBtn:hover{
+.primaryBtn{
+  background: var(--color-start);
+  color: #ffffff;
+}
+
+.primaryBtn:hover{
   background: var(--color-primary);
 }
 
-.sendBtn:disabled{
-  background: var(--color-start);
+.secondaryBtn{
+  border: 1px solid #6A7D90;
+  background: transparent;
+  color: var(--color-primary);
+}
+
+.secondaryBtn:hover{
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+  color: #ffffff;
+}
+
+.primaryBtn:disabled,
+.secondaryBtn:disabled{
+  opacity: 1;
   cursor: not-allowed;
 }
 
-.inlineError{
-  position: absolute;
-  left: 439px;
-  top: 587px;
-  width: 351px;
-  height: 24px;
-  margin: 0;
-  text-align: center;
-  font-family: var(--font-ui);
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 24px;
-  color: #d090bd;
+.primaryBtn:disabled{
+  background: var(--color-start);
 }
 
+.secondaryBtn:disabled{
+  background: transparent;
+  border-color: rgba(106,125,144,.38);
+  color: rgba(38,65,94,.48);
+}
+
+.primaryBtn:disabled:hover{
+  background: var(--color-start);
+}
+
+.secondaryBtn:disabled:hover{
+  background: transparent;
+  border-color: rgba(106,125,144,.38);
+  color: rgba(38,65,94,.48);
+}
 
 @media (max-width: 1180px){
   .bgLeft,
@@ -237,7 +267,7 @@
     opacity: 0.58;
   }
 
-  .closeBtn{
+  .backBtn{
     left: 40px;
     top: 40px;
   }
@@ -251,62 +281,61 @@
 
   .formWrap{
     left: 50%;
-    top: 190px;
+    top: 164px;
     width: 760px;
-    height: 560px;
+    height: 676px;
     margin-left: var(--lumino-stage-extra-x, 0px);
     transform: translateX(-50%);
   }
 
   .title{
     left: 0;
-    top: 70px;
+    top: 72px;
     width: 100%;
-    height: auto;
     font-size: 56px;
     line-height: 1.08;
   }
 
   .subtitle{
     left: 50%;
-    top: 150px;
+    top: 148px;
     width: calc(100% - 120px);
-    height: auto;
     transform: translateX(-50%);
     font-size: 18px;
     line-height: 24px;
   }
 
-  .infoBox,
-  .inputWrap,
-  .sendBtn,
-  .inlineError{
+  .emailBox,
+  .statusBox,
+  .actions,
+  .primaryBtn,
+  .secondaryBtn{
     left: 50%;
     transform: translateX(-50%);
   }
 
-  .infoBox,
-  .inputWrap,
-  .sendBtn{
+  .emailBox,
+  .statusBox,
+  .actions,
+  .primaryBtn,
+  .secondaryBtn{
     width: 520px;
   }
 
-  .infoBox{
-    top: 236px;
-    min-height: 96px;
+  .emailBox{
+    top: 260px;
   }
 
-  .inputWrap{
-    top: 356px;
+  .statusBox{
+    top: 374px;
   }
 
-  .sendBtn{
-    top: 441px;
+  .actions{
+    top: 504px;
   }
 
-  .inlineError{
-    top: 528px;
-    width: 520px;
+  .actionsCompact{
+    top: 470px;
   }
 }
 
@@ -320,7 +349,7 @@
     display: none;
   }
 
-  .closeBtn{
+  .backBtn{
     left: 24px;
     top: 30px;
   }
@@ -334,9 +363,9 @@
 
   .formWrap{
     left: 50%;
-    top: 176px;
+    top: 162px;
     width: 440px;
-    height: 590px;
+    height: 624px;
     border-radius: 32px;
     margin-left: var(--lumino-stage-extra-x, 0px);
     transform: translateX(-50%);
@@ -346,69 +375,77 @@
     left: 50%;
     top: 48px;
     width: calc(100% - 48px);
-    height: auto;
     transform: translateX(-50%);
     font-size: 38px;
     line-height: 1.08;
-    white-space: normal;
   }
 
   .subtitle{
     left: 50%;
-    top: 104px;
-    width: 352px;
-    height: auto;
+    top: 108px;
+    width: 360px;
     transform: translateX(-50%);
     font-size: 16px;
     line-height: 22px;
   }
 
-  .infoBox,
-  .inputWrap,
-  .sendBtn,
-  .inlineError{
+  .emailBox,
+  .statusBox,
+  .actions,
+  .primaryBtn,
+  .secondaryBtn{
     left: 50%;
     transform: translateX(-50%);
   }
 
-  .infoBox,
-  .inputWrap,
-  .sendBtn{
+  .emailBox,
+  .statusBox,
+  .actions,
+  .primaryBtn,
+  .secondaryBtn{
     width: 360px;
   }
 
-  .infoBox{
-    top: 176px;
-    min-height: 84px;
+  .emailBox{
+    top: 214px;
+    min-height: 78px;
     border-radius: 18px;
-    padding: 16px 18px;
-    font-size: 16px;
-    line-height: 22px;
+    padding: 16px 20px;
   }
 
-  .inputWrap{
-    top: 284px;
-    height: 60px;
+  .emailLabel{
+    font-size: 14px;
+    line-height: 18px;
   }
 
-  .input{
-    border-radius: 16px;
-    padding: 0 22px;
+  .emailValue{
+    margin-top: 6px;
     font-size: 20px;
     line-height: 24px;
   }
 
-  .sendBtn{
-    top: 364px;
+  .statusBox{
+    top: 312px;
+    min-height: 108px;
+    border-radius: 18px;
+    padding: 18px 20px;
+    font-size: 18px;
+    line-height: 24px;
+  }
+
+  .actions{
+    top: 444px;
+    gap: 14px;
+  }
+
+  .actionsCompact{
+    top: 408px;
+  }
+
+  .primaryBtn,
+  .secondaryBtn{
     height: 60px;
     font-size: 18px;
     line-height: 22px;
-  }
-
-  .inlineError{
-    top: 446px;
-    width: 360px;
-    font-size: 15px;
-    line-height: 20px;
   }
 }

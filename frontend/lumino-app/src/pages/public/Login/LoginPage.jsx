@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { validateEmail, validatePassword } from "../../../utils/validation.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
@@ -43,6 +43,7 @@ function GoogleIcon() {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const stageRef = useRef(null);
   const googleBtnHostRef = useRef(null);
 
@@ -66,7 +67,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
-  const [errorText, setErrorText] = useState("");
   const [modal, setModal] = useState({
     open: false,
     title: "",
@@ -77,9 +77,79 @@ export default function LoginPage() {
     onSecondary: null,
   });
 
+  const resetModal = () => {
+    setModal({
+      open: false,
+      title: "",
+      message: "",
+      primaryText: "OK",
+      secondaryText: "",
+      onPrimary: null,
+      onSecondary: null,
+    });
+  };
+
+  const showLoginModal = (title, message) => {
+    setModal({
+      open: true,
+      title,
+      message,
+      primaryText: "Добре",
+      secondaryText: "",
+      onPrimary: () => {
+        resetModal();
+      },
+      onSecondary: null,
+    });
+  };
+
+  const getLoginFailureModal = (res) => {
+    const text = String(res?.error || res?.data?.detail || res?.data?.message || res?.data?.error || "").trim();
+    const normalizedText = text.toLowerCase();
+
+    if (normalizedText.includes("user not found") || (normalizedText.includes("користувач") && normalizedText.includes("не знайден")) || Number(res?.status || 0) === 404) {
+      return {
+        title: "Користувача не знайдено",
+        message: "Користувача з такою електронною адресою немає в базі. Перевірте адресу або зареєструйте новий профіль.",
+      };
+    }
+
+    if (normalizedText.includes("invalid password") || normalizedText.includes("wrong password") || normalizedText.includes("incorrect password")) {
+      return {
+        title: "Невірний пароль",
+        message: "Пароль для цієї електронної адреси введено невірно. Перевірте пароль і спробуйте ще раз.",
+      };
+    }
+
+    if (Number(res?.status || 0) === 401) {
+      return {
+        title: "Не вдалося увійти",
+        message: "Електронна адреса або пароль введені невірно. Перевірте дані й спробуйте ще раз.",
+      };
+    }
+
+    return {
+      title: "Не вдалося увійти",
+      message: text || "Спробуйте ще раз трохи пізніше.",
+    };
+  };
+
   const getSuccessPath = () => {
     return authStorage.isAdmin() ? PATHS.admin : PATHS.home;
   };
+
+  useEffect(() => {
+    const stateEmail = String(location.state?.prefillEmail || "").trim();
+
+    if (!stateEmail) {
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      email: stateEmail,
+    }));
+  }, [location.state]);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,7 +167,7 @@ export default function LoginPage() {
           const credential = response?.credential || "";
 
           if (!credential) {
-            setErrorText("Не вдалося виконати вхід через Google.");
+            showLoginModal("Не вдалося увійти через Google", "Google не повернув дані для авторизації. Спробуйте ще раз.");
             return;
           }
 
@@ -109,7 +179,7 @@ export default function LoginPage() {
           });
 
           if (!res.ok) {
-            setErrorText(res.error || "Не вдалося виконати вхід через Google.");
+            showLoginModal("Не вдалося увійти через Google", res.error || "Спробуйте ще раз трохи пізніше.");
             setSubmitting(false);
             return;
           }
@@ -118,7 +188,7 @@ export default function LoginPage() {
           const refreshToken = res.data?.refreshToken || "";
 
           if (!token || !refreshToken) {
-            setErrorText("Бекенд не повернув токени авторизації.");
+            showLoginModal("Не вдалося увійти", "Бекенд не повернув токени авторизації. Спробуйте ще раз трохи пізніше.");
             setSubmitting(false);
             return;
           }
@@ -176,18 +246,6 @@ export default function LoginPage() {
   const isValid = !emailError && !passwordError;
   const canSubmit = isValid && !submitting;
 
-  const resetModal = () => {
-    setModal({
-      open: false,
-      title: "",
-      message: "",
-      primaryText: "OK",
-      secondaryText: "",
-      onPrimary: null,
-      onSecondary: null,
-    });
-  };
-
   const handleChange = (field) => (e) => {
     const value = e.target.value;
 
@@ -196,7 +254,6 @@ export default function LoginPage() {
       [field]: value,
     }));
 
-    setErrorText("");
   };
 
   const handleFocus = (field) => () => {
@@ -286,7 +343,6 @@ export default function LoginPage() {
     }
 
     setSubmitting(true);
-    setErrorText("");
 
     try {
       const res = await authService.login({
@@ -298,20 +354,32 @@ export default function LoginPage() {
         const text = (res.error || "").toLowerCase();
 
         if (text.includes("email not verified")) {
+          const unverifiedEmail = form.email.trim();
+
+          if (unverifiedEmail) {
+            localStorage.setItem("lumino_registered_email", unverifiedEmail);
+          }
+
           setModal({
             open: true,
             title: "Підтвердіть email",
             message:
               "Ваш email ще не підтверджено. Перейдіть у свою пошту, відкрийте лист і підтвердьте адресу, а потім увійдіть знову.",
-            primaryText: "Добре",
+            primaryText: "До підтвердження",
             secondaryText: "Надіслати ще раз",
             onPrimary: () => {
               resetModal();
+
+              if (unverifiedEmail) {
+                navigate(`${PATHS.verifyEmail}?email=${encodeURIComponent(unverifiedEmail)}`);
+                return;
+              }
             },
             onSecondary: handleResendVerification,
           });
         } else {
-          setErrorText("Невірна електронна адреса або пароль.");
+          const failureModal = getLoginFailureModal(res);
+          showLoginModal(failureModal.title, failureModal.message);
         }
 
         return;
@@ -321,14 +389,14 @@ export default function LoginPage() {
       const refreshToken = res.data?.refreshToken || "";
 
       if (!token || !refreshToken) {
-        setErrorText("Бекенд не повернув токени авторизації.");
+        showLoginModal("Не вдалося увійти", "Бекенд не повернув токени авторизації. Спробуйте ще раз трохи пізніше.");
         return;
       }
 
       authStorage.setTokens(token, refreshToken);
       navigate(getSuccessPath(), { replace: true });
     } catch {
-      setErrorText("Сталася помилка під час входу. Спробуйте ще раз.");
+      showLoginModal("Не вдалося увійти", "Сталася помилка під час входу. Спробуйте ще раз.");
     } finally {
       setSubmitting(false);
     }
@@ -344,7 +412,7 @@ export default function LoginPage() {
       }
     }
 
-    setErrorText("Google кнопка ще завантажується. Спробуйте ще раз за мить.");
+    showLoginModal("Google ще завантажується", "Google кнопка ще завантажується. Спробуйте ще раз за мить.");
   };
 
   return (
@@ -420,7 +488,6 @@ export default function LoginPage() {
               УВІЙТИ
             </button>
 
-            {!!errorText && <div className={styles.inlineError}>{errorText}</div>}
           </form>
 
           <div className={styles.orWrap}>

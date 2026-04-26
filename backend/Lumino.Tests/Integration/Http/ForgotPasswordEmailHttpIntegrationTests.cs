@@ -77,8 +77,10 @@ public class ForgotPasswordEmailHttpIntegrationTests : IClassFixture<ApiWebAppli
             Assert.Equal("test@lumino.com", sender.LastToEmail);
             Assert.False(string.IsNullOrWhiteSpace(sender.LastHtmlBody));
 
-            // Лист має містити або посилання, або token (для ручного введення у фронті)
+            // Лист має містити посилання для переходу на фронт відновлення
             Assert.Contains("reset", sender.LastHtmlBody!, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("email=test%40lumino.com", sender.LastHtmlBody!, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Lumino", sender.LastHtmlBody!, StringComparison.OrdinalIgnoreCase);
         }
     }
 

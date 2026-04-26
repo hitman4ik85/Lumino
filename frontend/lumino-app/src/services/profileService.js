@@ -1,5 +1,5 @@
 import { apiClient } from "./apiClient.js";
-import { readUserScopedRequestCache, removeUserScopedRequestCache, writeUserScopedRequestCache } from "./userScopedRequestCache.js";
+import { getUserScopedRequestCacheOptions, readUserScopedRequestCache, removeUserScopedRequestCache, writeUserScopedRequestCache } from "./userScopedRequestCache.js";
 
 const WEEKLY_PROGRESS_CACHE_NAMESPACE = "profile-weekly-progress";
 
@@ -9,7 +9,8 @@ export function clearWeeklyProgressCache() {
 
 export const profileService = {
   async getWeeklyProgress(options = {}) {
-    const cached = options.force ? null : readUserScopedRequestCache(WEEKLY_PROGRESS_CACHE_NAMESPACE);
+    const cacheOptions = getUserScopedRequestCacheOptions();
+    const cached = options.force ? null : readUserScopedRequestCache(WEEKLY_PROGRESS_CACHE_NAMESPACE, "", cacheOptions);
 
     if (cached && typeof cached === "object") {
       return {
@@ -24,7 +25,7 @@ export const profileService = {
     const normalized = res.ok ? (res.data || null) : null;
 
     if (res.ok && normalized) {
-      writeUserScopedRequestCache(WEEKLY_PROGRESS_CACHE_NAMESPACE, "", normalized);
+      writeUserScopedRequestCache(WEEKLY_PROGRESS_CACHE_NAMESPACE, "", normalized, cacheOptions);
     }
 
     return {

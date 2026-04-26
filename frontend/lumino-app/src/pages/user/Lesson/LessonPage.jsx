@@ -1145,6 +1145,8 @@ export default function LessonPage() {
   const isMistakesMode = location.state?.mode === "mistakes";
   const finalizedAttemptRef = useRef(false);
   const isDemoLesson = Boolean(location.state?.demoLesson);
+  const course = location.state?.course || null;
+  const coursePath = location.state?.coursePath || null;
   const demoLanguageCode = location.state?.demoLanguageCode || localStorage.getItem("targetLanguage") || "en";
   const demoLevel = location.state?.demoLevel || localStorage.getItem("lumino_course_level") || "a1";
 
@@ -1641,6 +1643,8 @@ export default function LessonPage() {
         state: {
           lesson,
           result: submitRes.data,
+          course,
+          coursePath,
           demoLesson: true,
           demoLanguageCode,
           demoLevel,
@@ -1693,11 +1697,13 @@ export default function LessonPage() {
       state: {
         lesson,
         result: submitRes.data,
+        course,
+        coursePath,
         hasNewAchievement,
         newlyEarnedAchievements,
       },
     });
-  }, [answers, currentExercise, demoLanguageCode, demoLevel, exerciseIndex, exercises, isDemoLesson, isMistakesMode, lesson, lessonId, navigate, startAchievements, startAchievementsCount, user.hearts]);
+  }, [answers, course, coursePath, currentExercise, demoLanguageCode, demoLevel, exerciseIndex, exercises, isDemoLesson, isMistakesMode, lesson, lessonId, navigate, startAchievements, startAchievementsCount, user.hearts]);
 
   const handleClose = useCallback(() => {
     setLessonModal({ open: true, type: "leaveLesson" });

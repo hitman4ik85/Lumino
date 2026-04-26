@@ -85,6 +85,7 @@ public class AuthForgotPasswordEmailTests
         Assert.Equal(1, fakeEmail.SendCallsCount);
         Assert.Equal("test@lumino.com", fakeEmail.LastToEmail);
         Assert.False(string.IsNullOrWhiteSpace(fakeEmail.LastHtmlBody));
+        Assert.Contains("email=test%40lumino.com", fakeEmail.LastHtmlBody!, StringComparison.OrdinalIgnoreCase);
     }
 
 

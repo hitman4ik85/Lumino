@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { PATHS } from "../../../routes/paths.js";
 import { validateEmail } from "../../../utils/validation.js";
 import { useStageScale } from "../../../hooks/useStageScale.js";
@@ -10,18 +10,11 @@ import styles from "./ForgotPasswordPage.module.css";
 
 import BgLeft from "../../../assets/backgrounds/bg2-left.webp";
 import BgRight from "../../../assets/backgrounds/bg2-right.webp";
-
-function CloseIcon() {
-  return (
-    <svg width="35" height="35" viewBox="0 0 35 35" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M8 8L27 27" stroke="#26415E" strokeWidth="2.5" strokeLinecap="round" />
-      <path d="M27 8L8 27" stroke="#26415E" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
-  );
-}
+import ArrowPrev from "../../../assets/icons/arrow-previous.svg";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const stageRef = useRef(null);
 
   useStageScale(stageRef, { mode: "absolute" });
@@ -32,8 +25,17 @@ export default function ForgotPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const [inlineError, setInlineError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
 
   const emailError = useMemo(() => validateEmail(email, { required: true }), [email]);
+
+  useEffect(() => {
+    const stateEmail = String(location.state?.email || "").trim();
+
+    if (stateEmail) {
+      setEmail(stateEmail);
+    }
+  }, [location.state]);
 
   const canSubmit = !emailError && !submitting;
 
@@ -59,7 +61,8 @@ export default function ForgotPasswordPage() {
     setInlineError("");
 
     try {
-      const res = await authService.forgotPassword({ email: email.trim() });
+      const trimmedEmail = email.trim();
+      const res = await authService.forgotPassword({ email: trimmedEmail });
 
       if (!res.ok) {
         const text = res.error || "";
@@ -67,12 +70,14 @@ export default function ForgotPasswordPage() {
         if (text.toLowerCase().includes("invalid")) {
           setInlineError("Введіть дійсну адресу ел. пошти.");
         } else {
-          setInlineError("Обліковий запис не знайдено");
+          setInlineError("Не вдалося надіслати лист. Спробуйте ще раз.");
         }
 
         return;
       }
 
+      localStorage.setItem("lumino_registered_email", trimmedEmail);
+      setRequestSent(true);
       setModalOpen(true);
     } catch {
       setInlineError("Сталася помилка. Спробуйте ще раз.");
@@ -88,10 +93,14 @@ export default function ForgotPasswordPage() {
       <GlassModal
         open={modalOpen}
         title="Лист надіслано"
-        message="Якщо обліковий запис існує, ми надіслали лист для скидання пароля на вашу електронну адресу."
+        message="Якщо обліковий запис існує, ми надіслали лист для скидання пароля на вашу електронну адресу. Перевірте пошту та відкрийте посилання з листа."
         onClose={() => {
           setModalOpen(false);
-          navigate(PATHS.login);
+          navigate(PATHS.login, {
+            state: {
+              prefillEmail: email.trim(),
+            },
+          });
         }}
         primaryText="До входу"
       />
@@ -101,7 +110,7 @@ export default function ForgotPasswordPage() {
         <img className={styles.bgRight} src={BgRight} alt="" />
 
         <button className={styles.closeBtn} type="button" onClick={handleClose}>
-          <CloseIcon />
+          <img className={styles.backIcon} src={ArrowPrev} alt="back" />
         </button>
 
         <button className={styles.loginLink} type="button" onClick={handleGoToLogin}>
@@ -116,6 +125,12 @@ export default function ForgotPasswordPage() {
             отримати посилання для скидання пароля.
           </p>
 
+          {requestSent ? (
+            <div className={styles.infoBox}>
+              Ми підготували лист для відновлення пароля. Перевірте вашу пошту та відкрийте посилання з листа.
+            </div>
+          ) : null}
+
           <form className={styles.form} onSubmit={handleSubmit} noValidate>
             <div className={styles.inputWrap}>
               <input
@@ -125,6 +140,7 @@ export default function ForgotPasswordPage() {
                 onChange={(e) => {
                   setEmail(e.target.value);
                   setInlineError("");
+                  setRequestSent(false);
                 }}
                 onFocus={() => setFocused(true)}
                 onBlur={() => {

@@ -1,5 +1,5 @@
 import { apiClient } from "./apiClient.js";
-import { readUserScopedRequestCache, removeUserScopedRequestCache, writeUserScopedRequestCache } from "./userScopedRequestCache.js";
+import { getUserScopedRequestCacheOptions, readUserScopedRequestCache, removeUserScopedRequestCache, writeUserScopedRequestCache } from "./userScopedRequestCache.js";
 
 const ACHIEVEMENTS_CACHE_NAMESPACE = "achievements-mine";
 
@@ -9,7 +9,8 @@ export function clearAchievementsCache() {
 
 export const achievementsService = {
   async getMine(options = {}) {
-    const cached = options.force ? null : readUserScopedRequestCache(ACHIEVEMENTS_CACHE_NAMESPACE);
+    const cacheOptions = getUserScopedRequestCacheOptions();
+    const cached = options.force ? null : readUserScopedRequestCache(ACHIEVEMENTS_CACHE_NAMESPACE, "", cacheOptions);
 
     if (Array.isArray(cached)) {
       return { ok: true, status: 200, data: cached, source: "cache" };
@@ -18,7 +19,7 @@ export const achievementsService = {
     const res = await apiClient.get("/achievements/me");
 
     if (res.ok && Array.isArray(res.data)) {
-      writeUserScopedRequestCache(ACHIEVEMENTS_CACHE_NAMESPACE, "", res.data);
+      writeUserScopedRequestCache(ACHIEVEMENTS_CACHE_NAMESPACE, "", res.data, cacheOptions);
     }
 
     return res;

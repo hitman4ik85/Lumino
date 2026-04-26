@@ -65,6 +65,8 @@ public class EmailVerificationHttpIntegrationTests : IClassFixture<ApiWebApplica
             Assert.Equal(beforeCalls + 1, sender.SendCallsCount);
             Assert.Equal("verify@lumino.com", sender.LastToEmail);
             Assert.Contains("verify", sender.LastHtmlBody!, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("email=verify%40lumino.com", sender.LastHtmlBody!, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Lumino", sender.LastHtmlBody!, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -113,7 +115,7 @@ public class EmailVerificationHttpIntegrationTests : IClassFixture<ApiWebApplica
     }
 
     [Fact]
-    public async Task VerifyEmail_ShouldReturnTokens_AndAllowLogin()
+    public async Task VerifyEmail_ShouldConfirmEmail_WithoutIssuingTokens()
     {
         string token;
 
@@ -163,10 +165,19 @@ public class EmailVerificationHttpIntegrationTests : IClassFixture<ApiWebApplica
             Assert.False(requires.GetBoolean());
 
             Assert.True(doc.RootElement.TryGetProperty("token", out var jwt));
-            Assert.False(string.IsNullOrWhiteSpace(jwt.GetString()));
+            Assert.Equal(JsonValueKind.Null, jwt.ValueKind);
 
             Assert.True(doc.RootElement.TryGetProperty("refreshToken", out var refresh));
-            Assert.False(string.IsNullOrWhiteSpace(refresh.GetString()));
+            Assert.Equal(JsonValueKind.Null, refresh.ValueKind);
+        }
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<LuminoDbContext>();
+            var user = dbContext.Users.Single(x => x.Email == "u@lumino.com");
+
+            Assert.True(user.IsEmailVerified);
+            Assert.Empty(dbContext.RefreshTokens);
         }
     }
 

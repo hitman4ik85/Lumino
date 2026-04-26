@@ -1,5 +1,5 @@
 import { apiClient } from "./apiClient.js";
-import { readUserScopedRequestCache, removeUserScopedRequestCache, writeUserScopedRequestCache } from "./userScopedRequestCache.js";
+import { getUserScopedRequestCacheOptions, readUserScopedRequestCache, removeUserScopedRequestCache, writeUserScopedRequestCache } from "./userScopedRequestCache.js";
 
 const VOCABULARY_ITEMS_CACHE_NAMESPACE = "vocabulary-items";
 const VOCABULARY_DUE_CACHE_NAMESPACE = "vocabulary-due";
@@ -18,17 +18,18 @@ export function clearVocabularyItemDetailsCache(id) {
   removeUserScopedRequestCache(VOCABULARY_ITEM_DETAILS_CACHE_NAMESPACE, String(id));
 }
 
-function cacheVocabularyItems(items) {
-  writeUserScopedRequestCache(VOCABULARY_ITEMS_CACHE_NAMESPACE, "", Array.isArray(items) ? items : []);
+function cacheVocabularyItems(items, cacheOptions = {}) {
+  writeUserScopedRequestCache(VOCABULARY_ITEMS_CACHE_NAMESPACE, "", Array.isArray(items) ? items : [], cacheOptions);
 }
 
-function cacheDueVocabulary(items) {
-  writeUserScopedRequestCache(VOCABULARY_DUE_CACHE_NAMESPACE, "", Array.isArray(items) ? items : []);
+function cacheDueVocabulary(items, cacheOptions = {}) {
+  writeUserScopedRequestCache(VOCABULARY_DUE_CACHE_NAMESPACE, "", Array.isArray(items) ? items : [], cacheOptions);
 }
 
 export const vocabularyService = {
   async getMyVocabulary(options = {}) {
-    const cached = options.force ? null : readUserScopedRequestCache(VOCABULARY_ITEMS_CACHE_NAMESPACE);
+    const cacheOptions = getUserScopedRequestCacheOptions();
+    const cached = options.force ? null : readUserScopedRequestCache(VOCABULARY_ITEMS_CACHE_NAMESPACE, "", cacheOptions);
 
     if (Array.isArray(cached)) {
       return { ok: true, status: 200, data: cached, source: "cache" };
@@ -37,14 +38,15 @@ export const vocabularyService = {
     const res = await apiClient.get("/vocabulary/me");
 
     if (res.ok) {
-      cacheVocabularyItems(Array.isArray(res.data) ? res.data : []);
+      cacheVocabularyItems(Array.isArray(res.data) ? res.data : [], cacheOptions);
     }
 
     return res;
   },
 
   async getDueVocabulary(options = {}) {
-    const cached = options.force ? null : readUserScopedRequestCache(VOCABULARY_DUE_CACHE_NAMESPACE);
+    const cacheOptions = getUserScopedRequestCacheOptions();
+    const cached = options.force ? null : readUserScopedRequestCache(VOCABULARY_DUE_CACHE_NAMESPACE, "", cacheOptions);
 
     if (Array.isArray(cached)) {
       return { ok: true, status: 200, data: cached, source: "cache" };
@@ -53,7 +55,7 @@ export const vocabularyService = {
     const res = await apiClient.get("/vocabulary/due");
 
     if (res.ok) {
-      cacheDueVocabulary(Array.isArray(res.data) ? res.data : []);
+      cacheDueVocabulary(Array.isArray(res.data) ? res.data : [], cacheOptions);
     }
 
     return res;
@@ -64,8 +66,9 @@ export const vocabularyService = {
   },
 
   async getItemDetails(id, options = {}) {
+    const cacheOptions = getUserScopedRequestCacheOptions();
     const cacheKey = String(id || "").trim();
-    const cached = options.force || !cacheKey ? null : readUserScopedRequestCache(VOCABULARY_ITEM_DETAILS_CACHE_NAMESPACE, cacheKey);
+    const cached = options.force || !cacheKey ? null : readUserScopedRequestCache(VOCABULARY_ITEM_DETAILS_CACHE_NAMESPACE, cacheKey, cacheOptions);
 
     if (cached && typeof cached === "object") {
       return { ok: true, status: 200, data: cached, source: "cache" };
@@ -74,7 +77,7 @@ export const vocabularyService = {
     const res = await apiClient.get(`/vocabulary/items/${id}`);
 
     if (res.ok && res.data && cacheKey) {
-      writeUserScopedRequestCache(VOCABULARY_ITEM_DETAILS_CACHE_NAMESPACE, cacheKey, res.data);
+      writeUserScopedRequestCache(VOCABULARY_ITEM_DETAILS_CACHE_NAMESPACE, cacheKey, res.data, cacheOptions);
     }
 
     return res;

@@ -17,6 +17,37 @@ const GOOGLE_CLIENT_ID =
   import.meta.env.VITE_GOOGLE_CLIENT_ID ||
   "356032698202-a51919qlrad2bhf4384ldl429qan5nad.apps.googleusercontent.com";
 
+const VERIFY_SYNC_STORAGE_KEY = "lumino_verify_email_sync";
+const VERIFY_SYNC_CHANNEL_NAME = "lumino-verify-email-sync";
+const VERIFY_SYNC_MAX_AGE_MS = 5 * 60 * 1000;
+
+function normalizeSyncEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isFreshVerifySyncPayload(payload) {
+  if (!payload || payload.type !== "email-verified") {
+    return false;
+  }
+
+  const at = Number(payload.at || 0);
+
+  if (!at) {
+    return false;
+  }
+
+  return Date.now() - at <= VERIFY_SYNC_MAX_AGE_MS;
+}
+
+function parseVerifySyncPayload(value) {
+  try {
+    const parsed = JSON.parse(String(value || ""));
+    return isFreshVerifySyncPayload(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function EyeIcon({ opened }) {
   return (
     <svg width="30" height="23" viewBox="0 0 30 23" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -69,6 +100,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState("");
   const [modal, setModal] = useState({
     open: false,
     title: "",
@@ -147,7 +179,7 @@ export default function RegisterPage() {
             return;
           }
 
-          authStorage.setTokens(token, refreshToken, { rotateUserCacheNamespace: true });
+          authStorage.setTokens(token, refreshToken);
           setSubmitting(false);
           navigate(PATHS.home);
         },
@@ -198,6 +230,7 @@ export default function RegisterPage() {
   const emailError = useMemo(() => validateEmail(form.email, { required: true }), [form.email]);
 
   const passwordError = useMemo(() => validateNewPassword(form.password, { required: true }), [form.password]);
+  const normalizedVerificationEmail = useMemo(() => normalizeSyncEmail(verificationEmail), [verificationEmail]);
 
   const isValid = !usernameError && !emailError && !passwordError;
   const canSubmit = isValid && !submitting;
@@ -210,6 +243,44 @@ export default function RegisterPage() {
       primaryText: "OK",
       secondaryText: "",
       onPrimary: null,
+      onSecondary: null,
+    });
+  };
+
+  const openVerificationWaitingModal = () => {
+    setModal({
+      open: true,
+      title: "Підтвердіть email",
+      message:
+        "Ми очікуємо підтвердження вашої електронної адреси. Після підтвердження ця вкладка оновиться автоматично, і ви зможете перейти до входу.",
+      primaryText: "Добре",
+      secondaryText: "Надіслати ще раз",
+      onPrimary: resetModal,
+      onSecondary: handleResendVerification,
+    });
+  };
+
+  const openVerificationSuccessModal = (email) => {
+    const prefillEmail = String(email || verificationEmail || "").trim();
+
+    localStorage.removeItem("lumino_registered_email");
+
+    setModal({
+      open: true,
+      title: "Пошту підтверджено",
+      message: "Пошту успішно підтверджено. Тепер ви можете увійти до свого профілю.",
+      primaryText: "До входу",
+      secondaryText: "",
+      onPrimary: () => {
+        resetModal();
+        setVerificationEmail("");
+        navigate(PATHS.login, {
+          state: {
+            from: "register",
+            prefillEmail,
+          },
+        });
+      },
       onSecondary: null,
     });
   };
@@ -257,7 +328,7 @@ export default function RegisterPage() {
   };
 
   const handleBack = () => {
-    navigate(PATHS.onboardingPreCreateProf);
+    navigate(PATHS.start);
   };
 
   const handleGoToLogin = () => {
@@ -281,12 +352,9 @@ export default function RegisterPage() {
         ? "Ми ще раз надіслали лист для підтвердження email. Перевірте свою пошту."
         : (res.error || "Спробуйте трохи пізніше."),
       primaryText: "Добре",
-      secondaryText: "",
-      onPrimary: () => {
-        resetModal();
-        navigate(PATHS.login);
-      },
-      onSecondary: null,
+      secondaryText: res.ok ? "До підтвердження" : "",
+      onPrimary: resetModal,
+      onSecondary: res.ok ? openVerificationWaitingModal : null,
     });
   };
 
@@ -350,19 +418,18 @@ export default function RegisterPage() {
         return;
       }
 
+      window.localStorage.removeItem(VERIFY_SYNC_STORAGE_KEY);
       localStorage.setItem("lumino_registered_email", dto.email);
+      setVerificationEmail(dto.email);
 
       setModal({
         open: true,
         title: "Підтвердіть email",
         message:
-          "Ми надіслали лист для підтвердження пошти. Перейдіть у свій email, відкрийте лист і натисніть підтвердження. Після цього ви зможете увійти у свій профіль.",
-        primaryText: "До входу",
+          "Ми надіслали лист для підтвердження пошти. Перейдіть у свій email, відкрийте лист і натисніть підтвердження. Після цього ця вкладка оновиться автоматично, і ви зможете увійти у свій профіль.",
+        primaryText: "До підтвердження",
         secondaryText: "Надіслати ще раз",
-        onPrimary: () => {
-          resetModal();
-          navigate(PATHS.login);
-        },
+        onPrimary: openVerificationWaitingModal,
         onSecondary: handleResendVerification,
       });
     } catch {
@@ -379,6 +446,62 @@ export default function RegisterPage() {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (!normalizedVerificationEmail) {
+      return undefined;
+    }
+
+    const applySyncPayload = (payload) => {
+      if (!isFreshVerifySyncPayload(payload)) {
+        return;
+      }
+
+      if (payload.email && payload.email !== normalizedVerificationEmail) {
+        return;
+      }
+
+      openVerificationSuccessModal(verificationEmail);
+    };
+
+    applySyncPayload(parseVerifySyncPayload(window.localStorage.getItem(VERIFY_SYNC_STORAGE_KEY)));
+
+    const handleStorage = (event) => {
+      if (event.key !== VERIFY_SYNC_STORAGE_KEY) {
+        return;
+      }
+
+      applySyncPayload(parseVerifySyncPayload(event.newValue));
+    };
+
+    let channel = null;
+    let handleChannelMessage = null;
+
+    try {
+      if (typeof window.BroadcastChannel === "function") {
+        channel = new window.BroadcastChannel(VERIFY_SYNC_CHANNEL_NAME);
+        handleChannelMessage = (event) => {
+          applySyncPayload(event?.data);
+        };
+
+        channel.addEventListener("message", handleChannelMessage);
+      }
+    } catch {
+      channel = null;
+      handleChannelMessage = null;
+    }
+
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+
+      if (channel && handleChannelMessage) {
+        channel.removeEventListener("message", handleChannelMessage);
+        channel.close();
+      }
+    };
+  }, [normalizedVerificationEmail, verificationEmail, navigate]);
 
   const handleGoogleClick = () => {
     if (googleReady) {

@@ -126,7 +126,8 @@
   position:absolute;
   left:362px;
   top:38px;
-  width: 1520px;
+  --admin-wide-extra:max(calc(var(--lumino-stage-width, 1920px) - 1920px), 0px);
+  width:calc(1520px + var(--admin-wide-extra));
   height:1004px;
   padding:14px 8px 24px 0;
   box-sizing:border-box;
@@ -961,8 +962,8 @@ button.adminVocabularyWordChip:active{
 
 .sceneEditorActionsDocked{
   position:absolute;
-  top:0;
-  right:0;
+  top:166px;
+  right:-340px;
   width:320px;
   display:flex;
   flex-direction:column;
@@ -3128,13 +3129,13 @@ select.formInput{
   width:1097px;
   margin-top:16px;
   display:grid;
-  grid-auto-flow:column;
-  grid-template-rows:repeat(2, auto);
-  grid-auto-columns:230px;
+  grid-template-columns:repeat(auto-fill, 230px);
+  grid-auto-flow:row;
+  grid-auto-rows:auto;
   column-gap:28px;
   row-gap:18px;
-  overflow-x:auto;
-  overflow-y:hidden;
+  overflow-x:hidden;
+  overflow-y:auto;
   align-content:start;
   align-items:stretch;
   padding:1px 8px 16px 0;
@@ -3241,14 +3242,16 @@ select.formInput{
 }
 
 .courseLandingLessonSection{
-  width:1500px;
+  position:relative;
+  width:calc(1500px + var(--admin-wide-extra, 0px));
   margin-top:16px;
-  display:flex;
-  align-items:flex-start;
-  gap:20px;
+  display:block;
 }
 
 .coursesLandingLessonEditActionsInline{
+  position:absolute;
+  right:0;
+  top:0;
   width:320px;
   display:flex;
   flex-direction:column;
@@ -3681,27 +3684,35 @@ select.formInput{
 
 .lessonPreviewClose{
   position:absolute;
-  left:126px;
-  top:44px;
-  width:32px;
-  height:32px;
+  left:173px;
+  top:53px;
+  width:27px;
+  height:27px;
   border:0;
   background:transparent;
   color:#26415E;
-  font-size:54px;
-  line-height:1;
+  font-size:52px;
+  line-height:27px;
+  font-weight:400;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:var(--admin-font);
   cursor:pointer;
+  transform:translateX(var(--lumino-stage-extra-x, 0px));
 }
 
 .lessonPreviewProgressTrack{
   position:absolute;
-  left:187px;
+  left:220px;
   top:52px;
   width:1480px;
   height:28px;
   border-radius:999px;
   background:#AFC4DF;
   overflow:hidden;
+  transform:translateX(var(--lumino-stage-extra-x, 0px));
 }
 
 .lessonPreviewProgressTrack span{
@@ -3713,11 +3724,15 @@ select.formInput{
 
 .lessonPreviewEnergy{
   position:absolute;
-  right:157px;
+  left:1705px;
   top:40px;
+  width:77px;
+  height:52px;
   display:flex;
   align-items:center;
-  gap:8px;
+  justify-content:flex-start;
+  gap:5px;
+  transform:translateX(var(--lumino-stage-extra-x, 0px));
 }
 
 .lessonPreviewEnergy img{
@@ -3738,16 +3753,28 @@ select.formInput{
   left:350px;
   top:168px;
   width:1220px;
-  min-height:703px;
+  height:703px;
   border-radius:52px;
-  border:1px solid rgba(255,255,255,.34);
-  background:rgba(255,255,255,.18);
-  backdrop-filter:blur(2px);
+  border:1px solid rgba(255,255,255,.52);
+  background:linear-gradient(90deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,.28) 52%, rgba(255,255,255,.18) 100%);
+  box-sizing:border-box;
+  box-shadow:0 0 0 1px rgba(255,255,255,.12) inset, 0 14px 36px rgba(97,127,158,.08);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  transform:translateX(var(--lumino-stage-extra-x, 0px));
 }
 
 .scenePreviewCard{
-  min-height:708px;
-  max-height:708px;
+  left:214px;
+  top:176px;
+  width:1492px;
+  height:718px;
+  min-height:718px;
+  max-height:718px;
+  border-radius:22px;
+  border:1px solid rgba(255,255,255,.55);
+  background:linear-gradient(90deg, rgba(202,221,243,.34) 0%, rgba(255,255,255,.30) 52%, rgba(202,221,243,.34) 100%);
+  box-shadow:0 0 0 1px rgba(255,255,255,.1) inset;
   overflow:hidden;
 }
 
@@ -3938,18 +3965,34 @@ select.formInput{
 
 .lessonPreviewCheckButton{
   position:absolute;
-  right:350px;
-  bottom:56px;
+  left:1250px;
+  top:941px;
   width:320px;
   height:70px;
   border:0;
-  border-radius:15px;
+  border-radius:16px;
   background:#122C6A;
   color:#FFFFFF;
   font-family:var(--admin-font);
   font-size:24px;
   line-height:29px;
   font-weight:700;
+  transform:translateX(var(--lumino-stage-extra-x, 0px));
+}
+
+.scenePreviewCheckButton{
+  left:0;
+  right:0;
+  top:auto;
+  bottom:86px;
+  width:430px;
+  min-width:430px;
+  margin:0 auto;
+  border-radius:15px;
+  background:#83A6CE;
+  font-size:22px;
+  line-height:29px;
+  transform:none;
 }
 
 
@@ -4733,3 +4776,84 @@ select.formInput{
 .serviceDangerButton{
   background:#F7B5AE;
 }
+
+/* Admin wide screen alignment */
+.coursesLandingShellExpanded,
+.coursesLandingShellEdit,
+.sceneEditorShell,
+.sharedSectionShell.sceneEditorShell{
+  width:calc(1500px + var(--admin-wide-extra, 0px));
+}
+
+.coursesLandingShellExpanded .sharedCourseSelectorShell,
+.coursesLandingShellExpanded .sharedAchievementSelectorShell,
+.coursesLandingShellExpanded .sharedServiceSelectorShell,
+.coursesLandingShellExpanded .sharedSectionShell,
+.coursesLandingShellExpanded .sharedServiceShell,
+.coursesLandingShellExpanded .coursesLandingHeader,
+.coursesLandingShellExpanded .coursesLandingTopLine,
+.coursesLandingShellExpanded .coursesLandingMiddleLine,
+.coursesLandingShellExpanded .coursesLandingBottomLine,
+.coursesLandingShellExpanded .coursesLandingDetailsHeader,
+.coursesLandingShellExpanded .coursesLandingRow,
+.coursesLandingShellExpanded .coursesLandingTopicsGrid,
+.coursesLandingShellExpanded .coursesLandingStatsLine,
+.coursesLandingShellExpanded .coursesLandingEditFooter,
+.coursesLandingShellExpanded .courseLandingNestedHeader,
+.coursesLandingShellExpanded .courseLandingNestedLine,
+.coursesLandingShellExpanded .courseLandingNestedPinkLine,
+.coursesLandingShellExpanded .courseLandingLessonRow,
+.coursesLandingShellExpanded .courseLandingExerciseGrid,
+.coursesLandingShellExpanded .courseContentTopicsGrid,
+.coursesLandingShellExpanded > .sectionStack,
+.coursesLandingShellExpanded .sharedServiceBottomLine,
+.coursesLandingShellEdit .coursesLandingHeader,
+.coursesLandingShellEdit .coursesLandingTopLine,
+.coursesLandingShellEdit .coursesLandingMiddleLine,
+.coursesLandingShellEdit .coursesLandingDetailsHeader,
+.coursesLandingShellEdit .coursesLandingTopicsGrid,
+.coursesLandingShellEdit .coursesLandingStatsLine,
+.coursesLandingShellEdit .coursesLandingEditFooter,
+.coursesLandingShellEdit .courseLandingNestedHeader,
+.coursesLandingShellEdit .courseLandingNestedLine,
+.coursesLandingShellEdit .courseLandingNestedPinkLine,
+.coursesLandingShellEdit .courseLandingLessonRow,
+.coursesLandingShellEdit .courseLandingExerciseGrid,
+.sceneEditorShell .coursesLandingDetailsHeader,
+.sceneEditorShell .coursesLandingBottomLine,
+.sceneEditorLayout,
+.sceneEditorMain,
+.adminVocabularyEmptyShell{
+  width:calc(1160px + var(--admin-wide-extra, 0px));
+}
+
+.sceneEditorDescriptionCard,
+.sceneEditorStepCard,
+.sceneEditorStepsGrid{
+  width:100%;
+}
+
+.scenesGrid,
+.achievementGrid{
+  grid-template-columns:repeat(auto-fill, 276px);
+  justify-content:start;
+}
+
+.serviceStatsRow{
+  grid-template-columns:repeat(auto-fill, 278px);
+  justify-content:start;
+}
+
+.usersLayout{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, 571px);
+  column-gap:18px;
+  row-gap:16px;
+  align-items:start;
+  justify-content:start;
+}
+
+.usersColumn{
+  display:contents;
+}
+

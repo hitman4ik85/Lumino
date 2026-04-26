@@ -217,6 +217,8 @@ export default function ScenePage() {
   const [sceneModal, setSceneModal] = useState({ open: false, type: "" });
   const isMistakesMode = location.state?.mode === "mistakes";
   const stateScene = location.state?.scene || null;
+  const course = location.state?.course || null;
+  const coursePath = location.state?.coursePath || null;
 
   useEffect(() => {
     let ignore = false;
@@ -475,6 +477,8 @@ export default function ScenePage() {
           refreshScenes: true,
           result: submitResult.result,
           scene,
+          course,
+          coursePath,
           mode: isMistakesMode ? "mistakes" : undefined,
           newlyEarnedAchievements: [],
         },
@@ -483,7 +487,7 @@ export default function ScenePage() {
     }
 
     setStepIndex((prev) => prev + 1);
-  }, [isLastStep, isMistakesMode, navigate, scene, sceneId, submitSceneAttempt]);
+  }, [course, coursePath, isLastStep, isMistakesMode, navigate, scene, sceneId, submitSceneAttempt]);
 
   const handleCheck = useCallback(() => {
     const correct = isCorrectStep(currentStep, currentAnswer);

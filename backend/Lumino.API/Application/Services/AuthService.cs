@@ -11,6 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -328,7 +329,7 @@ namespace Lumino.Api.Application.Services
         {
             _verifyEmailRequestValidator.Validate(request);
 
-            var token = request.Token.Trim();
+            var token = NormalizeIncomingToken(request.Token);
             var tokenHash = HashToken(token);
 
             var nowUtc = DateTime.UtcNow;
@@ -364,13 +365,10 @@ namespace Lumino.Api.Application.Services
 
             EnsureDefaultTargetLanguage(user);
 
-            var accessToken = GenerateJwtToken(user);
-            var refreshToken = CreateRefreshToken(user.Id);
-
             return new AuthResponse
             {
-                Token = accessToken,
-                RefreshToken = refreshToken,
+                Token = null,
+                RefreshToken = null,
                 RequiresEmailVerification = false
             };
         }
@@ -716,10 +714,10 @@ namespace Lumino.Api.Application.Services
             _dbContext.PasswordResetTokens.Add(entity);
             _dbContext.SaveChanges();
 
-            var resetLink = BuildPasswordResetLink(rawToken);
+            var resetLink = BuildPasswordResetLink(rawToken, user.Email);
 
-            var subject = "Lumino: Reset your password";
-            var body = $"<p>You requested to reset your password.</p><p><a href=\"{resetLink}\">Reset password</a></p><p>If the button does not work, use this token: <b>{rawToken}</b></p><p>This link expires at {expiresAtUtc:O} UTC.</p>";
+            var subject = "Lumino — Відновлення пароля";
+            var body = BuildForgotPasswordEmailBody(user, resetLink, expiresAtUtc, rawToken);
 
             _emailSender.Send(user.Email, subject, body);
 
@@ -735,7 +733,7 @@ namespace Lumino.Api.Application.Services
         {
             _resetPasswordRequestValidator.Validate(request);
 
-            var token = request.Token.Trim();
+            var token = NormalizeIncomingToken(request.Token);
             var tokenHash = HashToken(token);
 
             var nowUtc = DateTime.UtcNow;
@@ -771,6 +769,32 @@ namespace Lumino.Api.Application.Services
             RevokeAllActiveRefreshTokens(user.Id, nowUtc);
             user.SessionVersion++;
             _dbContext.SaveChanges();
+        }
+
+        private static string NormalizeIncomingToken(string token)
+        {
+            var value = token.Trim();
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            value = value.Replace("&amp;", "&", StringComparison.OrdinalIgnoreCase);
+
+            var tokenIndex = value.IndexOf("token=", StringComparison.OrdinalIgnoreCase);
+            if (tokenIndex >= 0)
+            {
+                value = value[(tokenIndex + "token=".Length)..];
+            }
+
+            var separatorIndex = value.IndexOf('&');
+            if (separatorIndex >= 0)
+            {
+                value = value[..separatorIndex];
+            }
+
+            return Uri.UnescapeDataString(value).Trim();
         }
 
         private static void EnsureUserIsNotBlocked(User user)
@@ -985,13 +1009,20 @@ namespace Lumino.Api.Application.Services
 
             tokenEntity.RevokedAt = now;
 
+            var hasNewerActiveToken = _dbContext.RefreshTokens.Any(x =>
+                x.UserId == tokenEntity.UserId
+                && x.Id != tokenEntity.Id
+                && x.RevokedAt == null
+                && x.ExpiresAt > now
+                && x.CreatedAt > tokenEntity.CreatedAt
+            );
+
             var user = _dbContext.Users.FirstOrDefault(x => x.Id == tokenEntity.UserId);
-            if (user != null)
+            if (user != null && !hasNewerActiveToken)
             {
                 user.SessionVersion++;
             }
 
-            RevokeAllActiveRefreshTokens(tokenEntity.UserId, now);
             _dbContext.SaveChanges();
         }
 
@@ -1042,28 +1073,37 @@ namespace Lumino.Api.Application.Services
             return Convert.ToBase64String(bytes);
         }
 
-        private string BuildPasswordResetLink(string token)
+        private string BuildPasswordResetLink(string token, string? email)
         {
-            var baseUrl = _configuration["Email:FrontendBaseUrl"];
+            var baseUrl = GetFrontendBaseUrl();
+            var encodedToken = Uri.EscapeDataString(token);
+            var link = $"{baseUrl}/reset-password?token={encodedToken}";
 
-            if (string.IsNullOrWhiteSpace(baseUrl))
+            if (string.IsNullOrWhiteSpace(email))
             {
-                baseUrl = "http://localhost:5173";
+                return link;
             }
 
-            baseUrl = baseUrl.Trim();
-
-            if (baseUrl.EndsWith("/"))
-            {
-                baseUrl = baseUrl.TrimEnd('/');
-            }
-
-            var encoded = Uri.EscapeDataString(token);
-
-            return $"{baseUrl}/reset-password?token={encoded}";
+            var encodedEmail = Uri.EscapeDataString(email.Trim());
+            return $"{link}&email={encodedEmail}";
         }
 
-        private string BuildEmailVerificationLink(string token)
+        private string BuildEmailVerificationLink(string token, string? email)
+        {
+            var baseUrl = GetFrontendBaseUrl();
+            var encodedToken = Uri.EscapeDataString(token);
+            var link = $"{baseUrl}/verify-email?token={encodedToken}";
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return link;
+            }
+
+            var encodedEmail = Uri.EscapeDataString(email.Trim());
+            return $"{link}&email={encodedEmail}";
+        }
+
+        private string GetFrontendBaseUrl()
         {
             var baseUrl = _configuration["Email:FrontendBaseUrl"];
 
@@ -1079,9 +1119,100 @@ namespace Lumino.Api.Application.Services
                 baseUrl = baseUrl.TrimEnd('/');
             }
 
-            var encoded = Uri.EscapeDataString(token);
+            return baseUrl;
+        }
 
-            return $"{baseUrl}/verify-email?token={encoded}";
+        private string BuildForgotPasswordEmailBody(User user, string resetLink, DateTime expiresAtUtc, string rawToken)
+        {
+            var username = string.IsNullOrWhiteSpace(user.Username) ? "друже" : user.Username.Trim();
+
+            return BuildActionEmailBody(
+                title: "Відновлення пароля",
+                greeting: $"Привіт, {username}!",
+                description: "Ми отримали запит на зміну пароля для вашого профілю Lumino. Натисніть кнопку нижче, щоб створити новий пароль.",
+                buttonText: "Змінити пароль",
+                buttonLink: resetLink,
+                accentColor: "#7FA8D9",
+                helperText: "Якщо ви не надсилали цей запит, просто проігноруйте лист — ваш профіль залишиться захищеним.",
+                expiresAtUtc: expiresAtUtc,
+                rawToken: rawToken
+            );
+        }
+
+        private string BuildVerificationEmailBody(User user, string verifyLink, DateTime expiresAtUtc, string rawToken)
+        {
+            var username = string.IsNullOrWhiteSpace(user.Username) ? "друже" : user.Username.Trim();
+
+            return BuildActionEmailBody(
+                title: "Підтвердження електронної адреси",
+                greeting: $"Вітаємо, {username}!",
+                description: "Завершіть реєстрацію в Lumino та підтвердьте вашу електронну адресу. Після цього ви зможете увійти до свого профілю.",
+                buttonText: "Підтвердити пошту",
+                buttonLink: verifyLink,
+                accentColor: "#5C85B4",
+                helperText: "Якщо ви вже відкрили лист на іншому пристрої, кнопка для повторного надсилання залишиться доступною на сторінці підтвердження.",
+                expiresAtUtc: expiresAtUtc,
+                rawToken: rawToken
+            );
+        }
+
+        private static string BuildActionEmailBody(
+            string title,
+            string greeting,
+            string description,
+            string buttonText,
+            string buttonLink,
+            string accentColor,
+            string helperText,
+            DateTime expiresAtUtc,
+            string rawToken)
+        {
+            var safeTitle = WebUtility.HtmlEncode(title);
+            var safeGreeting = WebUtility.HtmlEncode(greeting);
+            var safeDescription = WebUtility.HtmlEncode(description);
+            var safeButtonText = WebUtility.HtmlEncode(buttonText);
+            var safeButtonLink = WebUtility.HtmlEncode(buttonLink);
+            var safeHelperText = WebUtility.HtmlEncode(helperText);
+            var safeToken = WebUtility.HtmlEncode(rawToken);
+            var safeAccentColor = WebUtility.HtmlEncode(accentColor);
+            var expiresText = WebUtility.HtmlEncode(expiresAtUtc.ToString("dd.MM.yyyy HH:mm 'UTC'"));
+
+            return $$"""
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{safeTitle}}</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f7fb;font-family:Arial,'Segoe UI',sans-serif;color:#26415e;">
+  <div style="margin:0;padding:32px 16px;background:linear-gradient(135deg,#d9ebff 0%,#f6e3f3 100%);">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:680px;margin:0 auto;border-collapse:collapse;">
+      <tr>
+        <td style="padding:0;">
+          <div style="background:rgba(255,255,255,0.82);border:1px solid rgba(255,255,255,0.85);border-radius:32px;box-shadow:0 18px 40px rgba(97,127,158,0.14);padding:40px 36px;">
+            <div style="display:inline-block;padding:8px 14px;border-radius:999px;background:rgba(127,168,217,0.16);color:#5c85b4;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Lumino</div>
+            <h1 style="margin:20px 0 12px;font-size:34px;line-height:1.15;font-weight:700;color:#26415e;">{{safeTitle}}</h1>
+            <p style="margin:0 0 12px;font-size:20px;line-height:1.45;font-weight:700;color:#26415e;">{{safeGreeting}}</p>
+            <p style="margin:0 0 28px;font-size:16px;line-height:1.7;color:#4f6b88;">{{safeDescription}}</p>
+            <div style="margin:0 0 28px;padding:24px;border-radius:24px;background:rgba(255,255,255,0.72);border:1px solid rgba(92,133,180,0.16);">
+              <a href="{{safeButtonLink}}" style="display:inline-block;padding:18px 34px;border-radius:16px;background:{{safeAccentColor}};color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;line-height:1;">{{safeButtonText}}</a>
+              <p style="margin:18px 0 0;font-size:14px;line-height:1.65;color:#6a7d90;">Посилання активне до <strong>{{expiresText}}</strong>.</p>
+            </div>
+            <div style="margin:0 0 20px;padding:20px 22px;border-radius:20px;background:rgba(245,247,251,0.96);border:1px solid rgba(106,125,144,0.18);">
+              <p style="margin:0 0 10px;font-size:14px;line-height:1.6;color:#26415e;font-weight:700;">Код із листа</p>
+              <p style="margin:0;font-size:14px;line-height:1.8;color:#4f6b88;word-break:break-word;">{{safeToken}}</p>
+            </div>
+            <p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#6a7d90;">{{safeHelperText}}</p>
+            <p style="margin:0;font-size:13px;line-height:1.7;color:#8ca0b5;">Цей лист надіслано автоматично від команди Lumino.</p>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>
+""";
         }
 
         private void CreateAndSendEmailVerification(User user, string? ip, string? userAgent)
@@ -1117,10 +1248,10 @@ namespace Lumino.Api.Application.Services
             _dbContext.EmailVerificationTokens.Add(entity);
             _dbContext.SaveChanges();
 
-            var verifyLink = BuildEmailVerificationLink(rawToken);
+            var verifyLink = BuildEmailVerificationLink(rawToken, user.Email);
 
-            var subject = "Lumino: Verify your email";
-            var body = $"<p>Welcome to Lumino!</p><p>Please verify your email to complete registration.</p><p><a href=\"{verifyLink}\">Verify email</a></p><p>If the button does not work, use this token: <b>{rawToken}</b></p><p>This link expires at {expiresAtUtc:O} UTC.</p>";
+            var subject = "Lumino — Підтвердження пошти";
+            var body = BuildVerificationEmailBody(user, verifyLink, expiresAtUtc, rawToken);
 
             _emailSender.Send(user.Email, subject, body);
         }
