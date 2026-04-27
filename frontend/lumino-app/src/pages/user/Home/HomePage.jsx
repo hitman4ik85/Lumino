@@ -646,6 +646,35 @@ const COURSE_PATH_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
 const SCENES_OVERVIEW_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
 const SUPPORTED_LANGUAGES_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
 const CALENDAR_MONTH_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
+const COURSE_PREPARATION_RETRY_DELAYS_MS = [700, 1200, 1800, 2600, 3400];
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+async function waitForPreparedCourses(languageCode, isCurrentHomeRequest) {
+  for (const delay of COURSE_PREPARATION_RETRY_DELAYS_MS) {
+    await wait(delay);
+
+    if (!isCurrentHomeRequest()) {
+      return null;
+    }
+
+    const res = await coursesService.getMyCourses(languageCode);
+
+    if (!isCurrentHomeRequest()) {
+      return null;
+    }
+
+    if (res?.items?.length) {
+      return res;
+    }
+  }
+
+  return null;
+}
 
 function getCoursePathCacheKey(languageCode, courseId) {
   const userKey = authStorage.getUserCacheKey();
@@ -1301,6 +1330,7 @@ export default function HomePage() {
   const initialHomeCacheRef = useRef(!isGuest ? applyOptimisticHomeRefresh(getCachedHomeSnapshot(), location.state) : null);
   const [loading, setLoading] = useState(initialHomeCacheRef.current == null);
   const [pathLoading, setPathLoading] = useState(false);
+  const [coursePreparing, setCoursePreparing] = useState(false);
   const [restoringHearts, setRestoringHearts] = useState(false);
   const initialTab = TAB_QUERY_VIEWS.includes(searchParams.get("tab")) ? searchParams.get("tab") : "learning";
   const [activeNav, setActiveNav] = useState(initialTab === "learning" ? "learning" : initialTab);
@@ -1640,7 +1670,8 @@ export default function HomePage() {
   }, [user.hearts, user.heartsMax, user.nextHeartInSeconds]);
   const isFullPanelView = FULL_PANEL_VIEWS.includes(bodyView);
   const isTopBarHidden = TOP_BAR_HIDDEN_VIEWS.includes(bodyView);
-  const showBlockingHomeLoading = (loading || restoringHearts) && !["profile", "achievements", "dictionary"].includes(bodyView);
+  const shouldShowCoursePreparation = coursePreparing || (loading && !isGuest && bodyView === "learning" && courses.length === 0);
+  const showBlockingHomeLoading = ((loading && !shouldShowCoursePreparation) || restoringHearts) && !["profile", "achievements", "dictionary"].includes(bodyView);
 
   const languageItems = useMemo(() => {
     if (Array.isArray(languageState.learningLanguages) && languageState.learningLanguages.length > 0) {
@@ -1788,6 +1819,7 @@ export default function HomePage() {
 
     if (showBlocking) {
       setLoading(true);
+      setCoursePreparing(false);
     }
 
     try {
@@ -1814,6 +1846,7 @@ export default function HomePage() {
         const todayIso = getKyivTodayIso();
         const currentMonth = getKyivCurrentMonth();
 
+        setCoursePreparing(false);
         setPathLoading(false);
         setCourses(publicCourses);
         setCourse(nextCourse);
@@ -1864,7 +1897,7 @@ export default function HomePage() {
         return { hasCourses: false, activeTargetLanguageCode: targetCode };
       }
 
-      const nextCourses = myCoursesRes.items || [];
+      let nextCourses = myCoursesRes.items || [];
 
       if (nextCourses.length === 0) {
         const availabilityRes = await onboardingService.getLanguageAvailability(targetCode);
@@ -1873,41 +1906,70 @@ export default function HomePage() {
           return { hasCourses: false, activeTargetLanguageCode: targetCode };
         }
 
-        setPathLoading(false);
-        setCourses([]);
-        setCourse(null);
-        setPath(null);
-        setSelectedTopic(null);
-        setSelectedLesson(null);
-        setScenesOverview([]);
+        if (availabilityRes.ok && availabilityRes.hasPublishedCourses) {
+          setLoading(true);
+          setCoursePreparing(true);
+          setPathLoading(true);
+          setCourses([]);
+          setCourse(null);
+          setPath(null);
+          setSelectedTopic(null);
+          setSelectedLesson(null);
+          setScenesOverview([]);
 
-        if (availabilityRes.ok && !availabilityRes.hasPublishedCourses && noPublishedCoursesWarningRef.current !== targetCode) {
-          noPublishedCoursesWarningRef.current = targetCode;
-          showNoPublishedCoursesWarning(targetCode);
+          const preparedCoursesRes = await waitForPreparedCourses(targetCode, isCurrentHomeRequest);
+
+          if (!isCurrentHomeRequest()) {
+            return { hasCourses: false, activeTargetLanguageCode: targetCode };
+          }
+
+          nextCourses = preparedCoursesRes?.items || [];
+
+          if (nextCourses.length === 0) {
+            setPathLoading(false);
+            return { hasCourses: false, activeTargetLanguageCode: targetCode };
+          }
         }
 
-        setCachedHomeSnapshot({
-          user: nextUser,
-          languageState: languagesRes?.ok ? {
-            activeTargetLanguageCode: targetCode,
-            learningLanguages: languagesRes.learningLanguages || [],
-          } : {
-            activeTargetLanguageCode: targetCode,
-            learningLanguages: [{ code: targetCode, title: getLanguageLabel(targetCode), isActive: true }],
-          },
-          courses: [],
-          course: null,
-          path: null,
-          calendarDates,
-          calendarRegistrationDates,
-          calendarDaysSinceJoined,
-          calendarCurrentKyivDateTimeText,
-          calendarMonth,
-        });
+        if (nextCourses.length === 0) {
+          setCoursePreparing(false);
+          setPathLoading(false);
+          setCourses([]);
+          setCourse(null);
+          setPath(null);
+          setSelectedTopic(null);
+          setSelectedLesson(null);
+          setScenesOverview([]);
 
-        return { hasCourses: false, activeTargetLanguageCode: targetCode };
+          if (availabilityRes.ok && !availabilityRes.hasPublishedCourses && noPublishedCoursesWarningRef.current !== targetCode) {
+            noPublishedCoursesWarningRef.current = targetCode;
+            showNoPublishedCoursesWarning(targetCode);
+          }
+
+          setCachedHomeSnapshot({
+            user: nextUser,
+            languageState: languagesRes?.ok ? {
+              activeTargetLanguageCode: targetCode,
+              learningLanguages: languagesRes.learningLanguages || [],
+            } : {
+              activeTargetLanguageCode: targetCode,
+              learningLanguages: [{ code: targetCode, title: getLanguageLabel(targetCode), isActive: true }],
+            },
+            courses: [],
+            course: null,
+            path: null,
+            calendarDates,
+            calendarRegistrationDates,
+            calendarDaysSinceJoined,
+            calendarCurrentKyivDateTimeText,
+            calendarMonth,
+          });
+
+          return { hasCourses: false, activeTargetLanguageCode: targetCode };
+        }
       }
 
+      setCoursePreparing(false);
       noPublishedCoursesWarningRef.current = "";
 
       const activeCourse = getPreferredCurrentCourse(nextCourses, course);
@@ -2060,6 +2122,20 @@ export default function HomePage() {
 
     loadHome("", !hasCache);
   }, [loadHome]);
+
+  useEffect(() => {
+    if (!coursePreparing || loading || isGuest || !activeLanguageCode) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      loadHome(activeLanguageCode, false);
+    }, 2500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeLanguageCode, coursePreparing, isGuest, loadHome, loading]);
 
   useEffect(() => {
     let currentKyivDate = getKyivTodayIso();
@@ -2688,6 +2764,11 @@ export default function HomePage() {
     </div>
   );
 
+  const renderCoursePreparationState = () => renderNoPublishedCoursesState(
+    "Йде підготовка вашого Курсу для навчання",
+    "Зачекайте будь-ласка декілька секунд. Маршрут ваших уроків і сцен з’явиться автоматично"
+  );
+
   const renderLearningView = () => (
     <div
       ref={trackRef}
@@ -2697,11 +2778,8 @@ export default function HomePage() {
       onMouseUp={handleTrackMouseUp}
       onMouseLeave={handleTrackMouseUp}
     >
-      {hasPublishedCoursesForActiveLanguage ? (
-        pathLoading && topics.length === 0 ? renderNoPublishedCoursesState(
-          "Йде підготовка вашого Курсу для навчання",
-          "Зачекайте будь-ласка декілька секунд. Маршрут ваших уроків і сцен з’явиться автоматично"
-        ) : (
+      {shouldShowCoursePreparation ? renderCoursePreparationState() : hasPublishedCoursesForActiveLanguage ? (
+        pathLoading && topics.length === 0 ? renderCoursePreparationState() : (
           <div className={styles.learningTrack}>
             {topics.map((item, index) => (
               <OrbitSection
