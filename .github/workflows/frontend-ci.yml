@@ -22,13 +22,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20.x"
+          cache: "npm"
+          cache-dependency-path: "frontend/lumino-app/package-lock.json"
 
       - name: Install
-        if: ${{ hashFiles('frontend/package.json') != '' }}
-        working-directory: frontend
-        run: npm install
+        working-directory: frontend/lumino-app
+        run: npm ci
 
       - name: Build
-        if: ${{ hashFiles('frontend/package.json') != '' }}
-        working-directory: frontend
+        working-directory: frontend/lumino-app
         run: npm run build

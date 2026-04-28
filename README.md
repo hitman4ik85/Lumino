@@ -6,95 +6,159 @@
 ## Опис проєкту
 Платформа дозволяє користувачу:
 - зареєструватися / увійти (JWT)
-- проходити навчання: курс → уроки → вправи
+- підтвердити пошту
+- відновити пароль
+- увійти або прив'язати Google-акаунт
+- проходити навчання: курс → теми → уроки → вправи
+- проходити навчальні сцени
 - переглядати прогрес і результати уроків
 - повторювати помилки уроку (Repeat Mistakes)
 - працювати зі словником
+- отримувати досягнення
 - взаємодіяти з навчальним персонажем Lumi
 
 Адміністратор керує навчальним контентом через **той самий** React-застосунок:
 після входу під **Admin** відкривається адмін-панель, під **User** — звичайний навчальний режим.
 
 ## Компоненти
-- **backend/** — ASP.NET Core Web API (.NET 8), JWT, Swagger, EF Core
-- **frontend/** — React + Vite (один застосунок для User та Admin; екрани/доступ залежать від ролі)
-- **docs/** — документація (ТЗ, структура, план)
-- **deploy/** — деплой не використовується (папка може бути порожня)
-- **scripts/** — опціонально (якщо з’являться локальні допоміжні скрипти)
+- **backend/** — ASP.NET Core Web API (.NET 8), JWT, Swagger, EF Core, SQL Server
+- **backend/Lumino.Tests/** — unit, integration та HTTP integration тести backend-логіки
+- **frontend/lumino-app/** — React + Vite застосунок для User та Admin режимів
+- **docs/** — документація проєкту
+- **backend/docs/** — додаткова backend-документація
+- **deploy/** — інструкції та файли, пов'язані з деплоєм
 
 ## Технології
 - Backend: ASP.NET Core Web API (.NET 8)
-- Auth: JWT Bearer
+- Auth: JWT Bearer, email verification, password reset, Google OAuth
 - ORM: Entity Framework Core
 - DB: SQL Server (Microsoft.EntityFrameworkCore.SqlServer)
 - API docs: Swagger (Swashbuckle)
+- Tests: xUnit, Microsoft.AspNetCore.Mvc.Testing, EF Core InMemory
 - Frontend: React + Vite
+- CI: GitHub Actions
 
 ## Структура репозиторію
+```text
 Lumino/
 ├─ backend/
+│  ├─ Lumino.API/
+│  ├─ Lumino.Tests/
+│  ├─ docs/
+│  └─ Lumino.sln
 ├─ frontend/
+│  └─ lumino-app/
 ├─ docs/
-├─ deploy/
-└─ scripts/
+└─ deploy/
+```
 
-## Запуск (локально)
+## Запуск локально
+
 ### Backend
-1) Встановити .NET 8 SDK  
-2) Перейти в папку `backend/`  
-3) Відновити залежності та зібрати:
-   - `dotnet restore`
-   - `dotnet build -c Release`
+1. Встановити .NET 8 SDK.
+2. Перейти в папку `backend/`:
 
-4) Запустити тести (як у проєкті):
-   - `dotnet test .\Lumino.Tests\Lumino.Tests.csproj`
+```bash
+cd backend
+```
 
-> Запуск API залежить від локальних налаштувань (appsettings / secrets / connection string).
+3. Відновити залежності та зібрати рішення:
+
+```bash
+dotnet restore ./Lumino.sln
+dotnet build ./Lumino.sln -c Release
+```
+
+4. Запустити тести:
+
+```bash
+dotnet test ./Lumino.Tests/Lumino.Tests.csproj -c Release
+```
+
+5. Запустити API:
+
+```bash
+dotnet run --project ./Lumino.API/Lumino.API.csproj
+```
+
+> Запуск API залежить від локальних налаштувань `appsettings`, user secrets та connection string.
 
 ### Frontend
-1) Встановити Node.js 20+  
-2) Перейти в папку `frontend/`  
-3) Запустити:
-   - `npm install`
-   - `npm run dev`
+1. Встановити Node.js 20+.
+2. Перейти в папку frontend-застосунку:
 
-## Швидка перевірка бекенду (для екзамену)
-Це мінімальний чек-лист, щоб швидко показати, що бекенд “живий” і працює коректно.
+```bash
+cd frontend/lumino-app
+```
 
-1) **Зібрати і прогнати тести**
-- у `backend/`:
-  - `dotnet build -c Release`
-  - `dotnet test .\Lumino.Tests\Lumino.Tests.csproj`
-- результат: тести проходять без помилок.
+3. Встановити залежності та запустити frontend:
 
-2) **Запустити API**
-- у `backend/`:
-  - `dotnet run --project .\Lumino.API\Lumino.API.csproj`
+```bash
+npm install
+npm run dev
+```
 
-3) **Перевірити Swagger**
-- відкрити Swagger UI у браузері (URL залежить від порту запуску у вашому середовищі).
-- у Swagger повинні бути видимі основні групи ендпоінтів (Auth / Users / Courses / Lessons / Exercises / Admin тощо).
+## Швидка перевірка бекенду для захисту
 
-4) **Мінімальний сценарій “як користувач” через Swagger**
-- Зареєструвати користувача → увійти → отримати JWT.
-- Натиснути **Authorize** у Swagger і вставити токен.
-- Відкрити курси/уроки → отримати вправи → відправити submit результату уроку.
-- (За потреби) Перевірити режим **Repeat Mistakes**: отримати mistakes по уроку і відправити submit.
+1. **Зібрати backend і прогнати тести**
 
-> На екзамені цього сценарію зазвичай достатньо, щоб показати логіку “від входу до проходження уроку”.
+```bash
+cd backend
+dotnet build ./Lumino.sln -c Release
+dotnet test ./Lumino.Tests/Lumino.Tests.csproj -c Release
+```
+
+2. **Запустити API**
+
+```bash
+dotnet run --project ./Lumino.API/Lumino.API.csproj
+```
+
+3. **Перевірити Swagger**
+
+Відкрити Swagger UI у браузері. URL залежить від порту запуску у вашому середовищі.
+
+4. **Мінімальний сценарій користувача через Swagger**
+
+- зареєструвати користувача;
+- підтвердити пошту;
+- увійти;
+- отримати JWT;
+- натиснути **Authorize** у Swagger і вставити токен;
+- відкрити курси/уроки;
+- отримати вправи;
+- відправити результат уроку;
+- перевірити прогрес, словник або досягнення.
 
 ## CI (GitHub Actions)
-- `.github/workflows/backend-ci.yml` — build + tests бекенду
-- `.github/workflows/frontend-ci.yml` — build фронтенду
+
+- `.github/workflows/backend-ci.yml` — restore, build та tests backend-частини
+- `.github/workflows/frontend-ci.yml` — install та build frontend-частини
 
 ## Документація
-У папці `docs/` знаходяться:
-- `Lumino_TZ.docx` — технічне завдання
-- `Stryktyra.docx` — структура проєкту
-- `Plan.docx` — план виконання
 
-## Робочий процес
-Деплой у цьому проєкті не виконується. Зміни вносяться локально, після чого код переноситься у основну папку проєкту та пушиться у Git.
+У проєкті вже є:
+- `docs/Lumino_TZ.docx` — технічне завдання
+- `backend/docs/LearningFlow.md` — опис навчального flow
+- `deploy/DEPLOYMENT.md` — покрокова інструкція деплою
+- `deploy/azure-app-settings.example.txt` — шаблон Azure App Service settings без секретів
+- `deploy/vercel-env.example.txt` — шаблон Vercel environment variables без секретів
+
+## Деплой
+
+Рекомендований варіант для демонстрації дипломного проєкту:
+- Frontend: Vercel
+- Backend: Azure App Service
+- Database: Azure SQL Database
+
+Детальні кроки описані у файлі:
+
+```text
+deploy/DEPLOYMENT.md
+```
+
+Перед деплоєм секретні значення не потрібно записувати у файли репозиторію. Їх потрібно додавати тільки у GitHub/Vercel/Azure налаштування середовища.
 
 ## Автори
+
 Дипломний / екзаменаційний проєкт виконують студенти в рамках навчального процесу.

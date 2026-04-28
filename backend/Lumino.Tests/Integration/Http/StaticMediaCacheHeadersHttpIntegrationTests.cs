@@ -17,6 +17,8 @@ public class StaticMediaCacheHeadersHttpIntegrationTests : IClassFixture<ApiWebA
     [Fact]
     public async Task Uploads_ShouldReturnCacheControlHeader()
     {
+        string testFilePath;
+
         using (var scope = _factory.Services.CreateScope())
         {
             var environment = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
@@ -25,20 +27,31 @@ public class StaticMediaCacheHeadersHttpIntegrationTests : IClassFixture<ApiWebA
                 : environment.WebRootPath;
             var uploadsPath = Path.Combine(webRootPath, "uploads", "lessons");
             Directory.CreateDirectory(uploadsPath);
-            await File.WriteAllBytesAsync(Path.Combine(uploadsPath, "cache-test.png"), new byte[] { 1, 2, 3, 4 });
+            testFilePath = Path.Combine(uploadsPath, "cache-test.png");
+            await File.WriteAllBytesAsync(testFilePath, new byte[] { 1, 2, 3, 4 });
         }
 
-        var client = _factory.CreateClient();
-        var response = await client.GetAsync("/uploads/lessons/cache-test.png");
+        try
+        {
+            var client = _factory.CreateClient();
+            var response = await client.GetAsync("/uploads/lessons/cache-test.png");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.True(response.Headers.TryGetValues("Cache-Control", out var values));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.True(response.Headers.TryGetValues("Cache-Control", out var values));
 
-        var cacheControl = Assert.Single(values);
-        var normalizedCacheControl = cacheControl.Replace(" ", string.Empty);
+            var cacheControl = Assert.Single(values);
+            var normalizedCacheControl = cacheControl.Replace(" ", string.Empty);
 
-        Assert.Contains("public", normalizedCacheControl);
-        Assert.Contains("max-age=604800", normalizedCacheControl);
-        Assert.Contains("stale-while-revalidate=86400", normalizedCacheControl);
+            Assert.Contains("public", normalizedCacheControl);
+            Assert.Contains("max-age=604800", normalizedCacheControl);
+            Assert.Contains("stale-while-revalidate=86400", normalizedCacheControl);
+        }
+        finally
+        {
+            if (File.Exists(testFilePath))
+            {
+                File.Delete(testFilePath);
+            }
+        }
     }
 }

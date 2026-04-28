@@ -1,11 +1,52 @@
-Lumino frontend scaffold (Vite + React)
+# Lumino frontend
 
-Dev:
-- npm install
-- npm run dev
+Frontend частина проєкту Lumino створена на React + Vite.
 
-API:
-- Default API base url is /api
-- Vite dev server proxies /api -> https://localhost:7181 (Swagger)
+## Локальний запуск
 
-If you need a different backend url, set VITE_API_BASE_URL in .env.local
+```bash
+npm install
+npm run dev
+```
+
+Локально Vite запускається на порту `5173`.
+
+## Backend API
+
+За замовчуванням frontend використовує:
+
+```env
+VITE_API_BASE_URL=/api
+```
+
+Під час локального запуску Vite проксіює `/api`, `/avatars` та `/uploads` на backend:
+
+```text
+https://localhost:7181
+```
+
+Для іншої адреси backend потрібно створити `.env.local` і вказати:
+
+```env
+VITE_API_BASE_URL=https://your-backend-url/api
+```
+
+## Build
+
+```bash
+npm run build
+```
+
+Готові файли збираються у папку `dist`.
+
+## Vercel
+
+Для деплою на Vercel потрібно вказати:
+
+```text
+Root Directory: frontend/lumino-app
+Build Command: npm run build
+Output Directory: dist
+```
+
+Файл `vercel.json` потрібен для коректної роботи React Router після оновлення сторінки або прямого переходу на внутрішні маршрути.

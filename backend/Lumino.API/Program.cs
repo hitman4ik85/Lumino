@@ -55,16 +55,26 @@ namespace Lumino.Api
                 });
 
             // CORS (Frontend)
+            var allowedFrontendOrigins = builder.Configuration
+                .GetSection("Cors:AllowedOrigins")
+                .Get<string[]>() ?? Array.Empty<string>();
+
+            if (allowedFrontendOrigins.Length == 0)
+            {
+                allowedFrontendOrigins = new[]
+                {
+                    "http://localhost:5173",
+                    "https://localhost:5173",
+                    "http://localhost:5174",
+                    "https://localhost:5174"
+                };
+            }
+
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowFrontend", policy =>
                 {
-                    policy.WithOrigins(
-                        "http://localhost:5173",
-                        "https://localhost:5173",
-                        "http://localhost:5174",
-                        "https://localhost:5174"
-                    )
+                    policy.WithOrigins(allowedFrontendOrigins)
                     .AllowAnyHeader()
                     .AllowAnyMethod();
                 });
@@ -220,10 +230,19 @@ namespace Lumino.Api
             var app = builder.Build();
 
             // Configure the HTTP request pipeline
-            if (app.Environment.IsDevelopment())
+            var runSeeder = app.Environment.IsDevelopment()
+                || builder.Configuration.GetValue<bool>("Seed:RunOnStartup");
+
+            if (runSeeder)
             {
                 LuminoSeeder.Seed(app);
+            }
 
+            var enableSwagger = app.Environment.IsDevelopment()
+                || builder.Configuration.GetValue<bool>("Swagger:Enabled");
+
+            if (enableSwagger)
+            {
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
