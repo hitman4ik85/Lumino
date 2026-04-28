@@ -1,4 +1,11 @@
 import { apiClient } from "./apiClient.js";
+import { getUserScopedRequestCacheOptions, readUserScopedRequestCache, removeUserScopedRequestCache, writeUserScopedRequestCache } from "./userScopedRequestCache.js";
+
+const MY_LANGUAGES_CACHE_NAMESPACE = "onboarding-my-languages";
+
+function clearMyLanguagesCache() {
+  removeUserScopedRequestCache(MY_LANGUAGES_CACHE_NAMESPACE);
+}
 
 const normalizeLanguagesPayload = (data, fallbackCode = "") => {
   const activeTargetLanguageCode = data?.activeTargetLanguageCode || data?.targetLanguageCode || fallbackCode;
@@ -41,18 +48,34 @@ export const onboardingService = {
     };
   },
 
-  async getMyLanguages() {
+  async getMyLanguages(options = {}) {
+    const cacheOptions = getUserScopedRequestCacheOptions();
+    const cached = options.force ? null : readUserScopedRequestCache(MY_LANGUAGES_CACHE_NAMESPACE, "", cacheOptions);
+
+    if (cached && typeof cached === "object") {
+      return {
+        ...normalizeLanguagesPayload(cached, ""),
+        source: "cache",
+      };
+    }
+
     const res = await apiClient.get("/onboarding/languages/me");
 
     if (!res.ok) {
       return { ok: false, data: null, error: res.error || "" };
     }
 
+    writeUserScopedRequestCache(MY_LANGUAGES_CACHE_NAMESPACE, "", res.data, cacheOptions);
+
     return normalizeLanguagesPayload(res.data, "");
   },
 
   async updateMyLanguages(dto) {
     const res = await apiClient.put("/onboarding/languages/me", dto);
+
+    if (res.ok) {
+      clearMyLanguagesCache();
+    }
 
     return {
       ok: res.ok,
@@ -69,6 +92,10 @@ export const onboardingService = {
     const code = String(targetLanguageCode).trim().toLowerCase();
     const res = await apiClient.put("/onboarding/target-language/me", { targetLanguageCode: code });
 
+    if (res.ok) {
+      clearMyLanguagesCache();
+    }
+
     return {
       ok: res.ok,
       status: res.status,
@@ -82,6 +109,10 @@ export const onboardingService = {
 
     const code = String(languageCode).trim().toLowerCase();
     const res = await apiClient.del(`/onboarding/languages/me/${code}`);
+
+    if (res.ok) {
+      clearMyLanguagesCache();
+    }
 
     return {
       ok: res.ok,

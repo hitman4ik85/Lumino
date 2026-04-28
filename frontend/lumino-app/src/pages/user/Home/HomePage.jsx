@@ -1302,6 +1302,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(initialHomeCacheRef.current == null);
   const [pathLoading, setPathLoading] = useState(false);
   const [restoringHearts, setRestoringHearts] = useState(false);
+  const [showDelayedHomeLoading, setShowDelayedHomeLoading] = useState(false);
   const initialTab = TAB_QUERY_VIEWS.includes(searchParams.get("tab")) ? searchParams.get("tab") : "learning";
   const [activeNav, setActiveNav] = useState(initialTab === "learning" ? "learning" : initialTab);
   const [bodyView, setBodyView] = useState(initialTab);
@@ -1640,7 +1641,23 @@ export default function HomePage() {
   }, [user.hearts, user.heartsMax, user.nextHeartInSeconds]);
   const isFullPanelView = FULL_PANEL_VIEWS.includes(bodyView);
   const isTopBarHidden = TOP_BAR_HIDDEN_VIEWS.includes(bodyView);
-  const showBlockingHomeLoading = (loading || restoringHearts) && !["profile", "achievements", "dictionary"].includes(bodyView);
+  const hasVisibleHomeData = Boolean(initialHomeCacheRef.current || course || courses.length > 0 || path);
+  const showBlockingHomeLoading = (restoringHearts || (loading && showDelayedHomeLoading)) && !["profile", "achievements", "dictionary"].includes(bodyView);
+
+  useEffect(() => {
+    if (!loading) {
+      setShowDelayedHomeLoading(false);
+      return undefined;
+    }
+
+    const timerId = window.setTimeout(() => {
+      setShowDelayedHomeLoading(true);
+    }, hasVisibleHomeData ? 700 : 350);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [hasVisibleHomeData, loading]);
 
   const languageItems = useMemo(() => {
     if (Array.isArray(languageState.learningLanguages) && languageState.learningLanguages.length > 0) {

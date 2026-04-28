@@ -64,6 +64,71 @@ function clearStoreByPrefixes(store, prefixes) {
   }
 }
 
+function buildUserCacheKeyCandidates(userCacheKey, userId) {
+  const candidates = [];
+  const pushCandidate = (value) => {
+    const normalized = String(value || "").trim();
+
+    if (!normalized || candidates.includes(normalized)) {
+      return;
+    }
+
+    candidates.push(normalized);
+  };
+
+  pushCandidate(userCacheKey);
+
+  const normalizedUserId = String(userId || "").trim();
+
+  if (normalizedUserId) {
+    pushCandidate(`user:${normalizedUserId}`);
+  }
+
+  const userCacheKeyMatch = String(userCacheKey || "").trim().match(/^user:([^:]+)/);
+
+  if (userCacheKeyMatch?.[1]) {
+    pushCandidate(`user:${userCacheKeyMatch[1]}`);
+  }
+
+  return candidates;
+}
+
+function clearStoreByUserCacheKeys(store, userCacheKeys) {
+  if (!store || !Array.isArray(userCacheKeys) || userCacheKeys.length === 0) {
+    return;
+  }
+
+  try {
+    const keysToRemove = [];
+
+    for (let index = 0; index < store.length; index += 1) {
+      const key = store.key(index);
+
+      if (!key) {
+        continue;
+      }
+
+      const prefix = USER_CACHE_KEY_PREFIXES.find((item) => key.startsWith(item));
+
+      if (!prefix) {
+        continue;
+      }
+
+      const remainder = key.slice(prefix.length);
+      const shouldRemove = userCacheKeys.some((userCacheKey) => remainder === userCacheKey || remainder.startsWith(`${userCacheKey}:`));
+
+      if (shouldRemove) {
+        keysToRemove.push(key);
+      }
+    }
+
+    keysToRemove.forEach((key) => {
+      store.removeItem(key);
+    });
+  } catch {
+    // ignore storage errors
+  }
+}
 
 function readNamespaceMapFromStore(store) {
   if (!store) {
@@ -311,8 +376,16 @@ function clearUserCacheNamespace(userId) {
   writeUserCacheNamespaceMap(namespaceMap);
 }
 
-function clearUserScopedCaches() {
+function clearUserScopedCaches(userCacheKey = "", userId = "") {
   if (typeof window === "undefined") {
+    return;
+  }
+
+  const userCacheKeys = buildUserCacheKeyCandidates(userCacheKey, userId);
+
+  if (userCacheKeys.length > 0) {
+    clearStoreByUserCacheKeys(window.sessionStorage, userCacheKeys);
+    clearStoreByUserCacheKeys(window.localStorage, userCacheKeys);
     return;
   }
 
@@ -415,9 +488,10 @@ export const authStorage = {
     const shouldClearUserScopedCaches = Boolean(options?.clearUserScopedCaches);
     const shouldRotateUserCacheNamespace = Boolean(options?.rotateUserCacheNamespace);
     const previousUserId = getUserIdFromPayload(parseJwtPayload(store.getItem(ACCESS_TOKEN_KEY) || ""));
+    const previousUserCacheKey = this.getUserCacheKey();
 
     if (shouldClearUserScopedCaches) {
-      clearUserScopedCaches();
+      clearUserScopedCaches(previousUserCacheKey, previousUserId);
     }
 
     if (token) {
@@ -446,6 +520,7 @@ export const authStorage = {
     const store = getTokenStore();
     const shouldClearUserScopedCaches = Boolean(options?.clearUserScopedCaches);
     const currentUserId = this.getUserId();
+    const currentUserCacheKey = this.getUserCacheKey();
     const hadTokens = Boolean(store.getItem(ACCESS_TOKEN_KEY) || store.getItem(REFRESH_TOKEN_KEY));
 
     store.removeItem(ACCESS_TOKEN_KEY);
@@ -457,14 +532,14 @@ export const authStorage = {
 
     if (shouldClearUserScopedCaches) {
       clearUserCacheNamespace(currentUserId);
-      clearUserScopedCaches();
+      clearUserScopedCaches(currentUserCacheKey, currentUserId);
     }
 
     clearLegacyPersistentTokens();
   },
 
   clearUserScopedCaches() {
-    clearUserScopedCaches();
+    clearUserScopedCaches(this.getUserCacheKey(), this.getUserId());
   },
 
   getAuthSessionVersion() {
@@ -480,7 +555,7 @@ export const authStorage = {
   },
 
   enableGuestPreview() {
-    this.clearTokens({ clearUserScopedCaches: true });
+    this.clearTokens();
     localStorage.setItem(GUEST_PREVIEW_KEY, "true");
   },
 
