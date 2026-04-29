@@ -1,6 +1,8 @@
 import { authStorage } from "./authStorage.js";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+const DEFAULT_API_TIMEOUT_MS = 30000;
+const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || DEFAULT_API_TIMEOUT_MS);
 const AUTH_REFRESH_PATH = "/auth/refresh";
 
 let refreshPromise = null;
@@ -20,6 +22,83 @@ const safeJson = async (res) => {
   } catch {
     return null;
   }
+};
+
+const getRequestTimeoutMs = (options = {}) => {
+  const value = Number(options.timeoutMs || API_TIMEOUT_MS);
+
+  if (!Number.isFinite(value) || value <= 0) {
+    return DEFAULT_API_TIMEOUT_MS;
+  }
+
+  return value;
+};
+
+const createTimeoutSignal = (options = {}) => {
+  const controller = new AbortController();
+  const timeoutMs = getRequestTimeoutMs(options);
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  let abortHandler = null;
+
+  if (options.signal) {
+    abortHandler = () => {
+      controller.abort();
+    };
+
+    if (options.signal.aborted) {
+      controller.abort();
+    } else {
+      options.signal.addEventListener("abort", abortHandler, { once: true });
+    }
+  }
+
+  return {
+    signal: controller.signal,
+    clear: () => {
+      clearTimeout(timeoutId);
+
+      if (options.signal && abortHandler) {
+        options.signal.removeEventListener("abort", abortHandler);
+      }
+    },
+  };
+};
+
+const fetchWithTimeout = async (url, options = {}) => {
+  const { timeoutMs, signal, ...fetchOptions } = options;
+  const timeoutSignal = createTimeoutSignal({ timeoutMs, signal });
+
+  try {
+    return await fetch(url, {
+      ...fetchOptions,
+      signal: timeoutSignal.signal,
+    });
+  } finally {
+    timeoutSignal.clear();
+  }
+};
+
+const getConnectionErrorResponse = (error) => {
+  const isTimeout = error?.name === "AbortError";
+  const type = isTimeout ? "request_timeout" : "network_error";
+  const message = isTimeout
+    ? "Сервер не відповідає занадто довго. Спробуйте ще раз через кілька секунд."
+    : "Не вдалося з'єднатися із сервером. Перевірте інтернет або спробуйте ще раз.";
+
+  return {
+    ok: false,
+    status: 0,
+    data: {
+      type,
+      detail: message,
+    },
+    error: message,
+    shouldClearTokens: false,
+    shouldClearUserScopedCaches: false,
+  };
 };
 
 const isUserNotFoundResponse = (res, data, error) => {
@@ -102,7 +181,7 @@ const refreshTokens = async () => {
     return false;
   }
 
-  const res = await fetch(buildUrl(AUTH_REFRESH_PATH), {
+  const res = await fetchWithTimeout(buildUrl(AUTH_REFRESH_PATH), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -167,8 +246,14 @@ const ensureFreshAccessToken = async (path) => {
 export const apiClient = {
   async request(path, options = {}) {
     const url = buildUrl(path);
-    const accessToken = await ensureFreshAccessToken(path);
     const requestAuthSessionVersion = authStorage.getAuthSessionVersion();
+    let accessToken = "";
+
+    try {
+      accessToken = await ensureFreshAccessToken(path);
+    } catch (error) {
+      return getConnectionErrorResponse(error);
+    }
 
     const headers = {
       "Content-Type": "application/json",
@@ -176,10 +261,16 @@ export const apiClient = {
       ...(options.headers || {}),
     };
 
-    let res = await fetch(url, {
-      ...options,
-      headers,
-    });
+    let res = null;
+
+    try {
+      res = await fetchWithTimeout(url, {
+        ...options,
+        headers,
+      });
+    } catch (error) {
+      return getConnectionErrorResponse(error);
+    }
 
     let data = await safeJson(res);
 
@@ -203,10 +294,14 @@ export const apiClient = {
           ...(retryAccessToken ? { Authorization: `Bearer ${retryAccessToken}` } : {}),
         };
 
-        res = await fetch(url, {
-          ...options,
-          headers: retryHeaders,
-        });
+        try {
+          res = await fetchWithTimeout(url, {
+            ...options,
+            headers: retryHeaders,
+          });
+        } catch (error) {
+          return getConnectionErrorResponse(error);
+        }
 
         data = await safeJson(res);
       }

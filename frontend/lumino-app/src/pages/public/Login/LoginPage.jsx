@@ -106,8 +106,31 @@ export default function LoginPage() {
   const getLoginFailureModal = (res) => {
     const text = String(res?.error || res?.data?.detail || res?.data?.message || res?.data?.error || "").trim();
     const normalizedText = text.toLowerCase();
+    const responseType = String(res?.data?.type || "").trim().toLowerCase();
+    const status = Number(res?.status || 0);
 
-    if (normalizedText.includes("user not found") || (normalizedText.includes("користувач") && normalizedText.includes("не знайден")) || Number(res?.status || 0) === 404) {
+    if (responseType === "database_unavailable" || status === 503) {
+      return {
+        title: "База даних тимчасово недоступна",
+        message: "Сервер зараз не зміг підключитися до бази даних. Спробуйте ще раз через кілька секунд.",
+      };
+    }
+
+    if (responseType === "request_timeout") {
+      return {
+        title: "Сервер не відповідає",
+        message: "Запит виконувався занадто довго. Спробуйте ще раз через кілька секунд.",
+      };
+    }
+
+    if (responseType === "network_error" || status === 0) {
+      return {
+        title: "Сервер тимчасово недоступний",
+        message: "Не вдалося з'єднатися із сервером. Перевірте інтернет або спробуйте ще раз.",
+      };
+    }
+
+    if (normalizedText.includes("user not found") || (normalizedText.includes("користувач") && normalizedText.includes("не знайден")) || status === 404) {
       return {
         title: "Користувача не знайдено",
         message: "Користувача з такою електронною адресою немає в базі. Перевірте адресу або зареєструйте новий профіль.",
@@ -179,7 +202,8 @@ export default function LoginPage() {
           });
 
           if (!res.ok) {
-            showLoginModal("Не вдалося увійти через Google", res.error || "Спробуйте ще раз трохи пізніше.");
+            const failureModal = getLoginFailureModal(res);
+            showLoginModal(failureModal.title, failureModal.message);
             setSubmitting(false);
             return;
           }

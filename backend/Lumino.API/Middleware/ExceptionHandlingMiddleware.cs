@@ -3,6 +3,7 @@ using System.Text.Json;
 using Lumino.Api.Utils;
 using Microsoft.AspNetCore.Hosting;
 using System.Diagnostics;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace Lumino.Api.Middleware
@@ -116,6 +117,11 @@ namespace Lumino.Api.Middleware
                 return ((int)HttpStatusCode.Conflict, "conflict", ex.Message);
             }
 
+            if (IsDatabaseUnavailableException(ex))
+            {
+                return ((int)HttpStatusCode.ServiceUnavailable, "database_unavailable", "Тимчасово не вдалося підключитися до бази даних. Спробуйте ще раз через кілька секунд.");
+            }
+
             if (ex is DbUpdateException dbUpdateException && DbUpdateExceptionMapper.TryMap(dbUpdateException, out var dbStatusCode, out var dbType, out var dbMessage))
             {
                 return (dbStatusCode, dbType, dbMessage);
@@ -140,6 +146,52 @@ namespace Lumino.Api.Middleware
             return ((int)HttpStatusCode.InternalServerError, "server_error", "Unexpected server error.");
         }
 
+        private static bool IsDatabaseUnavailableException(Exception ex)
+        {
+            if (ex is TimeoutException)
+            {
+                return true;
+            }
+
+            if (ex is SqlException sqlException)
+            {
+                foreach (SqlError error in sqlException.Errors)
+                {
+                    if (IsTransientSqlError(error.Number))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if (ex.InnerException != null)
+            {
+                return IsDatabaseUnavailableException(ex.InnerException);
+            }
+
+            return false;
+        }
+
+        private static bool IsTransientSqlError(int number)
+        {
+            return number == -2
+                || number == 20
+                || number == 53
+                || number == 64
+                || number == 233
+                || number == 258
+                || number == 10053
+                || number == 10054
+                || number == 10060
+                || number == 11001
+                || number == 40197
+                || number == 40501
+                || number == 40613
+                || number == 49918
+                || number == 49919
+                || number == 49920;
+        }
+
         private static string ToTitle(int statusCode)
         {
             if (statusCode == (int)HttpStatusCode.BadRequest) return "Bad Request";
@@ -147,6 +199,7 @@ namespace Lumino.Api.Middleware
             if (statusCode == (int)HttpStatusCode.Forbidden) return "Forbidden";
             if (statusCode == (int)HttpStatusCode.NotFound) return "Not Found";
             if (statusCode == (int)HttpStatusCode.Conflict) return "Conflict";
+            if (statusCode == (int)HttpStatusCode.ServiceUnavailable) return "Service Unavailable";
             return "Server Error";
         }
 

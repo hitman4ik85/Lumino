@@ -109,7 +109,16 @@ namespace Lumino.Api
             builder.Services.AddDbContext<LuminoDbContext>(options =>
             {
                 options.UseSqlServer(
-                    builder.Configuration.GetConnectionString("DefaultConnection")
+                    builder.Configuration.GetConnectionString("DefaultConnection"),
+                    sqlOptions =>
+                    {
+                        sqlOptions.EnableRetryOnFailure(
+                            maxRetryCount: 3,
+                            maxRetryDelay: TimeSpan.FromSeconds(5),
+                            errorNumbersToAdd: null
+                        );
+                        sqlOptions.CommandTimeout(30);
+                    }
                 );
             });
 
