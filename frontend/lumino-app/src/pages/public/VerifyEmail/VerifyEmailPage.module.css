@@ -307,9 +307,7 @@
 
   .emailBox,
   .statusBox,
-  .actions,
-  .primaryBtn,
-  .secondaryBtn{
+  .actions{
     left: 50%;
     transform: translateX(-50%);
   }
@@ -382,7 +380,7 @@
 
   .subtitle{
     left: 50%;
-    top: 108px;
+    top: 144px;
     width: 360px;
     transform: translateX(-50%);
     font-size: 16px;
@@ -391,9 +389,7 @@
 
   .emailBox,
   .statusBox,
-  .actions,
-  .primaryBtn,
-  .secondaryBtn{
+  .actions{
     left: 50%;
     transform: translateX(-50%);
   }
