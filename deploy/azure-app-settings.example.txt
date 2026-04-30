@@ -14,11 +14,11 @@ Email__Password=your-email-app-password
 Email__EnableSsl=true
 Email__FromEmail=your-email@gmail.com
 Email__FromName=Lumino
-Email__FrontendBaseUrl=https://your-frontend-url.vercel.app
+Email__FrontendBaseUrl=https://your-frontend-url.azurestaticapps.net
 
 OAuth__Google__ClientId=your-google-client-id.apps.googleusercontent.com
 
-Cors__AllowedOrigins__0=https://your-frontend-url.vercel.app
+Cors__AllowedOrigins__0=https://your-frontend-url.azurestaticapps.net
 
 Swagger__Enabled=true
 Seed__RunOnStartup=true

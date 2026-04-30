@@ -39,14 +39,37 @@ npm run build
 
 Готові файли збираються у папку `dist`.
 
-## Vercel
+## Azure Static Web Apps
 
-Для деплою на Vercel потрібно вказати:
+Для деплою frontend на Azure Static Web Apps потрібно вказати:
 
 ```text
-Root Directory: frontend/lumino-app
+App location: frontend/lumino-app
+Api location: залишити порожнім
+Output location: dist
 Build Command: npm run build
-Output Directory: dist
+Install Command: npm ci
 ```
 
-Файл `vercel.json` потрібен для коректної роботи React Router після оновлення сторінки або прямого переходу на внутрішні маршрути.
+Для production потрібно додати frontend environment variables:
+
+```env
+VITE_API_BASE_URL=https://your-backend-url.azurewebsites.net/api
+VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+```
+
+Для коректної роботи React Router після оновлення сторінки або прямого переходу на внутрішні маршрути потрібно додати файл:
+
+```text
+frontend/lumino-app/staticwebapp.config.json
+```
+
+Мінімальний зміст файлу:
+
+```json
+{
+  "navigationFallback": {
+    "rewrite": "/index.html"
+  }
+}
+```

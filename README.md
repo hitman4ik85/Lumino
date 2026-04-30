@@ -36,7 +36,8 @@
 - API docs: Swagger (Swashbuckle)
 - Tests: xUnit, Microsoft.AspNetCore.Mvc.Testing, EF Core InMemory
 - Frontend: React + Vite
-- CI: GitHub Actions
+- Hosting: Azure App Service, Azure Static Web Apps, Azure SQL Database
+- CI/CD: GitHub Actions
 
 ## Структура репозиторію
 ```text
@@ -130,10 +131,12 @@ dotnet run --project ./Lumino.API/Lumino.API.csproj
 - відправити результат уроку;
 - перевірити прогрес, словник або досягнення.
 
-## CI (GitHub Actions)
+## CI/CD (GitHub Actions)
 
 - `.github/workflows/backend-ci.yml` — restore, build та tests backend-частини
 - `.github/workflows/frontend-ci.yml` — install та build frontend-частини
+- `.github/workflows/main_lumino-backend-1703.yml` — build та deploy backend на Azure App Service
+- workflow для Azure Static Web Apps буде створений під час створення frontend-ресурсу в Azure
 
 ## Документація
 
@@ -142,12 +145,12 @@ dotnet run --project ./Lumino.API/Lumino.API.csproj
 - `backend/docs/LearningFlow.md` — опис навчального flow
 - `deploy/DEPLOYMENT.md` — покрокова інструкція деплою
 - `deploy/azure-app-settings.example.txt` — шаблон Azure App Service settings без секретів
-- `deploy/vercel-env.example.txt` — шаблон Vercel environment variables без секретів
+- `deploy/azure-static-web-apps-env.example.txt` — шаблон frontend environment variables для Azure Static Web Apps без секретів
 
 ## Деплой
 
 Рекомендований варіант для демонстрації дипломного проєкту:
-- Frontend: Vercel
+- Frontend: Azure Static Web Apps
 - Backend: Azure App Service
 - Database: Azure SQL Database
 
@@ -157,7 +160,7 @@ dotnet run --project ./Lumino.API/Lumino.API.csproj
 deploy/DEPLOYMENT.md
 ```
 
-Перед деплоєм секретні значення не потрібно записувати у файли репозиторію. Їх потрібно додавати тільки у GitHub/Vercel/Azure налаштування середовища.
+Перед деплоєм секретні значення не потрібно записувати у файли репозиторію. Їх потрібно додавати тільки у GitHub / Azure App Service / Azure Static Web Apps налаштування середовища.
 
 ## Автори
 

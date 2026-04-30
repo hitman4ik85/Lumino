@@ -5,12 +5,12 @@
 ## Рекомендований варіант для демонстрації
 
 ```text
-Frontend: Vercel
+Frontend: Azure Static Web Apps
 Backend: Azure App Service
 Database: Azure SQL Database
 ```
 
-Такий варіант найкраще підходить для поточної структури проєкту, тому що frontend уже створений на React + Vite, а backend використовує ASP.NET Core .NET 8 та SQL Server.
+Такий варіант підходить для поточної структури проєкту, тому що frontend створений на React + Vite, backend використовує ASP.NET Core .NET 8 та SQL Server, а вся хмарна частина залишається в одному середовищі Azure.
 
 ## Важливо про секретні ключі
 
@@ -20,7 +20,8 @@ Database: Azure SQL Database
 
 ```text
 Azure App Service -> Environment variables / Application settings
-Vercel -> Project Settings -> Environment Variables
+Azure Static Web Apps -> Configuration / Application settings
+GitHub repository secrets, якщо конкретний workflow потребує секрет
 локально -> dotnet user-secrets або .env.local
 ```
 
@@ -53,8 +54,9 @@ npm run build
 
 ```text
 Resource Group: lumino-rg
-SQL Server: lumino-sql-server
+SQL Server: lumino-sql-server-1703
 Database: lumino-db
+Region: Poland Central
 ```
 
 Після створення бази потрібно скопіювати connection string для `.NET / SQLClient`.
@@ -85,8 +87,11 @@ backend/Lumino.API/Lumino.API.csproj
 Рекомендовані налаштування Azure App Service:
 
 ```text
-Runtime stack: .NET 8
-Operating System: Windows
+Resource Group: lumino-rg
+Name: lumino-backend-1703
+Runtime stack: .NET 8 LTS
+Operating System: Linux
+Region: Poland Central
 Pricing plan: Free F1 або інший доступний безкоштовний/дешевий план
 ```
 
@@ -109,11 +114,11 @@ Email__Password=your-email-app-password
 Email__EnableSsl=true
 Email__FromEmail=your-email@gmail.com
 Email__FromName=Lumino
-Email__FrontendBaseUrl=https://your-frontend-url.vercel.app
+Email__FrontendBaseUrl=https://your-frontend-url.azurestaticapps.net
 
 OAuth__Google__ClientId=your-google-client-id.apps.googleusercontent.com
 
-Cors__AllowedOrigins__0=https://your-frontend-url.vercel.app
+Cors__AllowedOrigins__0=https://your-frontend-url.azurestaticapps.net
 
 Swagger__Enabled=true
 Seed__RunOnStartup=true
@@ -126,13 +131,13 @@ Seed__RunOnStartup=true
 Правильно:
 
 ```text
-https://your-frontend-url.vercel.app
+https://your-frontend-url.azurestaticapps.net
 ```
 
 Неправильно:
 
 ```text
-https://your-frontend-url.vercel.app/
+https://your-frontend-url.azurestaticapps.net/
 ```
 
 `Email__FrontendBaseUrl` використовується для посилань підтвердження пошти та відновлення пароля.
@@ -147,30 +152,93 @@ Seed__RunOnStartup=false
 
 `Swagger__Enabled=true` зручно залишити для захисту, щоб можна було показати API. Після захисту краще змінити на `false`.
 
-## 4. Frontend на Vercel
+## 4. Backend GitHub Actions
 
-У Vercel потрібно імпортувати GitHub repository та вибрати frontend-папку.
-
-Налаштування:
+Для backend Azure App Service створює workflow у папці:
 
 ```text
-Root Directory: frontend/lumino-app
-Framework Preset: Vite
-Build Command: npm run build
-Output Directory: dist
-Install Command: npm ci
+.github/workflows/main_lumino-backend-1703.yml
 ```
 
-Environment Variables для Vercel:
+Оскільки backend знаходиться не в корені репозиторію, у workflow потрібно вказувати повний шлях до `.csproj`:
+
+```text
+backend/Lumino.API/Lumino.API.csproj
+```
+
+Основні команди build/publish мають бути прив'язані саме до цього файлу проєкту.
+
+## 5. Frontend на Azure Static Web Apps
+
+Frontend потрібно деплоїти з папки:
+
+```text
+frontend/lumino-app
+```
+
+Рекомендовані налаштування Azure Static Web Apps:
+
+```text
+Resource Group: lumino-rg
+Name: lumino-frontend
+Plan type: Free
+Region: West Europe або інший доступний регіон для Static Web Apps
+Source: GitHub
+Repository: Lumino
+Branch: main
+Build preset: React
+App location: frontend/lumino-app
+Api location: залишити порожнім
+Output location: dist
+```
+
+Для React Router потрібно додати файл конфігурації в frontend-проєкт:
+
+```text
+frontend/lumino-app/staticwebapp.config.json
+```
+
+Мінімальний зміст файлу:
+
+```json
+{
+  "navigationFallback": {
+    "rewrite": "/index.html"
+  }
+}
+```
+
+Це потрібно, щоб прямий перехід або оновлення сторінок типу `/login`, `/home`, `/profile`, `/admin` не давали 404.
+
+## 6. Frontend environment variables для Azure Static Web Apps
+
+Для production frontend потрібно вказати:
 
 ```text
 VITE_API_BASE_URL=https://your-backend-url.azurewebsites.net/api
 VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 ```
 
-Після зміни environment variables у Vercel потрібно зробити redeploy frontend.
+Для поточного backend URL приклад буде таким:
 
-## 5. Google OAuth
+```text
+VITE_API_BASE_URL=https://lumino-backend-1703-gaa6b6c9eubdcxdk.polandcentral-01.azurewebsites.net/api
+```
+
+Після зміни frontend environment variables потрібно зробити redeploy frontend, щоб Vite зібрав застосунок уже з новими значеннями.
+
+## 7. Оновлення backend після створення frontend
+
+Після того, як Azure Static Web Apps видасть frontend URL, потрібно повернутися в Azure App Service backend і оновити:
+
+```text
+Email__FrontendBaseUrl=https://your-frontend-url.azurestaticapps.net
+Cors__AllowedOrigins__0=https://your-frontend-url.azurestaticapps.net
+```
+
+Після збереження змін Azure App Service може перезапустити backend. Це нормально.
+
+## 8. Google OAuth
 
 У Google Cloud Console для OAuth Client потрібно додати frontend-домени.
 
@@ -178,23 +246,28 @@ Authorized JavaScript origins:
 
 ```text
 http://localhost:5173
-https://your-frontend-url.vercel.app
+https://your-frontend-url.azurestaticapps.net
 ```
 
 Для поточної реалізації Google login використовується Google Identity Services на frontend, тому головне — щоб frontend-домен був доданий у дозволені JavaScript origins.
 
-## 6. Перевірка після деплою
+## 9. Перевірка після деплою
 
 Після деплою перевірити в такому порядку:
 
-1. Відкрити backend URL.
-2. Відкрити Swagger:
+1. Відкрити backend endpoint:
+
+```text
+https://your-backend-url.azurewebsites.net/api/courses
+```
+
+2. Якщо Swagger увімкнений, відкрити Swagger:
 
 ```text
 https://your-backend-url.azurewebsites.net/swagger
 ```
 
-3. Відкрити frontend URL.
+3. Відкрити frontend URL Azure Static Web Apps.
 4. Перевірити, що frontend не має помилок CORS у DevTools Console.
 5. Зареєструвати нового користувача.
 6. Перевірити лист підтвердження пошти.
@@ -203,7 +276,7 @@ https://your-backend-url.azurewebsites.net/swagger
 9. Перевірити головну сторінку, курси, уроки, сцени, словник, профіль і досягнення.
 10. Увійти як admin і перевірити адмін-панель.
 
-## 7. Типові проблеми
+## 10. Типові проблеми
 
 ### Frontend не бачить backend
 
@@ -215,6 +288,16 @@ Cors__AllowedOrigins__0
 ```
 
 Frontend URL у CORS має бути без `/` у кінці.
+
+### Після оновлення сторінки frontend показує 404
+
+Перевірити, що у frontend-проєкті є файл:
+
+```text
+frontend/lumino-app/staticwebapp.config.json
+```
+
+і що в ньому налаштований `navigationFallback` на `/index.html`.
 
 ### Не приходить лист підтвердження пошти
 
@@ -250,7 +333,7 @@ OAuth__Google__ClientId
 Authorized JavaScript origins у Google Cloud Console
 ```
 
-## 8. Що краще зробити після захисту
+## 11. Що краще зробити після захисту
 
 Після демонстрації бажано:
 
@@ -258,5 +341,3 @@ Authorized JavaScript origins у Google Cloud Console
 Swagger__Enabled=false
 Seed__RunOnStartup=false
 ```
-
-Також потрібно зберігати секрети тільки у сервісах деплою, а не у файлах репозиторію.
