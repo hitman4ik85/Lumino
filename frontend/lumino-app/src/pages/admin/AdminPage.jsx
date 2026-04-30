@@ -499,17 +499,32 @@ function resolveCourseLabel(course) {
 }
 
 function resolveMediaUrl(value) {
-  const url = String(value || "").trim();
+  const url = String(value || "").trim().replace(/\\/g, "/");
 
   if (!url) {
     return "";
   }
 
-  if (url.startsWith("http://") || url.startsWith("https://")) {
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith("data:") || url.startsWith("blob:")) {
     return url;
   }
 
-  return url;
+  const apiBase = String(import.meta.env.VITE_API_BASE_URL || "/api").trim();
+  const mediaRoot = /^https?:\/\//i.test(apiBase)
+    ? apiBase.replace(/\/api\/?$/i, "").replace(/\/$/, "")
+    : typeof window !== "undefined"
+      ? window.location.origin
+      : "";
+
+  if (!mediaRoot) {
+    return url;
+  }
+
+  if (url.startsWith("/")) {
+    return `${mediaRoot}${url}`;
+  }
+
+  return `${mediaRoot}/${url.replace(/^\/+/, "")}`;
 }
 
 function buildCourseForm(course) {
