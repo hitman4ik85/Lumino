@@ -1,7 +1,7 @@
 import { authStorage } from "./authStorage.js";
 import { readPersistentUserCache, removePersistentUserCache, writePersistentUserCache } from "./userPersistentCache.js";
 
-const REQUEST_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
+const REQUEST_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function normalizeScope(options = {}) {
   const scope = String(options.scope || "user").trim().toLowerCase();

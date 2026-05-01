@@ -6,7 +6,7 @@ import { avatarsService } from "./avatarsService.js";
 import { readPersistentUserCache, removePersistentUserCache, writePersistentUserCache } from "./userPersistentCache.js";
 import { warmMediaUrls } from "./mediaWarmup.js";
 
-const PROFILE_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
+const PROFILE_CACHE_TTL_MS = 10 * 60 * 1000;
 
 function getProfileCacheKey() {
   const userKey = authStorage.getUserCacheKey();

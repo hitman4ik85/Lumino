@@ -304,6 +304,7 @@
   gap: 24px;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
   overflow: hidden;
+  touch-action: manipulation;
 }
 
 .googleBtn:hover{
@@ -369,6 +370,10 @@
   inset: 0;
   opacity: 0.01;
   z-index: 2;
+  pointer-events: auto;
+}
+
+.googleBtnDisabled .googleOverlay{
   pointer-events: none;
 }
 

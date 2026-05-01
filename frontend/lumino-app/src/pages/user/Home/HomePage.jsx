@@ -641,11 +641,11 @@ function applyOptimisticHomeRefresh(snapshot, locationState) {
   };
 }
 
-const HOME_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
-const COURSE_PATH_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
-const SCENES_OVERVIEW_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
-const SUPPORTED_LANGUAGES_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
-const CALENDAR_MONTH_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
+const HOME_CACHE_TTL_MS = 10 * 60 * 1000;
+const COURSE_PATH_CACHE_TTL_MS = 10 * 60 * 1000;
+const SCENES_OVERVIEW_CACHE_TTL_MS = 30 * 60 * 1000;
+const SUPPORTED_LANGUAGES_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const CALENDAR_MONTH_CACHE_TTL_MS = 30 * 60 * 1000;
 
 function getCoursePathCacheKey(languageCode, courseId) {
   const userKey = authStorage.getUserCacheKey();
@@ -1973,7 +1973,7 @@ export default function HomePage() {
       });
       setLoading(false);
 
-      const shouldLoadPathInBackground = Boolean(activeCourse?.id) && !nextPathForCache;
+      const shouldLoadPathInBackground = Boolean(activeCourse?.id);
       const backgroundRequests = [
         streakService.getMyStreak(),
         streakService.getMyCalendarMonth(calendarMonth.year, calendarMonth.month),
