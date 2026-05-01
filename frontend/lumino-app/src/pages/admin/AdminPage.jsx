@@ -170,6 +170,7 @@ const USER_FORM_FIELD_HINTS = {
 const INITIAL_MODAL = { type: "", mode: "", payload: null };
 const EMPTY_RELATION = { word: "", translation: "" };
 const USERS_PRESENCE_REFRESH_MS = 30000;
+const USER_ONLINE_TOKEN_WINDOW_MS = 75 * 60 * 1000;
 
 function normalizeCode(value) {
   return String(value || "").trim().toLowerCase();
@@ -197,6 +198,22 @@ function formatAdminDateTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function isRecentlyActiveToken(item) {
+  if (!item || !item.isActive || item.isRevoked || item.isExpired) {
+    return false;
+  }
+
+  const createdAt = new Date(item.createdAt);
+
+  if (Number.isNaN(createdAt.getTime())) {
+    return false;
+  }
+
+  const tokenAgeMs = Date.now() - createdAt.getTime();
+
+  return tokenAgeMs >= 0 && tokenAgeMs <= USER_ONLINE_TOKEN_WINDOW_MS;
 }
 
 function formatFileSize(value) {
@@ -2417,7 +2434,7 @@ export default function AdminPage() {
   const onlineUserIds = useMemo(() => {
     return new Set(
       (Array.isArray(tokens) ? tokens : [])
-        .filter((item) => Boolean(item?.isActive) && !Boolean(item?.isRevoked) && !Boolean(item?.isExpired))
+        .filter((item) => isRecentlyActiveToken(item))
         .map((item) => Number(item?.userId || 0))
         .filter((value) => Number.isFinite(value) && value > 0)
     );
