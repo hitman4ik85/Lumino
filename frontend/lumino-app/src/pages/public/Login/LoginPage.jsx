@@ -217,7 +217,7 @@ export default function LoginPage() {
             return;
           }
 
-          authStorage.setTokens(token, refreshToken);
+          authStorage.setTokens(token, refreshToken, { clearUserScopedCaches: true, rotateUserCacheNamespace: true });
           setSubmitting(false);
           navigate(getSuccessPath(), { replace: true });
         },
@@ -417,7 +417,7 @@ export default function LoginPage() {
         return;
       }
 
-      authStorage.setTokens(token, refreshToken);
+      authStorage.setTokens(token, refreshToken, { clearUserScopedCaches: true, rotateUserCacheNamespace: true });
       navigate(getSuccessPath(), { replace: true });
     } catch {
       showLoginModal("Не вдалося увійти", "Сталася помилка під час входу. Спробуйте ще раз.");
