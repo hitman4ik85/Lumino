@@ -25,6 +25,8 @@ namespace Lumino.Api.Application.Services
 
         public List<AdminUserResponse> GetAll()
         {
+            RefreshUserHeartsForAdminList();
+
             var userCourses = _dbContext.UserCourses
                 .AsNoTracking()
                 .ToList();
@@ -658,6 +660,101 @@ namespace Lumino.Api.Application.Services
         {
             var heartsMax = _configuration.GetValue<int?>("Learning:HeartsMax") ?? 5;
             return heartsMax <= 0 ? 5 : heartsMax;
+        }
+
+        private int GetHeartRegenMinutes()
+        {
+            var regenMinutes = _configuration.GetValue<int?>("Learning:HeartRegenMinutes") ?? 30;
+            return regenMinutes <= 0 ? 30 : regenMinutes;
+        }
+
+        private void RefreshUserHeartsForAdminList()
+        {
+            var heartsMax = GetHeartsMax();
+            var regenMinutes = GetHeartRegenMinutes();
+            var nowUtc = DateTime.UtcNow;
+            var hasChanges = false;
+
+            var users = _dbContext.Users
+                .Where(x => x.Role != Role.Admin)
+                .ToList();
+
+            foreach (var user in users)
+            {
+                if (user.Hearts > heartsMax)
+                {
+                    user.Hearts = heartsMax;
+                    user.HeartsUpdatedAtUtc = nowUtc;
+                    hasChanges = true;
+                    continue;
+                }
+
+                if (regenMinutes <= 0)
+                {
+                    continue;
+                }
+
+                if (user.Hearts >= heartsMax)
+                {
+                    if (user.HeartsUpdatedAtUtc == null || user.HeartsUpdatedAtUtc.Value < nowUtc.AddMinutes(-regenMinutes))
+                    {
+                        user.HeartsUpdatedAtUtc = nowUtc;
+                        hasChanges = true;
+                    }
+
+                    continue;
+                }
+
+                if (user.HeartsUpdatedAtUtc == null)
+                {
+                    user.HeartsUpdatedAtUtc = nowUtc;
+                    hasChanges = true;
+                    continue;
+                }
+
+                var elapsed = nowUtc - user.HeartsUpdatedAtUtc.Value;
+
+                if (elapsed.TotalMinutes < regenMinutes)
+                {
+                    continue;
+                }
+
+                var increments = (int)(elapsed.TotalMinutes / regenMinutes);
+
+                if (increments <= 0)
+                {
+                    continue;
+                }
+
+                var newHearts = user.Hearts + increments;
+
+                if (newHearts > heartsMax)
+                {
+                    newHearts = heartsMax;
+                }
+
+                if (newHearts == user.Hearts)
+                {
+                    user.HeartsUpdatedAtUtc = nowUtc;
+                    hasChanges = true;
+                    continue;
+                }
+
+                user.Hearts = newHearts;
+                user.HeartsUpdatedAtUtc = user.HeartsUpdatedAtUtc.Value.AddMinutes(increments * regenMinutes);
+
+                if (user.HeartsUpdatedAtUtc > nowUtc)
+                {
+                    user.HeartsUpdatedAtUtc = nowUtc;
+                }
+
+                hasChanges = true;
+            }
+
+            if (hasChanges)
+            {
+                _dbContext.SaveChanges();
+            }
         }
 
         private int NormalizeHearts(int? hearts)

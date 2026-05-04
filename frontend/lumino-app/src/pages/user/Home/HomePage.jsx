@@ -1703,6 +1703,7 @@ export default function HomePage() {
     return getPreferredCurrentCourse(courseItemsForView, course);
   }, [course, courseItemsForView]);
   const hasPublishedCoursesForActiveLanguage = courseItemsForView.length > 0;
+  const isPreparingInitialHomeData = loading && !hasVisibleHomeData && !hasPublishedCoursesForActiveLanguage;
 
   useEffect(() => {
     if (isGuest || !currentCourseForScenes?.id || !activeLanguageCode) {
@@ -2740,6 +2741,9 @@ export default function HomePage() {
             ))}
           </div>
         )
+      ) : isPreparingInitialHomeData ? renderNoPublishedCoursesState(
+        "Йде підготовка вашого Курсу для навчання",
+        "Зачекайте будь-ласка декілька секунд. Маршрут ваших уроків і сцен з’явиться автоматично"
       ) : renderNoPublishedCoursesState(
         "Для цієї мови зараз немає опублікованих курсів",
         "Коли курс знову опублікують, твій збережений прогрес повернеться автоматично. Поки що можна обрати іншу мову у профілі або через кнопку мови зверху."

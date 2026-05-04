@@ -370,10 +370,6 @@
   inset: 0;
   opacity: 0.01;
   z-index: 2;
-  pointer-events: auto;
-}
-
-.googleBtnDisabled .googleOverlay{
   pointer-events: none;
 }
 

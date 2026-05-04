@@ -2408,6 +2408,20 @@ export default function AdminPage() {
     }
   }, []);
 
+  const loadUsers = useCallback(async () => {
+    try {
+      const response = await adminService.getUsers();
+
+      if (!response.ok) {
+        throw new Error(response.error || "Не вдалося завантажити користувачів");
+      }
+
+      setUsers(response.data || []);
+    } catch (error) {
+      pushToast("error", error.message || "Помилка завантаження користувачів");
+    }
+  }, [pushToast]);
+
   const loadTokens = useCallback(async () => {
     const cacheKey = "all";
 
@@ -2445,14 +2459,16 @@ export default function AdminPage() {
       return undefined;
     }
 
+    loadUsers();
     loadTokens();
 
     const intervalId = window.setInterval(() => {
+      loadUsers();
       loadTokens();
     }, USERS_PRESENCE_REFRESH_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [loadTokens, section]);
+  }, [loadTokens, loadUsers, section]);
 
   const loadMediaFiles = useCallback(async (query = mediaSearchValue) => {
     const normalizedQuery = String(query || "").trim().toLowerCase();
@@ -8807,7 +8823,7 @@ export default function AdminPage() {
 
     try {
       await Promise.all([
-        refreshBootCollections(),
+        loadUsers(),
         loadTokens(),
       ]);
 
@@ -8815,7 +8831,7 @@ export default function AdminPage() {
     } finally {
       setIsActionLoading(false);
     }
-  }, [loadTokens, pushToast, refreshBootCollections]);
+  }, [loadTokens, loadUsers, pushToast]);
 
   const renderUsersSection = () => {
     const left = filteredUsers.slice(0, Math.ceil(filteredUsers.length / 2));

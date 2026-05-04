@@ -932,6 +932,14 @@
     height:16px;
   }
 
+  .textBubbleLeft::before{
+    left:-8px;
+  }
+
+  .textBubbleRight::before{
+    right:-8px;
+  }
+
   .textBubbleLeft{
     margin-top:16px;
   }
