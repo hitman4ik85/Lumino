@@ -1946,7 +1946,8 @@
   height:40px;
 }
 
-.sectionDivider img[src$="unlocked-star.svg"]{
+.sectionDivider img[src$="unlocked-star.svg"],
+.sectionDivider img.dividerUnlockedStar{
   width:40px;
   height:40px;
 }
@@ -2954,7 +2955,8 @@
     height:44px;
   }
 
-  .sectionDivider img[src$="unlocked-star.svg"]{
+  .sectionDivider img[src$="unlocked-star.svg"],
+  .sectionDivider img.dividerUnlockedStar{
     width:44px;
     height:44px;
   }

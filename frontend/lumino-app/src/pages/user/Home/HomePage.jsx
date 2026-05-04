@@ -1255,7 +1255,7 @@ function OrbitSection({
         <div className={styles.sectionDivider}>
           <div className={styles.dividerTop} />
           <div className={styles.dividerIcon}>
-            <img src={dividerDone ? HOME_SHARED_ASSETS.unlockedStar : HOME_SHARED_ASSETS.lock} alt="" aria-hidden="true" />
+            <img className={dividerDone ? styles.dividerUnlockedStar : ""} src={dividerDone ? HOME_SHARED_ASSETS.unlockedStar : HOME_SHARED_ASSETS.lock} alt="" aria-hidden="true" />
           </div>
           <div className={styles.dividerBottom} />
         </div>
