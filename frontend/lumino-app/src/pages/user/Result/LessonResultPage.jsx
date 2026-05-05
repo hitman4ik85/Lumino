@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStageScale } from "../../../hooks/useStageScale.js";
 import { PATHS } from "../../../routes/paths.js";
@@ -307,7 +307,7 @@ export default function LessonResultPage() {
     setAchievementModalOpen(false);
   };
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     if (isDemoLesson) {
       navigate(PATHS.onboardingPreCreateProf, {
         replace: true,
@@ -326,7 +326,36 @@ export default function LessonResultPage() {
         isLessonPassed: Boolean(result?.isPassed ?? result?.isCompleted),
       },
     });
-  };
+  }, [isDemoLesson, lesson?.id, lessonId, navigate, result?.isCompleted, result?.isPassed]);
+
+  useEffect(() => {
+    const handleResultEnter = (event) => {
+      if (
+        event.key !== "Enter"
+        || event.repeat
+        || event.shiftKey
+        || event.ctrlKey
+        || event.altKey
+        || event.metaKey
+        || event.isComposing
+      ) {
+        return;
+      }
+
+      if (!result || achievementModalOpen || (shouldShowCourseCompletionModal && !courseCompletionDismissed)) {
+        return;
+      }
+
+      event.preventDefault();
+      handleContinue();
+    };
+
+    window.addEventListener("keydown", handleResultEnter);
+
+    return () => {
+      window.removeEventListener("keydown", handleResultEnter);
+    };
+  }, [achievementModalOpen, courseCompletionDismissed, handleContinue, result, shouldShowCourseCompletionModal]);
 
   const handleOpenMistakes = () => {
     if (isDemoLesson) {

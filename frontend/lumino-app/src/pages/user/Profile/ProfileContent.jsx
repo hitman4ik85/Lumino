@@ -91,6 +91,26 @@ function getLanguageDisplayText(item, fallbackCode) {
   return getLanguageLabel(fallbackCode || item?.code);
 }
 
+function getUkrainianDaysLabel(value) {
+  const days = Math.abs(Number(value || 0));
+  const lastTwoDigits = days % 100;
+  const lastDigit = days % 10;
+
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
+    return "днів";
+  }
+
+  if (lastDigit === 1) {
+    return "день";
+  }
+
+  if (lastDigit >= 2 && lastDigit <= 4) {
+    return "дні";
+  }
+
+  return "днів";
+}
+
 function formatRegistrationDate(value) {
   const iso = getKyivDateKey(value);
 
@@ -1109,7 +1129,7 @@ export default function ProfileContent({ onProfileChange = null }) {
 
         <div className={`${styles.statCard} ${styles.statCardStreak}`}>
           <img className={styles.statIcon} src={HeaderStreak} alt="" aria-hidden="true" />
-          <span>{profile?.currentStreakDays || 0} день</span>
+          <span>{profile?.currentStreakDays || 0} {getUkrainianDaysLabel(profile?.currentStreakDays)}</span>
         </div>
 
         <div className={`${styles.statCard} ${styles.statCardPoints}`}>

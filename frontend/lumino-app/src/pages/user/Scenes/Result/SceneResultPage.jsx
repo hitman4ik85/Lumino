@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStageScale } from "../../../../hooks/useStageScale.js";
 import { PATHS } from "../../../../routes/paths.js";
@@ -300,7 +300,7 @@ export default function SceneResultPage() {
     setAchievementModalOpen(false);
   };
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     navigate(PATHS.home, {
       replace: true,
       state: {
@@ -309,7 +309,36 @@ export default function SceneResultPage() {
         completedSceneId: Number(scene?.id || sceneId || 0),
       },
     });
-  };
+  }, [navigate, scene?.id, sceneId]);
+
+  useEffect(() => {
+    const handleResultEnter = (event) => {
+      if (
+        event.key !== "Enter"
+        || event.repeat
+        || event.shiftKey
+        || event.ctrlKey
+        || event.altKey
+        || event.metaKey
+        || event.isComposing
+      ) {
+        return;
+      }
+
+      if (!result || achievementModalOpen || (shouldShowCourseCompletionModal && !courseCompletionDismissed)) {
+        return;
+      }
+
+      event.preventDefault();
+      handleContinue();
+    };
+
+    window.addEventListener("keydown", handleResultEnter);
+
+    return () => {
+      window.removeEventListener("keydown", handleResultEnter);
+    };
+  }, [achievementModalOpen, courseCompletionDismissed, handleContinue, result, shouldShowCourseCompletionModal]);
 
   const handleOpenMistakes = () => {
     navigate(PATHS.scene(sceneId), {

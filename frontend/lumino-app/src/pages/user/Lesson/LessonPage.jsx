@@ -521,6 +521,38 @@ function buildInputSlots(answer) {
   return Array.from(String(answer || "").trim());
 }
 
+function formatInputAnswerBySlots(value, correctAnswer) {
+  const slots = buildInputSlots(correctAnswer);
+  const text = String(value || "").replace(/[\r\n]/g, "");
+
+  if (!slots.some((symbol) => symbol === " ")) {
+    return text.slice(0, slots.length);
+  }
+
+  const characters = Array.from(text).filter((symbol) => symbol !== " ");
+  const result = [];
+  let characterIndex = 0;
+
+  for (const slot of slots) {
+    if (slot === " ") {
+      if (characterIndex > 0 && characterIndex < characters.length) {
+        result.push(" ");
+      }
+
+      continue;
+    }
+
+    if (characterIndex >= characters.length) {
+      break;
+    }
+
+    result.push(characters[characterIndex]);
+    characterIndex += 1;
+  }
+
+  return result.join("");
+}
+
 function TypingText({ text, className, animationKey, startDelay = 1040, stepDelay = 24 }) {
   const [visibleText, setVisibleText] = useState("");
 
@@ -902,7 +934,7 @@ function InputExercise({ exercise, value, feedback, onChange }) {
             <input
               className={styles.inputAnswerField}
               value={value}
-              onChange={(event) => onChange(event.target.value.replace(/[\r\n]/g, "").slice(0, answerSlots.length))}
+              onChange={(event) => onChange(formatInputAnswerBySlots(event.target.value, exercise?.correctAnswer))}
               maxLength={answerSlots.length}
               autoFocus
             />
@@ -1704,6 +1736,51 @@ export default function LessonPage() {
       },
     });
   }, [answers, course, coursePath, currentExercise, demoLanguageCode, demoLevel, exerciseIndex, exercises, isDemoLesson, isMistakesMode, lesson, lessonId, navigate, startAchievements, startAchievementsCount, user.hearts]);
+
+  useEffect(() => {
+    const handleLessonEnter = (event) => {
+      if (
+        event.key !== "Enter"
+        || event.repeat
+        || event.shiftKey
+        || event.ctrlKey
+        || event.altKey
+        || event.metaKey
+        || event.isComposing
+      ) {
+        return;
+      }
+
+      if (loading || error || !lesson || !currentExercise || lessonModal.open || modal.open) {
+        return;
+      }
+
+      if (screen === "exercise") {
+        if (!canCheck) {
+          return;
+        }
+
+        event.preventDefault();
+        handleCheck();
+        return;
+      }
+
+      if (screen === "feedback") {
+        if (submitting) {
+          return;
+        }
+
+        event.preventDefault();
+        handleContinue();
+      }
+    };
+
+    window.addEventListener("keydown", handleLessonEnter);
+
+    return () => {
+      window.removeEventListener("keydown", handleLessonEnter);
+    };
+  }, [canCheck, currentExercise, error, handleCheck, handleContinue, lesson, lessonModal.open, loading, modal.open, screen, submitting]);
 
   const handleClose = useCallback(() => {
     setLessonModal({ open: true, type: "leaveLesson" });

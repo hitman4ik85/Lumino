@@ -77,6 +77,38 @@ function buildInputSlots(answer) {
   return Array.from(String(answer || ""));
 }
 
+function formatInputAnswerBySlots(value, correctAnswer) {
+  const slots = buildInputSlots(correctAnswer);
+  const text = String(value || "").replace(/[\r\n]/g, "");
+
+  if (!slots.some((symbol) => symbol === " ")) {
+    return text.slice(0, slots.length);
+  }
+
+  const characters = Array.from(text).filter((symbol) => symbol !== " ");
+  const result = [];
+  let characterIndex = 0;
+
+  for (const slot of slots) {
+    if (slot === " ") {
+      if (characterIndex > 0 && characterIndex < characters.length) {
+        result.push(" ");
+      }
+
+      continue;
+    }
+
+    if (characterIndex >= characters.length) {
+      break;
+    }
+
+    result.push(characters[characterIndex]);
+    characterIndex += 1;
+  }
+
+  return result.join("");
+}
+
 function getAchievementKey(item) {
   return String(item?.id || item?.code || item?.title || "").trim();
 }
@@ -516,6 +548,59 @@ export default function ScenePage() {
     handleContinueLine();
   }, [handleContinueLine, isLastStep]);
 
+  useEffect(() => {
+    const handleSceneEnter = (event) => {
+      if (
+        event.key !== "Enter"
+        || event.repeat
+        || event.shiftKey
+        || event.ctrlKey
+        || event.altKey
+        || event.metaKey
+        || event.isComposing
+      ) {
+        return;
+      }
+
+      if (loading || error || !scene || !currentStep || showIntro || sceneModal.open) {
+        return;
+      }
+
+      if (screen === "feedback") {
+        if (submitting) {
+          return;
+        }
+
+        event.preventDefault();
+        handleFeedbackContinue();
+        return;
+      }
+
+      if (isQuestionStep(currentStep)) {
+        if (!String(currentAnswer || "").trim()) {
+          return;
+        }
+
+        event.preventDefault();
+        handleCheck();
+        return;
+      }
+
+      if (submitting) {
+        return;
+      }
+
+      event.preventDefault();
+      handleContinueLine();
+    };
+
+    window.addEventListener("keydown", handleSceneEnter);
+
+    return () => {
+      window.removeEventListener("keydown", handleSceneEnter);
+    };
+  }, [currentAnswer, currentStep, error, handleCheck, handleContinueLine, handleFeedbackContinue, loading, scene, sceneModal.open, screen, showIntro, submitting]);
+
   return (
     <div className={styles.viewport}>
       <div ref={stageRef} className={styles.stage}>
@@ -618,7 +703,7 @@ export default function ScenePage() {
                         value={currentAnswer}
                         onChange={(event) => setAnswers((prev) => ({
                           ...prev,
-                          [currentStep.id]: event.target.value.replace(/[\r\n]/g, "").slice(0, inputSlots.length),
+                          [currentStep.id]: formatInputAnswerBySlots(event.target.value, getStepCorrectAnswer(currentStep)),
                         }))}
                         maxLength={inputSlots.length}
                         autoFocus
