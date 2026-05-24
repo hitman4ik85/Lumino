@@ -1,4 +1,5 @@
 import { apiClient } from "./apiClient.js";
+import { normalizeAchievementLabelsList } from "./achievementLabels.js";
 import { getUserScopedRequestCacheOptions, readUserScopedRequestCache, removeUserScopedRequestCache, writeUserScopedRequestCache } from "./userScopedRequestCache.js";
 
 const ACHIEVEMENTS_CACHE_NAMESPACE = "achievements-mine";
@@ -13,13 +14,15 @@ export const achievementsService = {
     const cached = options.force ? null : readUserScopedRequestCache(ACHIEVEMENTS_CACHE_NAMESPACE, "", cacheOptions);
 
     if (Array.isArray(cached)) {
-      return { ok: true, status: 200, data: cached, source: "cache" };
+      return { ok: true, status: 200, data: normalizeAchievementLabelsList(cached), source: "cache" };
     }
 
     const res = await apiClient.get("/achievements/me");
 
     if (res.ok && Array.isArray(res.data)) {
-      writeUserScopedRequestCache(ACHIEVEMENTS_CACHE_NAMESPACE, "", res.data, cacheOptions);
+      const data = normalizeAchievementLabelsList(res.data);
+      writeUserScopedRequestCache(ACHIEVEMENTS_CACHE_NAMESPACE, "", data, cacheOptions);
+      return { ...res, data };
     }
 
     return res;

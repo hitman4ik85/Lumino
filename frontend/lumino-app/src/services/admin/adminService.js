@@ -1,5 +1,6 @@
 import { apiClient } from "../apiClient.js";
 import { authStorage } from "../authStorage.js";
+import { normalizeAchievementLabels, normalizeAchievementLabelsList } from "../achievementLabels.js";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -17,6 +18,22 @@ async function safeJson(response) {
   } catch {
     return null;
   }
+}
+
+function normalizeAchievementsResponse(res) {
+  if (res?.ok && Array.isArray(res.data)) {
+    return { ...res, data: normalizeAchievementLabelsList(res.data) };
+  }
+
+  return res;
+}
+
+function normalizeAchievementResponse(res) {
+  if (res?.ok && res.data) {
+    return { ...res, data: normalizeAchievementLabels(res.data) };
+  }
+
+  return res;
 }
 
 async function uploadFile(file, folder = "") {
@@ -230,12 +247,14 @@ export const adminService = {
     return apiClient.del(`/admin/scenes/${sceneId}/steps/${stepId}`);
   },
 
-  getAchievements() {
-    return apiClient.get("/admin/achievements");
+  async getAchievements() {
+    const res = await apiClient.get("/admin/achievements");
+    return normalizeAchievementsResponse(res);
   },
 
-  getAchievementById(id) {
-    return apiClient.get(`/admin/achievements/${id}`);
+  async getAchievementById(id) {
+    const res = await apiClient.get(`/admin/achievements/${id}`);
+    return normalizeAchievementResponse(res);
   },
 
   createAchievement(dto) {

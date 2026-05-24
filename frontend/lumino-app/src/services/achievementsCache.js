@@ -1,26 +1,10 @@
 import { authStorage } from "./authStorage.js";
 import { achievementsService } from "./achievementsService.js";
+import { getAchievementLabelByCode } from "./achievementLabels.js";
 import { readPersistentUserCache, writePersistentUserCache } from "./userPersistentCache.js";
 import { warmMediaUrls } from "./mediaWarmup.js";
 
 const ACHIEVEMENTS_CACHE_TTL_MS = Number.POSITIVE_INFINITY;
-
-const DESCRIPTION_BY_CODE = {
-  "sys.first_day_learning": "За перший завершений день навчання",
-  "sys.first_lesson": "За проходження першого уроку",
-  "sys.five_lessons": "За проходження 5 уроків",
-  "sys.perfect_lesson": "За урок без жодної помилки",
-  "sys.perfect_three_in_row": "За кілька уроків підряд без помилок",
-  "sys.hundred_xp": "За отримання 500 XP",
-  "sys.first_scene": "За проходження першої сцени",
-  "sys.first_topic_completed": "За завершення першої теми",
-  "sys.five_scenes": "За проходження 5 сцен",
-  "sys.streak_starter": "За серію навчання 3 дні поспіль",
-  "sys.streak_7": "За серію навчання 7 днів поспіль",
-  "sys.streak_30": "За серію навчання 30 днів поспіль",
-  "sys.daily_goal": "За виконання денної цілі",
-  "sys.return_after_break": "За повернення до навчання після перерви",
-};
 
 function getAchievementsCacheKey() {
   const userKey = authStorage.getUserCacheKey();
@@ -68,14 +52,15 @@ function resolveAchievementImageUrl(url) {
 
 function normalizeAchievement(item) {
   const code = String(item?.code || "").trim();
+  const labels = getAchievementLabelByCode(code);
   const earnedAtRaw = String(item?.earnedAt || "").trim();
   const earnedAtTime = earnedAtRaw ? Date.parse(earnedAtRaw) : NaN;
 
   return {
     id: item?.id || code || 0,
     code,
-    title: String(item?.title || "").trim(),
-    description: String(DESCRIPTION_BY_CODE[code] || item?.description || "").trim(),
+    title: String(labels?.title || item?.title || "").trim(),
+    description: String(labels?.description || item?.description || "").trim(),
     isEarned: Boolean(item?.isEarned),
     earnedAt: earnedAtRaw,
     earnedAtTime: Number.isNaN(earnedAtTime) ? 0 : earnedAtTime,
