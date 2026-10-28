@@ -42,3 +42,11 @@ https://github.com/user-attachments/assets/b29f6861-9846-462b-89ef-249515641266
 - Frontend: React + Vite
 - Hosting: Azure App Service, Azure Static Web Apps, Azure SQL Database
 - CI/CD: GitHub Actions
+- 
+---
+
+### 💻 My GitHub Profile
+
+Explore my programming projects and repositories:
+
+**[github.com/hitman4ik85](https://github.com/hitman4ik85)**
