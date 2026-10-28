@@ -7,6 +7,13 @@
 
 https://github.com/user-attachments/assets/b29f6861-9846-462b-89ef-249515641266
 
+## 🎨 Дизайн проєкту
+
+Візуальний дизайн та макети інтерфейсу Lumino
+розроблені дизайнерами нашої команди у Figma.
+
+🔗 [Переглянути дизайн Lumino у Figma](https://www.figma.com/design/cn1YG6IT2rZCU61mcyPYPv/lumino-main-?node-id=21-8&p=f&t=bzoZJ9FFq66l5V20-0)
+
 ## Опис проєкту
 Платформа дозволяє користувачу:
 - зареєструватися / увійти (JWT)
@@ -42,7 +49,7 @@ https://github.com/user-attachments/assets/b29f6861-9846-462b-89ef-249515641266
 - Frontend: React + Vite
 - Hosting: Azure App Service, Azure Static Web Apps, Azure SQL Database
 - CI/CD: GitHub Actions
-- 
+
 ---
 
 ### 💻 My GitHub Profile
